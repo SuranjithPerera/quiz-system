@@ -1,4 +1,4 @@
-// Enhanced Quiz Management JavaScript with Aiken Import Support
+// Enhanced Quiz Management JavaScript with Aiken Import Support - FIXED VERSION
 let currentEditingQuiz = null;
 let currentQuestions = [];
 let importedQuestions = [];
@@ -412,7 +412,7 @@ async function loadSavedQuizzes() {
         let allQuizzes = await loadAllQuizzes();
         console.log('Found', allQuizzes.length, 'total quizzes');
         
-        // Data validation and repair
+        // CRITICAL FIX: Data validation and repair
         allQuizzes = await repairQuizData(allQuizzes);
         
         if (allQuizzes.length === 0) {
@@ -429,17 +429,30 @@ async function loadSavedQuizzes() {
         allQuizzes.sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
         
         allQuizzes.forEach(quiz => {
-            // Validate quiz structure before processing
+            // CRITICAL FIX: Enhanced validation before processing
             if (!quiz || !quiz.id || !quiz.title) {
-                console.warn('Invalid quiz structure found:', quiz);
+                console.warn('Skipping invalid quiz structure:', quiz);
                 return; // Skip invalid quizzes
             }
             
-            // Ensure questions array exists and is valid
+            // CRITICAL FIX: Ensure questions array exists and is valid
             if (!quiz.questions || !Array.isArray(quiz.questions)) {
-                console.warn('Quiz has invalid questions array:', quiz.id, quiz.title);
+                console.warn('Quiz has invalid questions array, fixing:', quiz.id, quiz.title);
                 quiz.questions = []; // Set empty array as fallback
             }
+            
+            // CRITICAL FIX: Validate each question in the array
+            quiz.questions = quiz.questions.filter((question, index) => {
+                if (!question || typeof question !== 'object') {
+                    console.warn(`Removing invalid question at index ${index} in quiz ${quiz.title}`);
+                    return false;
+                }
+                if (!question.answers || !Array.isArray(question.answers) || question.answers.length < 2) {
+                    console.warn(`Removing question with invalid answers at index ${index} in quiz ${quiz.title}`);
+                    return false;
+                }
+                return true;
+            });
             
             const quizCard = document.createElement('div');
             quizCard.className = 'menu-card';
@@ -458,9 +471,10 @@ async function loadSavedQuizzes() {
                 sourceInfo += '📁 Imported • ';
             }
             
-            // Add warning for corrupted quizzes
-            const questionsText = quiz.questions.length > 0 ? 
-                `${quiz.questions.length} questions` : 
+            // CRITICAL FIX: Safe length check
+            const questionsCount = (quiz.questions && Array.isArray(quiz.questions)) ? quiz.questions.length : 0;
+            const questionsText = questionsCount > 0 ? 
+                `${questionsCount} questions` : 
                 '<span style="color: #f44336;">⚠️ No questions</span>';
             
             quizCard.innerHTML = `
@@ -474,7 +488,7 @@ async function loadSavedQuizzes() {
                 <div class="quiz-actions">
                     <button onclick="editQuizById('${quiz.id}')" class="btn btn-secondary">Edit</button>
                     <button onclick="duplicateQuiz('${quiz.id}')" class="btn btn-tertiary">Duplicate</button>
-                    ${quiz.questions.length > 0 ? 
+                    ${questionsCount > 0 ? 
                         `<button onclick="exportQuiz('${quiz.id}')" class="btn" style="background: #26d0ce;">Export</button>` :
                         `<button disabled class="btn" style="background: #ccc; cursor: not-allowed;">Export</button>`
                     }
@@ -495,60 +509,7 @@ async function loadSavedQuizzes() {
     }
 }
 
-function showCreateQuiz() {
-    console.log('Creating new quiz...');
-    
-    currentEditingQuiz = null;
-    currentQuestions = [];
-    importedQuestions = [];
-    
-    document.getElementById('editor-title').textContent = 'Create New Quiz';
-    document.getElementById('quiz-title').value = '';
-    document.getElementById('questions-container').innerHTML = '';
-    
-    switchTab('manual');
-    resetImportState();
-    
-    hideElement('quiz-list-view');
-    showElement('quiz-editor');
-    
-    addQuestion();
-}
-
-async function editQuizById(quizId) {
-    console.log('Editing quiz:', quizId);
-    
-    try {
-        const allQuizzes = await loadAllQuizzes();
-        const quiz = allQuizzes.find(q => q.id === quizId);
-        
-        if (quiz) {
-            console.log('Found quiz to edit:', quiz.title);
-            currentEditingQuiz = quiz;
-            currentQuestions = [...quiz.questions];
-            importedQuestions = [];
-            
-            document.getElementById('editor-title').textContent = 'Edit Quiz';
-            document.getElementById('quiz-title').value = quiz.title;
-            
-            hideElement('quiz-list-view');
-            showElement('quiz-editor');
-            
-            switchTab('manual');
-            resetImportState();
-            loadQuestionsIntoEditor();
-        } else {
-            console.error('Quiz not found:', quizId);
-            showStatus('Quiz not found', 'error');
-        }
-    } catch (error) {
-        console.error('Error loading quiz for edit:', error);
-        showStatus('Error loading quiz', 'error');
-    }
-}
-
-// Export Quiz to Aiken Format
-// Data Repair Functions
+// CRITICAL FIX: Data Repair Functions
 async function repairQuizData(quizzes) {
     console.log('🔧 Checking quiz data integrity...');
     let repairedQuizzes = [];
@@ -722,6 +683,9 @@ function repairSingleQuestion(question, index) {
     
     return repairedQuestion;
 }
+
+// Export Quiz to Aiken Format
+function exportQuiz(quizId) {
     console.log('Exporting quiz:', quizId);
     
     loadAllQuizzes().then(quizzes => {
@@ -738,7 +702,7 @@ function repairSingleQuestion(question, index) {
         console.error('Error exporting quiz:', error);
         showStatus('Error exporting quiz', 'error');
     });
-
+}
 
 function convertToAikenFormat(quiz) {
     let aikenContent = '';
@@ -772,6 +736,61 @@ function downloadAikenFile(title, content) {
     document.body.removeChild(a);
     
     URL.revokeObjectURL(url);
+}
+
+// Continue with the rest of the functions...
+// [The rest of the file continues with all the other functions unchanged]
+
+function showCreateQuiz() {
+    console.log('Creating new quiz...');
+    
+    currentEditingQuiz = null;
+    currentQuestions = [];
+    importedQuestions = [];
+    
+    document.getElementById('editor-title').textContent = 'Create New Quiz';
+    document.getElementById('quiz-title').value = '';
+    document.getElementById('questions-container').innerHTML = '';
+    
+    switchTab('manual');
+    resetImportState();
+    
+    hideElement('quiz-list-view');
+    showElement('quiz-editor');
+    
+    addQuestion();
+}
+
+async function editQuizById(quizId) {
+    console.log('Editing quiz:', quizId);
+    
+    try {
+        const allQuizzes = await loadAllQuizzes();
+        const quiz = allQuizzes.find(q => q.id === quizId);
+        
+        if (quiz) {
+            console.log('Found quiz to edit:', quiz.title);
+            currentEditingQuiz = quiz;
+            currentQuestions = [...quiz.questions];
+            importedQuestions = [];
+            
+            document.getElementById('editor-title').textContent = 'Edit Quiz';
+            document.getElementById('quiz-title').value = quiz.title;
+            
+            hideElement('quiz-list-view');
+            showElement('quiz-editor');
+            
+            switchTab('manual');
+            resetImportState();
+            loadQuestionsIntoEditor();
+        } else {
+            console.error('Quiz not found:', quizId);
+            showStatus('Quiz not found', 'error');
+        }
+    } catch (error) {
+        console.error('Error loading quiz for edit:', error);
+        showStatus('Error loading quiz', 'error');
+    }
 }
 
 function loadQuestionsIntoEditor() {
