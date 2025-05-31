@@ -409,8 +409,11 @@ async function loadSavedQuizzes() {
     quizzesList.innerHTML = '<div style="text-align: center; padding: 20px;">Loading your quizzes...</div>';
     
     try {
-        const allQuizzes = await loadAllQuizzes();
+        let allQuizzes = await loadAllQuizzes();
         console.log('Found', allQuizzes.length, 'total quizzes');
+        
+        // Data validation and repair
+        allQuizzes = await repairQuizData(allQuizzes);
         
         if (allQuizzes.length === 0) {
             quizzesList.innerHTML = `
@@ -426,6 +429,18 @@ async function loadSavedQuizzes() {
         allQuizzes.sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
         
         allQuizzes.forEach(quiz => {
+            // Validate quiz structure before processing
+            if (!quiz || !quiz.id || !quiz.title) {
+                console.warn('Invalid quiz structure found:', quiz);
+                return; // Skip invalid quizzes
+            }
+            
+            // Ensure questions array exists and is valid
+            if (!quiz.questions || !Array.isArray(quiz.questions)) {
+                console.warn('Quiz has invalid questions array:', quiz.id, quiz.title);
+                quiz.questions = []; // Set empty array as fallback
+            }
+            
             const quizCard = document.createElement('div');
             quizCard.className = 'menu-card';
             
@@ -438,23 +453,31 @@ async function loadSavedQuizzes() {
                 sourceInfo = '💾 Local • ';
             }
             
-            const hasImportedQuestions = quiz.questions && quiz.questions.some(q => q.source === 'aiken_import');
+            const hasImportedQuestions = quiz.questions && quiz.questions.some(q => q && q.source === 'aiken_import');
             if (hasImportedQuestions) {
                 sourceInfo += '📁 Imported • ';
             }
             
+            // Add warning for corrupted quizzes
+            const questionsText = quiz.questions.length > 0 ? 
+                `${quiz.questions.length} questions` : 
+                '<span style="color: #f44336;">⚠️ No questions</span>';
+            
             quizCard.innerHTML = `
                 <div style="text-align: left;">
                     <h3>${quiz.title}</h3>
-                    <p>${quiz.questions.length} questions</p>
-                    <p><small>${sourceInfo}Created: ${new Date(quiz.createdAt).toLocaleDateString()}</small></p>
+                    <p>${questionsText}</p>
+                    <p><small>${sourceInfo}Created: ${new Date(quiz.createdAt || Date.now()).toLocaleDateString()}</small></p>
                     ${quiz.updatedAt && quiz.updatedAt !== quiz.createdAt ? 
                         `<p><small>Updated: ${new Date(quiz.updatedAt).toLocaleDateString()}</small></p>` : ''}
                 </div>
                 <div class="quiz-actions">
                     <button onclick="editQuizById('${quiz.id}')" class="btn btn-secondary">Edit</button>
                     <button onclick="duplicateQuiz('${quiz.id}')" class="btn btn-tertiary">Duplicate</button>
-                    <button onclick="exportQuiz('${quiz.id}')" class="btn" style="background: #26d0ce;">Export</button>
+                    ${quiz.questions.length > 0 ? 
+                        `<button onclick="exportQuiz('${quiz.id}')" class="btn" style="background: #26d0ce;">Export</button>` :
+                        `<button disabled class="btn" style="background: #ccc; cursor: not-allowed;">Export</button>`
+                    }
                     <button onclick="deleteQuiz('${quiz.id}')" class="btn" style="background: #f44336;">Delete</button>
                 </div>
             `;
@@ -525,7 +548,180 @@ async function editQuizById(quizId) {
 }
 
 // Export Quiz to Aiken Format
-function exportQuiz(quizId) {
+// Data Repair Functions
+async function repairQuizData(quizzes) {
+    console.log('🔧 Checking quiz data integrity...');
+    let repairedQuizzes = [];
+    let hasRepairedData = false;
+    
+    for (let quiz of quizzes) {
+        try {
+            // Create a repaired copy of the quiz
+            const repairedQuiz = await repairSingleQuiz(quiz);
+            if (repairedQuiz) {
+                repairedQuizzes.push(repairedQuiz);
+                
+                // Check if this quiz needed repair
+                if (repairedQuiz._wasRepaired) {
+                    hasRepairedData = true;
+                    console.log('🔧 Repaired quiz:', repairedQuiz.title);
+                    delete repairedQuiz._wasRepaired; // Remove repair flag
+                    
+                    // Save repaired quiz back to storage
+                    try {
+                        await saveQuizToSystem(repairedQuiz);
+                        console.log('✅ Saved repaired quiz:', repairedQuiz.title);
+                    } catch (error) {
+                        console.error('❌ Failed to save repaired quiz:', error);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('💥 Failed to repair quiz:', quiz?.title || 'Unknown', error);
+            // Still add the quiz even if repair fails, but with safe defaults
+            if (quiz && quiz.id) {
+                repairedQuizzes.push({
+                    ...quiz,
+                    questions: quiz.questions || [],
+                    title: quiz.title || 'Untitled Quiz',
+                    createdAt: quiz.createdAt || Date.now()
+                });
+            }
+        }
+    }
+    
+    if (hasRepairedData) {
+        showStatus('Some quiz data was automatically repaired', 'info');
+    }
+    
+    return repairedQuizzes;
+}
+
+async function repairSingleQuiz(quiz) {
+    if (!quiz || typeof quiz !== 'object') {
+        console.warn('🚫 Invalid quiz object:', quiz);
+        return null;
+    }
+    
+    let wasRepaired = false;
+    const repairedQuiz = { ...quiz };
+    
+    // Repair basic properties
+    if (!repairedQuiz.id) {
+        repairedQuiz.id = 'quiz_' + Date.now() + '_repaired';
+        wasRepaired = true;
+    }
+    
+    if (!repairedQuiz.title || typeof repairedQuiz.title !== 'string') {
+        repairedQuiz.title = 'Untitled Quiz';
+        wasRepaired = true;
+    }
+    
+    if (!repairedQuiz.createdAt) {
+        repairedQuiz.createdAt = Date.now();
+        wasRepaired = true;
+    }
+    
+    if (!repairedQuiz.updatedAt) {
+        repairedQuiz.updatedAt = repairedQuiz.createdAt;
+        wasRepaired = true;
+    }
+    
+    // Repair questions array
+    if (!repairedQuiz.questions || !Array.isArray(repairedQuiz.questions)) {
+        console.warn('🔧 Repairing questions array for quiz:', repairedQuiz.title);
+        repairedQuiz.questions = [];
+        wasRepaired = true;
+    } else {
+        // Repair individual questions
+        const repairedQuestions = [];
+        
+        repairedQuiz.questions.forEach((question, index) => {
+            try {
+                const repairedQuestion = repairSingleQuestion(question, index);
+                if (repairedQuestion) {
+                    repairedQuestions.push(repairedQuestion);
+                    if (repairedQuestion._wasRepaired) {
+                        wasRepaired = true;
+                        delete repairedQuestion._wasRepaired;
+                    }
+                }
+            } catch (error) {
+                console.error('❌ Failed to repair question', index, 'in quiz:', repairedQuiz.title, error);
+            }
+        });
+        
+        repairedQuiz.questions = repairedQuestions;
+    }
+    
+    if (wasRepaired) {
+        repairedQuiz._wasRepaired = true;
+        repairedQuiz.updatedAt = Date.now();
+    }
+    
+    return repairedQuiz;
+}
+
+function repairSingleQuestion(question, index) {
+    if (!question || typeof question !== 'object') {
+        console.warn('🚫 Invalid question object at index', index);
+        return null;
+    }
+    
+    let wasRepaired = false;
+    const repairedQuestion = { ...question };
+    
+    // Repair question text
+    if (!repairedQuestion.question || typeof repairedQuestion.question !== 'string') {
+        repairedQuestion.question = `Question ${index + 1}`;
+        wasRepaired = true;
+    }
+    
+    // Repair answers array
+    if (!repairedQuestion.answers || !Array.isArray(repairedQuestion.answers)) {
+        repairedQuestion.answers = ['Option A', 'Option B', 'Option C', 'Option D'];
+        wasRepaired = true;
+    } else {
+        // Ensure minimum 2 answers
+        if (repairedQuestion.answers.length < 2) {
+            while (repairedQuestion.answers.length < 4) {
+                repairedQuestion.answers.push(`Option ${String.fromCharCode(65 + repairedQuestion.answers.length)}`);
+            }
+            wasRepaired = true;
+        }
+        
+        // Repair individual answers
+        repairedQuestion.answers = repairedQuestion.answers.map((answer, answerIndex) => {
+            if (!answer || typeof answer !== 'string') {
+                wasRepaired = true;
+                return `Option ${String.fromCharCode(65 + answerIndex)}`;
+            }
+            return answer;
+        });
+    }
+    
+    // Repair correct answer index
+    if (typeof repairedQuestion.correct !== 'number' || 
+        repairedQuestion.correct < 0 || 
+        repairedQuestion.correct >= repairedQuestion.answers.length) {
+        repairedQuestion.correct = 0;
+        wasRepaired = true;
+    }
+    
+    // Repair time limit
+    if (typeof repairedQuestion.timeLimit !== 'number' || 
+        repairedQuestion.timeLimit < 5 || 
+        repairedQuestion.timeLimit > 120) {
+        repairedQuestion.timeLimit = 20;
+        wasRepaired = true;
+    }
+    
+    if (wasRepaired) {
+        repairedQuestion._wasRepaired = true;
+    }
+    
+    return repairedQuestion;
+}
     console.log('Exporting quiz:', quizId);
     
     loadAllQuizzes().then(quizzes => {
@@ -542,7 +738,7 @@ function exportQuiz(quizId) {
         console.error('Error exporting quiz:', error);
         showStatus('Error exporting quiz', 'error');
     });
-}
+
 
 function convertToAikenFormat(quiz) {
     let aikenContent = '';
