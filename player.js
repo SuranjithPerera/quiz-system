@@ -1,4 +1,4 @@
-// Player Page JavaScript - No Authentication Required
+// Enhanced Player Page JavaScript with Time-Based Scoring
 let playerGameInstance = null;
 let playerId = null;
 let playerName = null;
@@ -7,9 +7,14 @@ let playerScore = 0;
 let hasAnswered = false;
 let questionStartTime = null;
 let currentTimerInterval = null;
+let currentQuestionData = null;
+let playerAnswerManager = null;
 
 function initializePlayer() {
     console.log('Initializing player page...');
+    
+    // Initialize answer manager
+    playerAnswerManager = new PlayerAnswerManager();
     
     // Get player info from localStorage
     currentGamePin = localStorage.getItem('gamePin');
@@ -101,6 +106,7 @@ function onGameStateChange(gameState) {
             console.log('Game status: playing, question:', gameState.currentQuestion);
             // Reset answer state for new question
             hasAnswered = false;
+            playerAnswerManager.startQuestion(gameState.questionStartTime);
             showActiveQuestion(gameState);
             break;
         case 'finished':
@@ -123,15 +129,60 @@ function onPlayersUpdate(players) {
         lobbyCountEl.textContent = playerCount;
     }
     
-    // Update current player score
+    // Update current player score and score breakdown
     if (players[playerId]) {
-        playerScore = players[playerId].score || 0;
+        const playerData = players[playerId];
+        playerScore = playerData.score || 0;
         console.log('Player score updated:', playerScore);
+        
+        // Show score breakdown if available
+        if (playerData.scoreBreakdown && playerData.questionScore !== undefined) {
+            showScoreBreakdown(playerData.scoreBreakdown, playerData.questionScore);
+        }
+        
         updateScoreDisplay();
     }
     
     // Update leaderboards
     updateLeaderboards(players);
+}
+
+function showScoreBreakdown(breakdown, questionScore) {
+    // Create or update score breakdown display
+    let breakdownEl = document.getElementById('score-breakdown');
+    if (!breakdownEl) {
+        breakdownEl = document.createElement('div');
+        breakdownEl.id = 'score-breakdown';
+        breakdownEl.style.cssText = `
+            background: rgba(255, 255, 255, 0.95);
+            color: #333;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            border-left: 4px solid #4caf50;
+            font-size: 14px;
+        `;
+        
+        // Add to the waiting-next screen
+        const waitingNext = document.getElementById('waiting-next');
+        const scoreInfo = waitingNext.querySelector('#score-info');
+        if (scoreInfo) {
+            scoreInfo.appendChild(breakdownEl);
+        }
+    }
+    
+    breakdownEl.innerHTML = `
+        <h4 style="margin: 0 0 10px 0; color: #4caf50;">Question Score: +${questionScore} points</h4>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12px;">
+            <div>Base Score: ${breakdown.baseScore}</div>
+            <div>Speed Bonus: +${breakdown.speedBonus}</div>
+            <div>Correct Bonus: +${breakdown.correctBonus}</div>
+            <div>Response Time: ${breakdown.responseTime?.toFixed(1)}s</div>
+        </div>
+        <div style="margin-top: 10px; font-weight: bold; color: #667eea;">
+            ${breakdown.message}
+        </div>
+    `;
 }
 
 function showWaitingLobby() {
@@ -150,7 +201,12 @@ function showActiveQuestion(gameState) {
             const question = gameData.quiz.questions[gameState.currentQuestion];
             if (question) {
                 console.log('Displaying question:', question.question);
-                displayQuestion(question, gameState.currentQuestion + 1);
+                currentQuestionData = {
+                    ...question,
+                    questionIndex: gameState.currentQuestion,
+                    startTime: gameState.questionStartTime || Date.now()
+                };
+                displayQuestion(question, gameState.currentQuestion + 1, gameState.questionStartTime);
             } else {
                 console.error('Question not found at index:', gameState.currentQuestion);
             }
@@ -162,7 +218,7 @@ function showActiveQuestion(gameState) {
     });
 }
 
-function displayQuestion(question, questionNumber) {
+function displayQuestion(question, questionNumber, startTime) {
     console.log('Displaying question', questionNumber, ':', question.question);
     
     hideAllScreens();
@@ -174,6 +230,10 @@ function displayQuestion(question, questionNumber) {
         currentTimerInterval = null;
     }
     
+    // Set question start time
+    questionStartTime = startTime || Date.now();
+    playerAnswerManager.startQuestion(questionStartTime);
+    
     document.getElementById('question-num').textContent = questionNumber;
     document.getElementById('question-text').textContent = question.question;
     
@@ -181,7 +241,6 @@ function displayQuestion(question, questionNumber) {
     const answersGrid = document.getElementById('answers-grid');
     answersGrid.innerHTML = '';
     hasAnswered = false;
-    questionStartTime = Date.now();
     
     question.answers.forEach((answer, index) => {
         const answerBtn = document.createElement('button');
@@ -219,11 +278,13 @@ function startQuestionTimer(duration) {
 }
 
 async function selectAnswer(answerIndex) {
-    if (hasAnswered) return;
+    if (hasAnswered || !playerAnswerManager.canAnswer()) return;
     
     console.log('Player selected answer:', answerIndex);
     hasAnswered = true;
-    const answerTime = Date.now();
+    playerAnswerManager.markAnswered();
+    
+    const responseTime = playerAnswerManager.getResponseTime();
     
     // Clear timer
     if (currentTimerInterval) {
@@ -231,40 +292,64 @@ async function selectAnswer(answerIndex) {
         currentTimerInterval = null;
     }
     
-    // Disable all answer buttons
+    // Disable all answer buttons and highlight selected
     const answerButtons = document.querySelectorAll('.answer-btn');
     answerButtons.forEach((btn, index) => {
         btn.disabled = true;
         if (index === answerIndex) {
             btn.style.transform = 'scale(1.05)';
             btn.style.opacity = '0.8';
+            btn.style.border = '3px solid #fff';
         }
     });
     
-    // Submit answer to Firebase
-    const success = await playerGameInstance.submitAnswer(playerId, answerIndex);
+    // Submit answer with time tracking to Firebase
+    const success = await submitAnswerWithTime(answerIndex, responseTime);
     if (success) {
-        console.log('Answer submitted successfully');
-        showAnswerFeedback('Answer submitted!');
+        console.log('Answer submitted successfully with response time:', responseTime);
+        showAnswerFeedback(`Answer submitted! (${responseTime.toFixed(1)}s)`);
         setTimeout(() => {
             showWaitingForNext();
         }, 1500);
     } else {
         console.error('Failed to submit answer');
         showStatus('Failed to submit answer', 'error');
-        hasAnswered = false; // Allow retry
+        hasAnswered = false;
+        playerAnswerManager = new PlayerAnswerManager(); // Reset
         answerButtons.forEach(btn => {
             btn.disabled = false;
             btn.style.transform = '';
             btn.style.opacity = '';
+            btn.style.border = '';
         });
+    }
+}
+
+async function submitAnswerWithTime(answerIndex, responseTime) {
+    try {
+        const playerRef = getPlayersRef(currentGamePin).child(playerId);
+        
+        const answerData = {
+            currentAnswer: answerIndex,
+            responseTime: responseTime,
+            status: 'answered',
+            answerTime: Date.now()
+        };
+        
+        await playerRef.update(answerData);
+        return true;
+        
+    } catch (error) {
+        console.error('Error submitting answer with time:', error);
+        return false;
     }
 }
 
 function onQuestionTimeout() {
     console.log('Question timeout reached');
-    if (!hasAnswered) {
+    if (!hasAnswered && playerAnswerManager.canAnswer()) {
         hasAnswered = true;
+        playerAnswerManager.markAnswered();
         showAnswerFeedback('Time\'s up!');
         setTimeout(() => {
             showWaitingForNext();
@@ -285,8 +370,11 @@ function showWaitingForNext() {
     showElement('waiting-next');
     updateScoreDisplay();
     
-    // The player will automatically move to the next question when the host advances
-    // This is handled by the onGameStateChange listener
+    // Clear any existing score breakdown
+    const existingBreakdown = document.getElementById('score-breakdown');
+    if (existingBreakdown) {
+        existingBreakdown.remove();
+    }
 }
 
 function updateScoreDisplay() {
@@ -316,6 +404,12 @@ function updateLeaderboards(players) {
     if (rankEl) {
         rankEl.textContent = `#${playerRank} of ${sortedPlayers.length}`;
     }
+    
+    // Update result message based on performance
+    const resultMessageEl = document.getElementById('result-message');
+    if (resultMessageEl && playerRank) {
+        resultMessageEl.textContent = getResultMessage(playerScore, sortedPlayers.length, playerRank);
+    }
 }
 
 function updateLeaderboard(elementId, players) {
@@ -325,20 +419,21 @@ function updateLeaderboard(elementId, players) {
     leaderboard.innerHTML = '<h3>🏆 Leaderboard</h3>';
     
     players.forEach((player, index) => {
-        const playerScore = document.createElement('div');
-        playerScore.className = `player-score ${index < 3 ? `rank-${index + 1}` : ''}`;
+        const playerScoreDiv = document.createElement('div');
+        playerScoreDiv.className = `player-score ${index < 3 ? `rank-${index + 1}` : ''}`;
         
         // Highlight current player
         if (player.id === playerId) {
-            playerScore.style.backgroundColor = '#e3f2fd';
-            playerScore.style.fontWeight = 'bold';
+            playerScoreDiv.style.backgroundColor = '#e3f2fd';
+            playerScoreDiv.style.fontWeight = 'bold';
+            playerScoreDiv.style.border = '2px solid #2196f3';
         }
         
-        playerScore.innerHTML = `
-            <span class="player-name">#${index + 1} ${player.name}</span>
+        playerScoreDiv.innerHTML = `
+            <span class="player-name">#${index + 1} ${player.name} ${player.id === playerId ? '(You)' : ''}</span>
             <span class="player-points">${player.score || 0} points</span>
         `;
-        leaderboard.appendChild(playerScore);
+        leaderboard.appendChild(playerScoreDiv);
     });
 }
 
@@ -392,13 +487,13 @@ function showStatus(message, type) {
 // Result messages based on performance
 function getResultMessage(score, totalPlayers, rank) {
     if (rank === 1) {
-        return "🏆 Excellent! You're #1!";
+        return "🏆 Outstanding! You're the Champion!";
     } else if (rank <= 3) {
-        return "🥉 Great job! Top 3!";
-    } else if (rank <= totalPlayers / 2) {
-        return "👍 Good work!";
+        return "🥉 Excellent! You made the podium!";
+    } else if (rank <= Math.ceil(totalPlayers / 2)) {
+        return "👍 Great job! Above average performance!";
     } else {
-        return "👏 Thanks for playing!";
+        return "👏 Thanks for playing! Keep practicing!";
     }
 }
 

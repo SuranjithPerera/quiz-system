@@ -1,6 +1,6 @@
-// Main Quiz System JavaScript
+// Enhanced Quiz System JavaScript with Time-Based Scoring
 
-// Sample quiz data - you can expand this or load from Firebase
+// Sample quiz data
 const sampleQuizzes = [
     {
         id: 'sample1',
@@ -34,7 +34,99 @@ const sampleQuizzes = [
     }
 ];
 
-// Game state management
+// Enhanced Scoring System
+class ScoringSystem {
+    constructor() {
+        this.baseScore = 1000;
+        this.speedBonusMultiplier = 0.5; // 50% of base score as max speed bonus
+        this.correctAnswerBonus = 100;
+    }
+
+    calculateScore(isCorrect, responseTime, questionTimeLimit, questionDifficulty = 1) {
+        if (!isCorrect) {
+            return 0;
+        }
+
+        // Base score for correct answer
+        let score = this.baseScore * questionDifficulty;
+
+        // Speed bonus calculation
+        const timePercentage = Math.max(0, (questionTimeLimit - responseTime) / questionTimeLimit);
+        const speedBonus = Math.floor(this.baseScore * this.speedBonusMultiplier * timePercentage);
+
+        // Correct answer bonus
+        const correctBonus = this.correctAnswerBonus * questionDifficulty;
+
+        // Total score
+        const totalScore = score + speedBonus + correctBonus;
+
+        return Math.max(0, Math.floor(totalScore));
+    }
+
+    getScoreBreakdown(isCorrect, responseTime, questionTimeLimit, questionDifficulty = 1) {
+        if (!isCorrect) {
+            return {
+                totalScore: 0,
+                baseScore: 0,
+                speedBonus: 0,
+                correctBonus: 0,
+                message: "Incorrect answer"
+            };
+        }
+
+        const baseScore = this.baseScore * questionDifficulty;
+        const timePercentage = Math.max(0, (questionTimeLimit - responseTime) / questionTimeLimit);
+        const speedBonus = Math.floor(this.baseScore * this.speedBonusMultiplier * timePercentage);
+        const correctBonus = this.correctAnswerBonus * questionDifficulty;
+        const totalScore = baseScore + speedBonus + correctBonus;
+
+        return {
+            totalScore: Math.floor(totalScore),
+            baseScore: baseScore,
+            speedBonus: speedBonus,
+            correctBonus: correctBonus,
+            responseTime: responseTime,
+            timePercentage: Math.round(timePercentage * 100),
+            message: this.getPerformanceMessage(timePercentage)
+        };
+    }
+
+    getPerformanceMessage(timePercentage) {
+        if (timePercentage >= 0.8) return "Lightning fast! ⚡";
+        if (timePercentage >= 0.6) return "Quick thinking! 🚀";
+        if (timePercentage >= 0.4) return "Good timing! 👍";
+        if (timePercentage >= 0.2) return "Made it in time! ⏰";
+        return "Just in time! 😅";
+    }
+}
+
+// Player Answer Manager for time tracking
+class PlayerAnswerManager {
+    constructor() {
+        this.questionStartTime = null;
+        this.hasAnswered = false;
+    }
+
+    startQuestion(startTime) {
+        this.questionStartTime = startTime || Date.now();
+        this.hasAnswered = false;
+    }
+
+    getResponseTime() {
+        if (!this.questionStartTime) return 0;
+        return (Date.now() - this.questionStartTime) / 1000;
+    }
+
+    markAnswered() {
+        this.hasAnswered = true;
+    }
+
+    canAnswer() {
+        return !this.hasAnswered;
+    }
+}
+
+// Enhanced Game state management
 class QuizGame {
     constructor(gamePin, isHost = false) {
         this.gamePin = gamePin;
@@ -44,6 +136,7 @@ class QuizGame {
         this.gameState = 'waiting'; // waiting, playing, finished
         this.timer = null;
         this.timeLeft = 0;
+        this.questionStartTime = null;
     }
 
     async createGame(quiz) {
@@ -56,7 +149,8 @@ class QuizGame {
                 gameState: {
                     status: 'waiting',
                     currentQuestion: 0,
-                    timeLeft: 0
+                    timeLeft: 0,
+                    questionStartTime: null
                 },
                 players: {},
                 createdAt: Date.now(),
@@ -79,7 +173,11 @@ class QuizGame {
                 name: playerName,
                 score: 0,
                 status: 'waiting',
-                joinedAt: Date.now()
+                joinedAt: Date.now(),
+                currentAnswer: null,
+                responseTime: null,
+                questionScore: null,
+                isCorrect: null
             };
 
             await getPlayersRef(this.gamePin).child(playerId).set(playerData);
@@ -96,7 +194,8 @@ class QuizGame {
         try {
             await getGameStateRef(this.gamePin).update({
                 status: 'playing',
-                currentQuestion: 0
+                currentQuestion: 0,
+                questionStartTime: Date.now()
             });
             return true;
         } catch (error) {
@@ -110,11 +209,17 @@ class QuizGame {
         
         try {
             const nextQuestionIndex = this.currentQuestion + 1;
+            const startTime = Date.now();
+            
             await getGameStateRef(this.gamePin).update({
                 currentQuestion: nextQuestionIndex,
-                timeLeft: 0
+                timeLeft: 0,
+                questionStartTime: startTime,
+                status: 'playing'
             });
+            
             this.currentQuestion = nextQuestionIndex;
+            this.questionStartTime = startTime;
             return true;
         } catch (error) {
             console.error('Error moving to next question:', error);
@@ -125,10 +230,15 @@ class QuizGame {
     async submitAnswer(playerId, answerIndex) {
         try {
             const playerRef = getPlayersRef(this.gamePin).child(playerId);
+            const submitTime = Date.now();
+            const responseTime = this.questionStartTime ? 
+                (submitTime - this.questionStartTime) / 1000 : 0;
+
             await playerRef.update({
                 currentAnswer: answerIndex,
+                responseTime: responseTime,
                 status: 'answered',
-                answerTime: Date.now()
+                answerTime: submitTime
             });
             return true;
         } catch (error) {
@@ -156,6 +266,10 @@ class QuizGame {
         getGameStateRef(this.gamePin).on('value', (snapshot) => {
             const gameState = snapshot.val();
             if (gameState) {
+                // Update local question start time
+                if (gameState.questionStartTime) {
+                    this.questionStartTime = gameState.questionStartTime;
+                }
                 callback(gameState);
             }
         });
@@ -213,7 +327,7 @@ function startTimer(duration, display, onComplete) {
     return interval;
 }
 
-// Score calculation
+// Enhanced score calculation (kept for backward compatibility)
 function calculateScore(isCorrect, timeLeft, maxTime) {
     if (!isCorrect) return 0;
     
@@ -269,10 +383,69 @@ function getFromLocalStorage(key) {
     }
 }
 
+// Enhanced response time tracking utilities
+function formatTime(seconds) {
+    if (seconds < 60) {
+        return `${seconds.toFixed(1)}s`;
+    }
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}m ${remainingSeconds.toFixed(1)}s`;
+}
+
+function getSpeedRating(responseTime, timeLimit) {
+    const percentage = (timeLimit - responseTime) / timeLimit;
+    if (percentage >= 0.8) return { rating: 'Lightning', emoji: '⚡', color: '#ffd700' };
+    if (percentage >= 0.6) return { rating: 'Fast', emoji: '🚀', color: '#4caf50' };
+    if (percentage >= 0.4) return { rating: 'Good', emoji: '👍', color: '#2196f3' };
+    if (percentage >= 0.2) return { rating: 'OK', emoji: '⏰', color: '#ff9800' };
+    return { rating: 'Slow', emoji: '😅', color: '#f44336' };
+}
+
+// Response statistics calculation
+function calculateResponseStats(players) {
+    const responseTimes = [];
+    let answeredCount = 0;
+    let correctCount = 0;
+    
+    Object.values(players).forEach(player => {
+        if (player.status === 'answered' && player.responseTime !== null) {
+            responseTimes.push(player.responseTime);
+            answeredCount++;
+            if (player.isCorrect) {
+                correctCount++;
+            }
+        }
+    });
+    
+    const stats = {
+        totalPlayers: Object.keys(players).length,
+        answeredCount: answeredCount,
+        correctCount: correctCount,
+        accuracy: answeredCount > 0 ? (correctCount / answeredCount * 100).toFixed(1) : 0,
+        avgResponseTime: 0,
+        fastestTime: null,
+        slowestTime: null
+    };
+    
+    if (responseTimes.length > 0) {
+        stats.avgResponseTime = responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length;
+        stats.fastestTime = Math.min(...responseTimes);
+        stats.slowestTime = Math.max(...responseTimes);
+    }
+    
+    return stats;
+}
+
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
     // Add any initialization code here
-    console.log('Quiz system initialized');
+    console.log('Enhanced Quiz system initialized with time-based scoring');
+    
+    // Make classes globally available
+    window.ScoringSystem = ScoringSystem;
+    window.PlayerAnswerManager = PlayerAnswerManager;
+    window.QuizGame = QuizGame;
     
     // Check if we're on a specific page and initialize accordingly
     const path = window.location.pathname;
@@ -296,3 +469,17 @@ document.addEventListener('DOMContentLoaded', function() {
             break;
     }
 });
+
+// Export for Node.js environments (if needed)
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        ScoringSystem,
+        PlayerAnswerManager,
+        QuizGame,
+        sampleQuizzes,
+        calculateScore,
+        formatTime,
+        getSpeedRating,
+        calculateResponseStats
+    };
+}

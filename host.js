@@ -1,13 +1,18 @@
-// Host Page JavaScript - Requires Authentication
+// Enhanced Host Page JavaScript with Time-Based Scoring
 let hostCurrentQuiz = null;
 let hostGameInstance = null;
 let hostCurrentQuizData = null;
 let hostQuestionTimer = null;
 let hostCurrentPlayers = {};
 let hostQuestionIndex = 0;
+let questionStartTime = null;
+let scoringSystem = null;
 
 function initializeHost() {
     console.log('Host page initializing...');
+    
+    // Initialize scoring system
+    scoringSystem = new ScoringSystem();
     
     // Wait for Firebase to be ready
     if (typeof auth === 'undefined') {
@@ -31,7 +36,7 @@ function initializeHost() {
         }
     });
 
-    // Listen for user data updates (after login/migration)
+    // Listen for user data updates
     window.addEventListener('userDataUpdated', (event) => {
         console.log('User data updated, refreshing quiz list');
         loadAvailableQuizzes();
@@ -39,7 +44,6 @@ function initializeHost() {
 }
 
 function showUserStatus(user) {
-    // Add user header if not exists
     if (!document.querySelector('.user-header')) {
         const userHeaderHTML = `
             <div class="user-header" style="position: absolute; top: 20px; right: 20px; display: flex; align-items: center; gap: 15px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); padding: 10px 20px; border-radius: 25px; border: 1px solid rgba(255, 255, 255, 0.2);">
@@ -58,13 +62,11 @@ function loadAvailableQuizzes() {
     console.log('Loading available quizzes...');
     const quizList = document.getElementById('quiz-list');
     
-    // Always clear the list first to prevent duplicates
     quizList.innerHTML = '<div style="text-align: center; padding: 20px;">Loading quizzes...</div>';
     
     let hasQuizzes = false;
-    let loadedQuizIds = new Set(); // Track loaded quiz IDs to prevent duplicates
+    let loadedQuizIds = new Set();
     
-    // Function to add sample quizzes
     function addSampleQuizzes() {
         if (typeof sampleQuizzes !== 'undefined' && sampleQuizzes && sampleQuizzes.length > 0) {
             console.log('Adding sample quizzes:', sampleQuizzes.length);
@@ -89,13 +91,11 @@ function loadAvailableQuizzes() {
         }
     }
     
-    // Function to add saved quizzes
     function addSavedQuizzes(savedQuizzes) {
         if (savedQuizzes && savedQuizzes.length > 0) {
             console.log('Adding saved quizzes:', savedQuizzes.length);
             
             savedQuizzes.forEach(quiz => {
-                // Only add if we haven't already added this quiz
                 if (!loadedQuizIds.has(quiz.id)) {
                     const quizCard = document.createElement('div');
                     quizCard.className = 'menu-card';
@@ -115,20 +115,12 @@ function loadAvailableQuizzes() {
         }
     }
     
-    // Load saved quizzes first, then add everything together
     loadUserQuizzes().then(savedQuizzes => {
         console.log('Loaded saved quizzes:', savedQuizzes.length);
-        
-        // Clear the loading message now that we have data
         quizList.innerHTML = '';
-        
-        // Add sample quizzes first
         addSampleQuizzes();
-        
-        // Add saved quizzes
         addSavedQuizzes(savedQuizzes);
         
-        // Show message if no quizzes available
         if (!hasQuizzes) {
             quizList.innerHTML = `
                 <div class="menu-card">
@@ -140,17 +132,11 @@ function loadAvailableQuizzes() {
                 </div>
             `;
         }
-        
     }).catch(error => {
         console.error('Error loading user quizzes:', error);
-        
-        // Clear loading message
         quizList.innerHTML = '';
-        
-        // Still add sample quizzes even if saved quizzes fail to load
         addSampleQuizzes();
         
-        // Show error message if no quizzes at all
         if (!hasQuizzes) {
             quizList.innerHTML = `
                 <div class="menu-card">
@@ -167,24 +153,19 @@ function loadAvailableQuizzes() {
 
 async function loadUserQuizzes() {
     try {
-        // Check if the global loadAllQuizzes function exists
         if (typeof loadAllQuizzes === 'function') {
-            // Use the enhanced system from config.js
             return await loadAllQuizzes();
         } else {
             console.log('loadAllQuizzes not available, using fallback');
-            // Fallback to session data
             if (typeof sessionManager !== 'undefined' && sessionManager) {
                 return sessionManager.getSessionQuizzes();
             } else {
-                // Final fallback to localStorage
                 const savedQuizzes = localStorage.getItem('savedQuizzes');
                 return savedQuizzes ? JSON.parse(savedQuizzes) : [];
             }
         }
     } catch (error) {
         console.error('Error loading user quizzes:', error);
-        // Fallback to localStorage on any error
         try {
             const savedQuizzes = localStorage.getItem('savedQuizzes');
             return savedQuizzes ? JSON.parse(savedQuizzes) : [];
@@ -203,7 +184,6 @@ function selectQuiz(quizId, source = 'sample') {
     if (source === 'sample') {
         selectedQuiz = sampleQuizzes.find(q => q.id === quizId);
     } else if (source === 'saved') {
-        // Try to find from loaded quizzes
         loadUserQuizzes().then(quizzes => {
             selectedQuiz = quizzes.find(q => q.id === quizId);
             if (selectedQuiz) {
@@ -213,7 +193,7 @@ function selectQuiz(quizId, source = 'sample') {
                 showStatus('Quiz not found or invalid quiz format', 'error');
             }
         });
-        return; // Exit early since we're handling this asynchronously
+        return;
     }
     
     if (selectedQuiz) {
@@ -248,7 +228,6 @@ async function createGameSession() {
         showElement('game-lobby');
         
         hostGameInstance.listenToPlayers(updatePlayersList);
-        
         showStatus('Game created! Share the PIN with players.', 'success');
     } else {
         showStatus('Failed to create game. Please try again.', 'error');
@@ -307,7 +286,7 @@ async function startQuiz() {
     }
 }
 
-function displayQuestion(questionIndex) {
+async function displayQuestion(questionIndex) {
     if (!hostCurrentQuizData || questionIndex >= hostCurrentQuizData.questions.length) {
         showResults();
         return;
@@ -315,6 +294,9 @@ function displayQuestion(questionIndex) {
     
     hostQuestionIndex = questionIndex;
     const question = hostCurrentQuizData.questions[questionIndex];
+    
+    // Set question start time
+    questionStartTime = Date.now();
     
     document.getElementById('current-q-num').textContent = questionIndex + 1;
     document.getElementById('host-question').textContent = question.question;
@@ -329,17 +311,36 @@ function displayQuestion(questionIndex) {
         answersContainer.appendChild(answerDiv);
     });
     
+    // Start question timer and update Firebase with start time
+    await updateQuestionStartTime(questionIndex, question.timeLimit || 20);
     startQuestionTimer(question.timeLimit || 20);
     
+    // Reset player answer states
     Object.keys(hostCurrentPlayers).forEach(playerId => {
         getPlayersRef(hostGameInstance.gamePin).child(playerId).update({
             status: 'waiting',
-            currentAnswer: null
+            currentAnswer: null,
+            responseTime: null,
+            questionScore: null,
+            isCorrect: null
         });
     });
     
     hideElement('next-btn');
     hideElement('results-btn');
+}
+
+async function updateQuestionStartTime(questionIndex, timeLimit) {
+    try {
+        await getGameStateRef(hostGameInstance.gamePin).update({
+            currentQuestion: questionIndex,
+            questionStartTime: questionStartTime,
+            timeLimit: timeLimit,
+            status: 'playing'
+        });
+    } catch (error) {
+        console.error('Error updating question start time:', error);
+    }
 }
 
 function startQuestionTimer(duration) {
@@ -373,6 +374,7 @@ function onQuestionTimeUp() {
     const answersContainer = document.getElementById('host-answers');
     const answerElements = answersContainer.children;
     
+    // Highlight correct answer
     for (let i = 0; i < answerElements.length; i++) {
         if (i === question.correct) {
             answerElements[i].classList.add('correct');
@@ -381,7 +383,8 @@ function onQuestionTimeUp() {
         }
     }
     
-    calculateAndUpdateScores();
+    // Calculate and update scores for all players
+    calculateAndUpdateAllPlayerScores();
     
     if (hostQuestionIndex < hostCurrentQuizData.questions.length - 1) {
         showElement('next-btn');
@@ -390,52 +393,128 @@ function onQuestionTimeUp() {
     }
 }
 
-function calculateAndUpdateScores() {
+async function calculateAndUpdateAllPlayerScores() {
     const question = hostCurrentQuizData.questions[hostQuestionIndex];
     const questionTimeLimit = question.timeLimit || 20;
     
+    const playerUpdates = {};
+    
     Object.entries(hostCurrentPlayers).forEach(([playerId, player]) => {
+        let score = 0;
+        let scoreBreakdown = null;
+        
         if (player.currentAnswer !== null && player.currentAnswer !== undefined) {
             const isCorrect = player.currentAnswer === question.correct;
-            const score = calculateScore(isCorrect, questionTimeLimit - 5, questionTimeLimit);
+            const responseTime = player.responseTime || questionTimeLimit;
             
-            getPlayersRef(hostGameInstance.gamePin).child(playerId).transaction((playerData) => {
+            score = scoringSystem.calculateScore(isCorrect, responseTime, questionTimeLimit);
+            scoreBreakdown = scoringSystem.getScoreBreakdown(isCorrect, responseTime, questionTimeLimit);
+        }
+        
+        playerUpdates[`${playerId}/questionScore`] = score;
+        playerUpdates[`${playerId}/scoreBreakdown`] = scoreBreakdown;
+        playerUpdates[`${playerId}/isCorrect`] = player.currentAnswer === question.correct;
+    });
+    
+    try {
+        await getPlayersRef(hostGameInstance.gamePin).update(playerUpdates);
+        
+        // Update total scores
+        for (const [playerId, player] of Object.entries(hostCurrentPlayers)) {
+            const questionScore = playerUpdates[`${playerId}/questionScore`] || 0;
+            
+            await getPlayersRef(hostGameInstance.gamePin).child(playerId).transaction((playerData) => {
                 if (playerData) {
-                    playerData.score = (playerData.score || 0) + score;
+                    playerData.score = (playerData.score || 0) + questionScore;
                     return playerData;
                 }
                 return playerData;
             });
         }
-    });
+    } catch (error) {
+        console.error('Error updating player scores:', error);
+    }
 }
 
+// Enhanced player responses display (without showing actual answers)
 function updatePlayerResponses(players) {
     hostCurrentPlayers = players;
     const responsesContainer = document.getElementById('responses-container');
     responsesContainer.innerHTML = '';
     
+    // Create response summary
+    const summary = getResponseSummary(players);
+    
+    // Add summary header
+    const summaryDiv = document.createElement('div');
+    summaryDiv.className = 'response-summary';
+    summaryDiv.innerHTML = `
+        <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px; margin-bottom: 15px;">
+            <h4>Response Summary</h4>
+            <p>Answered: ${summary.answeredCount}/${summary.totalPlayers}</p>
+            ${summary.averageResponseTime > 0 ? 
+                `<p>Avg Response Time: ${summary.averageResponseTime.toFixed(1)}s</p>` : ''}
+            ${summary.fastestResponse ? 
+                `<p>Fastest: ${summary.fastestResponse.toFixed(1)}s | Slowest: ${summary.slowestResponse.toFixed(1)}s</p>` : ''}
+        </div>
+    `;
+    responsesContainer.appendChild(summaryDiv);
+    
+    // Show individual player status (without answers)
     Object.values(players).forEach(player => {
         const responseItem = document.createElement('div');
         responseItem.className = 'player-item';
         
-        let answerText = 'Not answered';
-        if (player.currentAnswer !== null && player.currentAnswer !== undefined && hostCurrentQuizData) {
-            const question = hostCurrentQuizData.questions[hostQuestionIndex];
-            if (question && question.answers[player.currentAnswer]) {
-                answerText = question.answers[player.currentAnswer];
-            }
+        let statusInfo = '';
+        if (player.status === 'answered') {
+            const responseTime = player.responseTime ? `${player.responseTime.toFixed(1)}s` : 'Unknown';
+            statusInfo = `✅ Answered (${responseTime})`;
+        } else {
+            statusInfo = '⏳ Waiting...';
         }
         
         responseItem.innerHTML = `
             <span class="player-name">${player.name}</span>
-            <div>
-                <div class="player-status status-${player.status}">${player.status}</div>
-                <small>${answerText}</small>
+            <div style="text-align: right;">
+                <div class="player-status">${statusInfo}</div>
+                ${player.questionScore !== undefined && player.questionScore !== null ? 
+                    `<small>+${player.questionScore} pts</small>` : ''}
             </div>
         `;
         responsesContainer.appendChild(responseItem);
     });
+}
+
+function getResponseSummary(players) {
+    const summary = {
+        totalPlayers: Object.keys(players).length,
+        answeredCount: 0,
+        waitingCount: 0,
+        averageResponseTime: 0,
+        fastestResponse: null,
+        slowestResponse: null
+    };
+
+    const responseTimes = [];
+    
+    Object.values(players).forEach(player => {
+        if (player.status === 'answered') {
+            summary.answeredCount++;
+            if (player.responseTime) {
+                responseTimes.push(player.responseTime);
+            }
+        } else {
+            summary.waitingCount++;
+        }
+    });
+
+    if (responseTimes.length > 0) {
+        summary.averageResponseTime = responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length;
+        summary.fastestResponse = Math.min(...responseTimes);
+        summary.slowestResponse = Math.max(...responseTimes);
+    }
+
+    return summary;
 }
 
 async function nextQuestion() {
@@ -507,6 +586,7 @@ function resetGame() {
     hostCurrentQuizData = null;
     hostCurrentPlayers = {};
     hostQuestionIndex = 0;
+    questionStartTime = null;
     
     hideElement('game-lobby');
     hideElement('active-game');
