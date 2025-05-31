@@ -9,10 +9,11 @@
         /* Enhanced lobby layout for centered Game PIN */
         .lobby-container {
             display: grid;
-            grid-template-columns: 1fr 350px;
-            gap: 30px;
+            grid-template-columns: 2fr 1fr;
+            gap: 40px;
             min-height: calc(100vh - 200px);
             margin-top: 20px;
+            padding: 20px;
         }
         
         .main-lobby-content {
@@ -21,65 +22,77 @@
             justify-content: center;
             align-items: center;
             text-align: center;
-            padding: 40px 20px;
+            padding: 60px 40px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border-radius: 30px;
+            border: 3px solid rgba(255, 255, 255, 0.2);
         }
         
         .game-pin-display {
             background: linear-gradient(135deg, #46178f 0%, #9c4dff 100%);
             color: white;
-            padding: 60px 40px;
-            border-radius: 30px;
-            margin-bottom: 40px;
-            border: 6px solid #ffffff;
-            box-shadow: 0 20px 60px rgba(70, 23, 143, 0.4);
+            padding: 80px 60px;
+            border-radius: 35px;
+            margin-bottom: 50px;
+            border: 8px solid #ffffff;
+            box-shadow: 0 25px 80px rgba(70, 23, 143, 0.5);
             animation: pinGlow 2s ease-in-out infinite alternate;
-            min-width: 400px;
+            width: 100%;
+            max-width: 600px;
         }
         
         .game-pin-display h2 {
-            font-size: clamp(2rem, 4vw, 3rem);
-            margin-bottom: 30px;
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            margin-bottom: 40px;
             font-weight: 900;
             text-transform: uppercase;
-            letter-spacing: 2px;
+            letter-spacing: 3px;
+            text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.3);
         }
         
         .game-pin-number {
-            font-size: clamp(3rem, 6vw, 5rem);
+            font-size: clamp(4rem, 8vw, 7rem);
             font-weight: 900;
-            letter-spacing: 8px;
-            text-shadow: 4px 4px 8px rgba(0, 0, 0, 0.4);
-            margin-bottom: 20px;
+            letter-spacing: 12px;
+            text-shadow: 5px 5px 10px rgba(0, 0, 0, 0.4);
+            margin-bottom: 30px;
             font-family: 'Courier New', monospace;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px 40px;
+            border-radius: 25px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
         }
         
         .game-pin-instructions {
-            font-size: clamp(1.2rem, 2.5vw, 1.5rem);
-            opacity: 0.9;
+            font-size: clamp(1.3rem, 2.5vw, 1.8rem);
+            opacity: 0.95;
             font-weight: 600;
-            margin-bottom: 30px;
+            margin-bottom: 40px;
+            line-height: 1.4;
         }
         
         .start-game-section {
             background: rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(20px);
-            padding: 30px;
-            border-radius: 25px;
-            border: 3px solid rgba(255, 255, 255, 0.3);
-            max-width: 500px;
+            padding: 40px;
+            border-radius: 30px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
             width: 100%;
+            max-width: 500px;
         }
         
         .players-sidebar {
             background: linear-gradient(135deg, #ffffff 0%, #f0f4ff 100%);
-            border-radius: 25px;
-            padding: 25px;
-            border: 4px solid #ff6900;
-            box-shadow: 0 15px 35px rgba(255, 105, 0, 0.3);
-            max-height: calc(100vh - 150px);
+            border-radius: 30px;
+            padding: 30px;
+            border: 5px solid #ff6900;
+            box-shadow: 0 20px 50px rgba(255, 105, 0, 0.3);
+            height: fit-content;
+            max-height: calc(100vh - 200px);
             overflow-y: auto;
             position: sticky;
-            top: 20px;
+            top: 30px;
         }
         
         .players-sidebar h3 {
@@ -169,43 +182,69 @@
             .lobby-container {
                 grid-template-columns: 1fr;
                 gap: 20px;
+                padding: 15px;
             }
             
             .players-sidebar {
                 order: -1;
-                max-height: 250px;
+                max-height: 200px;
                 position: static;
+                margin-bottom: 20px;
             }
             
             .main-lobby-content {
-                padding: 20px;
+                padding: 30px 20px;
             }
             
             .game-pin-display {
-                min-width: auto;
-                width: 100%;
-                padding: 40px 20px;
+                padding: 50px 30px;
                 margin-bottom: 30px;
+                max-width: 100%;
             }
             
             .game-pin-number {
-                font-size: clamp(2.5rem, 8vw, 4rem);
-                letter-spacing: 4px;
+                font-size: clamp(3rem, 10vw, 5rem);
+                letter-spacing: 6px;
+                padding: 15px 25px;
             }
             
             .start-game-section {
-                padding: 20px;
+                padding: 25px 20px;
+                max-width: 100%;
             }
         }
         
         @media (min-width: 769px) and (max-width: 1024px) {
             .lobby-container {
-                grid-template-columns: 1fr 300px;
-                gap: 25px;
+                grid-template-columns: 2fr 1fr;
+                gap: 30px;
+                padding: 20px;
             }
             
             .game-pin-display {
-                min-width: 350px;
+                padding: 60px 40px;
+                max-width: 500px;
+            }
+            
+            .main-lobby-content {
+                padding: 40px 30px;
+            }
+        }
+        
+        @media (min-width: 1200px) {
+            .lobby-container {
+                grid-template-columns: 3fr 1fr;
+                gap: 50px;
+            }
+            
+            .game-pin-display {
+                padding: 100px 80px;
+                max-width: 700px;
+            }
+            
+            .game-pin-number {
+                font-size: 8rem;
+                letter-spacing: 15px;
             }
         }
         
@@ -264,7 +303,7 @@
             </div>
         </div>
         
-        <!-- Game Lobby - Enhanced Layout -->
+        <!-- Game Lobby - Fixed Layout -->
         <div id="game-lobby" class="quiz-container" style="display: none;">
             <div class="lobby-container">
                 <!-- Main centered content -->
@@ -273,13 +312,13 @@
                         <h2>Game PIN</h2>
                         <div class="game-pin-number" id="game-pin">000000</div>
                         <div class="game-pin-instructions">
-                            Players join at kahoot.it with this PIN
+                            Players can join using this PIN
                         </div>
                     </div>
                     
                     <div class="start-game-section">
                         <div id="lobby-status">
-                            <p class="waiting-animation">⏳ Waiting for players to join...</p>
+                            <p class="waiting-animation">Waiting for players to join...</p>
                             <div class="start-btn-container">
                                 <button onclick="startQuiz()" class="start-btn" id="start-btn" disabled>
                                     Waiting for players...
