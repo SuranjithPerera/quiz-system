@@ -162,39 +162,55 @@ function clearTextImport() {
 
 // Aiken Format Parser
 function parseAikenContent(content, source) {
-    console.log('Parsing Aiken content from:', source);
+    console.log('🔍 PARSE: Parsing Aiken content from:', source);
+    console.log('📄 PARSE: Content length:', content.length, 'characters');
+    console.log('📄 PARSE: First 200 chars:', content.substring(0, 200));
     
     try {
         const questions = parseAikenFormat(content);
         
+        console.log('✅ PARSE: Successfully parsed', questions.length, 'questions');
+        
         if (questions.length === 0) {
+            console.error('❌ PARSE: No valid questions found');
             showStatus('No valid questions found in the content', 'error');
             return;
         }
         
+        console.log('📝 PARSE: Sample parsed question:', questions[0]);
+        
         importedQuestions = questions;
+        console.log('💾 PARSE: Stored', importedQuestions.length, 'questions in importedQuestions array');
+        
         showImportPreview(questions, source);
         
     } catch (error) {
-        console.error('Error parsing Aiken content:', error);
+        console.error('💥 PARSE: Error parsing Aiken content:', error);
         showStatus('Error parsing content: ' + error.message, 'error');
     }
 }
 
 function parseAikenFormat(content) {
+    console.log('🔧 FORMAT: Starting Aiken format parsing...');
     const questions = [];
     const errors = [];
     
     // Split content into individual questions
     const questionBlocks = content.split(/\n\s*\n/).filter(block => block.trim());
     
+    console.log('📊 FORMAT: Found', questionBlocks.length, 'question blocks');
+    
     questionBlocks.forEach((block, blockIndex) => {
+        console.log(`🔍 FORMAT: Processing block ${blockIndex + 1}:`, block.substring(0, 100) + '...');
+        
         try {
             const question = parseAikenQuestion(block.trim(), blockIndex + 1);
             if (question) {
+                console.log(`✅ FORMAT: Successfully parsed question ${blockIndex + 1}:`, question.question.substring(0, 50) + '...');
                 questions.push(question);
             }
         } catch (error) {
+            console.error(`❌ FORMAT: Error parsing block ${blockIndex + 1}:`, error.message);
             errors.push({
                 block: blockIndex + 1,
                 error: error.message,
@@ -205,6 +221,8 @@ function parseAikenFormat(content) {
     
     // Store errors for display
     window.aikenParsingErrors = errors;
+    
+    console.log('📊 FORMAT: Parsing complete -', questions.length, 'valid questions,', errors.length, 'errors');
     
     return questions;
 }
@@ -282,14 +300,26 @@ function parseAikenQuestion(block, questionNumber) {
 
 // Import Preview Functions
 function showImportPreview(questions, source) {
-    console.log('Showing import preview for', questions.length, 'questions from', source);
+    console.log('🖼️ PREVIEW: Showing import preview for', questions.length, 'questions from', source);
     
     const previewDiv = document.getElementById('import-preview');
     const questionsDiv = document.getElementById('preview-questions');
     
+    if (!previewDiv) {
+        console.error('❌ PREVIEW: import-preview element not found!');
+        return;
+    }
+    
+    if (!questionsDiv) {
+        console.error('❌ PREVIEW: preview-questions element not found!');
+        return;
+    }
+    
     // Update statistics
     const validQuestions = questions.filter(q => q.question && q.answers && q.answers.length >= 2);
     const errorCount = (window.aikenParsingErrors || []).length;
+    
+    console.log('📊 PREVIEW: Valid questions:', validQuestions.length, 'Errors:', errorCount);
     
     document.getElementById('preview-count').textContent = questions.length;
     document.getElementById('valid-count').textContent = validQuestions.length;
@@ -322,15 +352,23 @@ function showImportPreview(questions, source) {
     
     // Enable/disable import button
     const importBtn = document.getElementById('confirm-import-btn');
+    if (!importBtn) {
+        console.error('❌ PREVIEW: confirm-import-btn element not found!');
+        return;
+    }
+    
     if (validQuestions.length > 0) {
         importBtn.disabled = false;
         importBtn.textContent = `Import ${validQuestions.length} Question${validQuestions.length !== 1 ? 's' : ''}`;
+        console.log('✅ PREVIEW: Import button enabled for', validQuestions.length, 'questions');
     } else {
         importBtn.disabled = true;
         importBtn.textContent = 'No Valid Questions to Import';
+        console.log('❌ PREVIEW: Import button disabled - no valid questions');
     }
     
     previewDiv.style.display = 'block';
+    console.log('🖼️ PREVIEW: Preview displayed, scrolling into view...');
     previewDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
