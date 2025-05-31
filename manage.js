@@ -228,10 +228,14 @@ function parseAikenFormat(content) {
 }
 
 function parseAikenQuestion(block, questionNumber) {
+    console.log(`🔧 QUESTION: Parsing question ${questionNumber}...`);
+    
     const lines = block.split('\n').map(line => line.trim()).filter(line => line);
     
+    console.log(`📝 QUESTION: Block has ${lines.length} lines:`, lines);
+    
     if (lines.length < 6) { // Minimum: question + 4 answers + ANSWER line
-        throw new Error(`Question ${questionNumber}: Too few lines (minimum 6 required)`);
+        throw new Error(`Question ${questionNumber}: Too few lines (minimum 6 required, got ${lines.length})`);
     }
     
     // First line is the question
@@ -240,11 +244,15 @@ function parseAikenQuestion(block, questionNumber) {
         throw new Error(`Question ${questionNumber}: Empty question text`);
     }
     
+    console.log(`📝 QUESTION: Question text: "${questionText}"`);
+    
     // Find the answer line
     const answerLineIndex = lines.findIndex(line => 
         line.toUpperCase().startsWith('ANSWER:') || 
         line.toUpperCase().startsWith('ANS:')
     );
+    
+    console.log(`📝 QUESTION: Answer line found at index: ${answerLineIndex}`);
     
     if (answerLineIndex === -1) {
         throw new Error(`Question ${questionNumber}: No ANSWER line found`);
@@ -255,6 +263,8 @@ function parseAikenQuestion(block, questionNumber) {
     const answers = [];
     const answerPattern = /^([A-Z])\)\s*(.+)$/;
     
+    console.log(`📝 QUESTION: Processing ${answerLines.length} answer lines:`, answerLines);
+    
     answerLines.forEach(line => {
         const match = line.match(answerPattern);
         if (match) {
@@ -262,20 +272,25 @@ function parseAikenQuestion(block, questionNumber) {
                 letter: match[1],
                 text: match[2].trim()
             });
+            console.log(`📝 QUESTION: Added answer ${match[1]}: "${match[2].trim()}"`);
+        } else {
+            console.warn(`⚠️ QUESTION: Line doesn't match answer pattern: "${line}"`);
         }
     });
     
     if (answers.length < 2) {
-        throw new Error(`Question ${questionNumber}: At least 2 answer options required`);
+        throw new Error(`Question ${questionNumber}: At least 2 answer options required (got ${answers.length})`);
     }
     
     if (answers.length > 6) {
-        throw new Error(`Question ${questionNumber}: Maximum 6 answer options allowed`);
+        throw new Error(`Question ${questionNumber}: Maximum 6 answer options allowed (got ${answers.length})`);
     }
     
     // Parse correct answer
     const answerLine = lines[answerLineIndex];
     const correctAnswerMatch = answerLine.match(/ANSWER:\s*([A-Z])/i);
+    
+    console.log(`📝 QUESTION: Answer line: "${answerLine}"`);
     
     if (!correctAnswerMatch) {
         throw new Error(`Question ${questionNumber}: Invalid ANSWER format. Use 'ANSWER: A' format`);
@@ -284,11 +299,13 @@ function parseAikenQuestion(block, questionNumber) {
     const correctLetter = correctAnswerMatch[1].toUpperCase();
     const correctIndex = answers.findIndex(answer => answer.letter === correctLetter);
     
+    console.log(`📝 QUESTION: Correct answer: ${correctLetter} (index: ${correctIndex})`);
+    
     if (correctIndex === -1) {
         throw new Error(`Question ${questionNumber}: Correct answer '${correctLetter}' not found in options`);
     }
     
-    return {
+    const result = {
         question: questionText,
         answers: answers.map(answer => answer.text),
         correct: correctIndex,
@@ -296,22 +313,48 @@ function parseAikenQuestion(block, questionNumber) {
         source: 'aiken_import',
         originalBlock: block
     };
+    
+    console.log(`✅ QUESTION: Successfully parsed question ${questionNumber}:`, result);
+    
+    return result;
 }
 
 // Import Preview Functions
 function showImportPreview(questions, source) {
     console.log('🖼️ PREVIEW: Showing import preview for', questions.length, 'questions from', source);
     
+    // CRITICAL: Check if all required elements exist
     const previewDiv = document.getElementById('import-preview');
     const questionsDiv = document.getElementById('preview-questions');
+    const previewCountEl = document.getElementById('preview-count');
+    const validCountEl = document.getElementById('valid-count');
+    const errorCountEl = document.getElementById('error-count');
+    const importBtn = document.getElementById('confirm-import-btn');
+    
+    console.log('🔍 PREVIEW: Element check:', {
+        previewDiv: !!previewDiv,
+        questionsDiv: !!questionsDiv,
+        previewCountEl: !!previewCountEl,
+        validCountEl: !!validCountEl,
+        errorCountEl: !!errorCountEl,
+        importBtn: !!importBtn
+    });
     
     if (!previewDiv) {
         console.error('❌ PREVIEW: import-preview element not found!');
+        alert('Error: Import preview element not found. Please check the HTML structure.');
         return;
     }
     
     if (!questionsDiv) {
         console.error('❌ PREVIEW: preview-questions element not found!');
+        alert('Error: Preview questions element not found. Please check the HTML structure.');
+        return;
+    }
+    
+    if (!importBtn) {
+        console.error('❌ PREVIEW: confirm-import-btn element not found!');
+        alert('Error: Import button element not found. Please check the HTML structure.');
         return;
     }
     
@@ -321,21 +364,21 @@ function showImportPreview(questions, source) {
     
     console.log('📊 PREVIEW: Valid questions:', validQuestions.length, 'Errors:', errorCount);
     
-    document.getElementById('preview-count').textContent = questions.length;
-    document.getElementById('valid-count').textContent = validQuestions.length;
-    document.getElementById('error-count').textContent = errorCount;
+    if (previewCountEl) previewCountEl.textContent = questions.length;
+    if (validCountEl) validCountEl.textContent = validQuestions.length;
+    if (errorCountEl) errorCountEl.textContent = errorCount;
     
     // Show/hide error section
     const errorsDiv = document.getElementById('import-errors');
-    if (errorCount > 0) {
+    if (errorCount > 0 && errorsDiv) {
         showImportErrors(window.aikenParsingErrors);
         errorsDiv.style.display = 'block';
-    } else {
+    } else if (errorsDiv) {
         errorsDiv.style.display = 'none';
     }
     
     // Generate preview HTML
-    questionsDiv.innerHTML = validQuestions.map((question, index) => `
+    const previewHTML = validQuestions.map((question, index) => `
         <div class="preview-question">
             <div class="question-text">Q${index + 1}: ${question.question}</div>
             ${question.answers.map((answer, answerIndex) => `
@@ -350,13 +393,10 @@ function showImportPreview(questions, source) {
         </div>
     `).join('');
     
-    // Enable/disable import button
-    const importBtn = document.getElementById('confirm-import-btn');
-    if (!importBtn) {
-        console.error('❌ PREVIEW: confirm-import-btn element not found!');
-        return;
-    }
+    console.log('📝 PREVIEW: Generated HTML length:', previewHTML.length);
+    questionsDiv.innerHTML = previewHTML;
     
+    // Enable/disable import button
     if (validQuestions.length > 0) {
         importBtn.disabled = false;
         importBtn.textContent = `Import ${validQuestions.length} Question${validQuestions.length !== 1 ? 's' : ''}`;
@@ -367,9 +407,15 @@ function showImportPreview(questions, source) {
         console.log('❌ PREVIEW: Import button disabled - no valid questions');
     }
     
+    // Show the preview
     previewDiv.style.display = 'block';
-    console.log('🖼️ PREVIEW: Preview displayed, scrolling into view...');
-    previewDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    console.log('🖼️ PREVIEW: Preview div displayed, scrolling into view...');
+    
+    // Scroll into view with a slight delay
+    setTimeout(() => {
+        previewDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        console.log('📜 PREVIEW: Scrolled to preview');
+    }, 100);
 }
 
 function showImportErrors(errors) {
