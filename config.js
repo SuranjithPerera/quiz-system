@@ -1,4 +1,4 @@
-// Enhanced Firebase Configuration with Session Management
+// Enhanced Firebase Configuration with Better Error Handling
 const firebaseConfig = {
     apiKey: "AIzaSyDdVOTMNZfO-Pky1KWNcA0O1UKYBXDPlU8",
     authDomain: "quiz-system-1b9cc.firebaseapp.com",
@@ -10,10 +10,71 @@ const firebaseConfig = {
     measurementId: "G-Z4G7TDL4XK"
 };
 
-// Initialize Firebase
-firebase.initializeApp(firebaseConfig);
-const database = firebase.database();
-const auth = firebase.auth();
+// Initialize Firebase with error handling
+try {
+    console.log('Initializing Firebase...');
+    firebase.initializeApp(firebaseConfig);
+    
+    // Initialize services
+    const database = firebase.database();
+    const auth = firebase.auth();
+    
+    // Make globally available
+    window.database = database;
+    window.auth = auth;
+    
+    console.log('Firebase initialized successfully');
+    
+    // Test database connection
+    database.ref('.info/connected').on('value', function(snapshot) {
+        if (snapshot.val() === true) {
+            console.log('✅ Connected to Firebase Database');
+        } else {
+            console.log('❌ Disconnected from Firebase Database');
+        }
+    });
+    
+} catch (error) {
+    console.error('Firebase initialization error:', error);
+    
+    // Create mock database for offline testing
+    window.database = {
+        ref: function(path) {
+            console.warn('Using mock database - Firebase not available');
+            return {
+                set: function(data) {
+                    return Promise.reject(new Error('Firebase not available'));
+                },
+                update: function(data) {
+                    return Promise.reject(new Error('Firebase not available'));
+                },
+                once: function(event, callback, errorCallback) {
+                    if (errorCallback) {
+                        errorCallback(new Error('Firebase not available'));
+                    }
+                },
+                on: function(event, callback, errorCallback) {
+                    if (errorCallback) {
+                        errorCallback(new Error('Firebase not available'));
+                    }
+                },
+                off: function() {
+                    // No-op for cleanup
+                }
+            };
+        }
+    };
+    
+    window.auth = {
+        onAuthStateChanged: function(callback) {
+            // Call with null user for offline mode
+            callback(null);
+        },
+        signOut: function() {
+            return Promise.resolve();
+        }
+    };
+}
 
 // Global variables for the quiz system
 let currentUser = null;
@@ -91,139 +152,53 @@ class SessionManager {
         return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
     }
 
-    // Migrate session data to Firebase when user logs in
-    async migrateToFirebase(user) {
-        console.log('Migrating session data to Firebase for user:', user.email);
-        
-        try {
-            // Ensure session data is properly initialized
-            if (!sessionData.quizzes) sessionData.quizzes = [];
-            if (!sessionData.stats) sessionData.stats = { quizCount: 0, totalPlays: 0 };
-            
-            // Get existing Firebase data
-            const firebaseUserData = await this.getFirebaseUserData(user.uid);
-            const firebaseQuizzes = await this.getFirebaseQuizzes(user.uid);
+    // Get current session quizzes
+    getSessionQuizzes() {
+        return sessionData.quizzes || [];
+    }
 
-            console.log('Session quizzes to migrate:', sessionData.quizzes.length);
-            console.log('Existing Firebase quizzes:', firebaseQuizzes.length);
-            console.log('Firebase user data:', firebaseUserData);
+    // Get current session stats
+    getSessionStats() {
+        return sessionData.stats || { quizCount: 0, totalPlays: 0 };
+    }
 
-            // Merge session quizzes with Firebase quizzes
-            const mergedQuizzes = this.mergeQuizzes(sessionData.quizzes, firebaseQuizzes);
-            
-            // Merge stats - ensure firebaseUserData.stats exists
-            const mergedStats = this.mergeStats(sessionData.stats, firebaseUserData.stats || {});
+    // Check if user is logged in
+    isUserLoggedIn() {
+        return currentUser && !sessionData.isGuest;
+    }
 
-            console.log('Merged quizzes:', mergedQuizzes.length);
-            console.log('Merged stats:', mergedStats);
-
-            // Save merged data to Firebase
-            await this.saveUserDataToFirebase(user.uid, {
-                email: user.email,
-                displayName: user.displayName || user.email.split('@')[0],
-                stats: mergedStats,
-                lastLogin: Date.now(),
-                sessionMigrated: true,
-                migratedAt: Date.now()
-            });
-
-            // Save merged quizzes to Firebase
-            for (const quiz of mergedQuizzes) {
-                await this.saveQuizToFirebase(user.uid, quiz);
-            }
-
-            // Update session data
-            sessionData.quizzes = mergedQuizzes;
-            sessionData.stats = mergedStats;
-            sessionData.userData = firebaseUserData;
-            sessionData.isGuest = false;
-            sessionData.userId = user.uid;
-            sessionData.userEmail = user.email;
-
-            this.saveSession();
-
-            // Clear old localStorage data
-            this.clearTempData();
-
-            console.log('Session migration completed successfully');
-            return { success: true, quizzes: mergedQuizzes, stats: mergedStats };
-
-        } catch (error) {
-            console.error('Error migrating session to Firebase:', error);
-            return { success: false, error: error.message };
+    // Add quiz to session
+    addQuizToSession(quiz) {
+        if (!sessionData.quizzes) {
+            sessionData.quizzes = [];
         }
-    }
-
-    // Merge quizzes from session and Firebase (avoid duplicates)
-    mergeQuizzes(sessionQuizzes, firebaseQuizzes) {
-        // Ensure both parameters are arrays
-        const session = Array.isArray(sessionQuizzes) ? sessionQuizzes : [];
-        const firebase = Array.isArray(firebaseQuizzes) ? firebaseQuizzes : [];
         
-        const merged = [...firebase];
-        const existingIds = new Set(firebase.map(q => q.id));
-
-        session.forEach(quiz => {
-            if (!existingIds.has(quiz.id)) {
-                // Mark as migrated from session
-                quiz.migratedFromSession = true;
-                quiz.migratedAt = Date.now();
-                merged.push(quiz);
-            }
-        });
-
-        return merged.sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
-    }
-
-    // Merge stats from session and Firebase
-    mergeStats(sessionStats, firebaseStats) {
-        // Ensure both parameters are objects
-        const session = sessionStats || { quizCount: 0, totalPlays: 0 };
-        const firebase = firebaseStats || { quizCount: 0, totalPlays: 0 };
+        if (!sessionData.stats) {
+            sessionData.stats = { quizCount: 0, totalPlays: 0 };
+        }
         
-        return {
-            quizCount: (session.quizCount || 0) + (firebase.quizCount || 0),
-            totalPlays: (session.totalPlays || 0) + (firebase.totalPlays || 0),
-            lastUpdated: Date.now()
-        };
-    }
-
-    // Get user data from Firebase
-    async getFirebaseUserData(userId) {
-        try {
-            const snapshot = await database.ref(`users/${userId}`).once('value');
-            return snapshot.val() || {};
-        } catch (error) {
-            console.error('Error getting Firebase user data:', error);
-            return {};
+        const existingIndex = sessionData.quizzes.findIndex(q => q.id === quiz.id);
+        if (existingIndex !== -1) {
+            sessionData.quizzes[existingIndex] = quiz;
+        } else {
+            sessionData.quizzes.push(quiz);
+            sessionData.stats.quizCount = (sessionData.stats.quizCount || 0) + 1;
         }
-    }
-
-    // Get user quizzes from Firebase
-    async getFirebaseQuizzes(userId) {
-        try {
-            const snapshot = await database.ref(`users/${userId}/quizzes`).once('value');
-            const quizzes = snapshot.val() || {};
-            return Object.values(quizzes);
-        } catch (error) {
-            console.error('Error getting Firebase quizzes:', error);
-            return [];
-        }
-    }
-
-    // Save user data to Firebase
-    async saveUserDataToFirebase(userId, userData) {
-        try {
-            await database.ref(`users/${userId}`).update(userData);
-        } catch (error) {
-            console.error('Error saving user data to Firebase:', error);
-            throw error;
+        
+        this.saveSession();
+        
+        // If user is logged in and Firebase is available, also save to Firebase
+        if (currentUser && !sessionData.isGuest && typeof database !== 'undefined') {
+            this.saveQuizToFirebase(currentUser.uid, quiz).catch(console.error);
         }
     }
 
     // Save quiz to Firebase
     async saveQuizToFirebase(userId, quiz) {
         try {
+            if (typeof database === 'undefined') {
+                throw new Error('Firebase not available');
+            }
             await database.ref(`users/${userId}/quizzes/${quiz.id}`).set({
                 ...quiz,
                 userId: userId,
@@ -235,22 +210,15 @@ class SessionManager {
         }
     }
 
-    // Clear temporary data
-    clearTempData() {
-        try {
-            localStorage.removeItem('savedQuizzes');
-            localStorage.removeItem(this.tempDataKey);
-            console.log('Temporary data cleared');
-        } catch (error) {
-            console.error('Error clearing temp data:', error);
-        }
-    }
-
     // Load user data from Firebase when logged in
     async loadUserDataFromFirebase(user) {
         console.log('Loading user data from Firebase for:', user.email);
         
         try {
+            if (typeof database === 'undefined') {
+                throw new Error('Firebase not available');
+            }
+
             const userData = await this.getFirebaseUserData(user.uid);
             const quizzes = await this.getFirebaseQuizzes(user.uid);
 
@@ -277,71 +245,33 @@ class SessionManager {
         }
     }
 
-    // Add quiz to session
-    addQuizToSession(quiz) {
-        if (!sessionData.quizzes) {
-            sessionData.quizzes = [];
-        }
-        
-        if (!sessionData.stats) {
-            sessionData.stats = { quizCount: 0, totalPlays: 0 };
-        }
-        
-        const existingIndex = sessionData.quizzes.findIndex(q => q.id === quiz.id);
-        if (existingIndex !== -1) {
-            sessionData.quizzes[existingIndex] = quiz;
-        } else {
-            sessionData.quizzes.push(quiz);
-            sessionData.stats.quizCount = (sessionData.stats.quizCount || 0) + 1;
-        }
-        
-        this.saveSession();
-        
-        // If user is logged in, also save to Firebase
-        if (currentUser && !sessionData.isGuest) {
-            this.saveQuizToFirebase(currentUser.uid, quiz).catch(console.error);
-            this.updateUserStats(currentUser.uid, { quizCount: 1 }).catch(console.error);
-        }
-    }
-
-    // Update user stats
-    async updateUserStats(userId, statsUpdate) {
+    // Get user data from Firebase
+    async getFirebaseUserData(userId) {
         try {
-            const userStatsRef = database.ref(`users/${userId}/stats`);
-            const snapshot = await userStatsRef.once('value');
-            const currentStats = snapshot.val() || {};
-            
-            const updatedStats = {};
-            Object.keys(statsUpdate).forEach(key => {
-                updatedStats[key] = (currentStats[key] || 0) + statsUpdate[key];
-            });
-            
-            await userStatsRef.update(updatedStats);
-            
-            // Update session stats too
-            Object.keys(updatedStats).forEach(key => {
-                sessionData.stats[key] = updatedStats[key];
-            });
-            this.saveSession();
-            
+            if (typeof database === 'undefined') {
+                throw new Error('Firebase not available');
+            }
+            const snapshot = await database.ref(`users/${userId}`).once('value');
+            return snapshot.val() || {};
         } catch (error) {
-            console.error('Error updating user stats:', error);
+            console.error('Error getting Firebase user data:', error);
+            return {};
         }
     }
 
-    // Get current session quizzes
-    getSessionQuizzes() {
-        return sessionData.quizzes || [];
-    }
-
-    // Get current session stats
-    getSessionStats() {
-        return sessionData.stats || { quizCount: 0, totalPlays: 0 };
-    }
-
-    // Check if user is logged in
-    isUserLoggedIn() {
-        return currentUser && !sessionData.isGuest;
+    // Get user quizzes from Firebase
+    async getFirebaseQuizzes(userId) {
+        try {
+            if (typeof database === 'undefined') {
+                throw new Error('Firebase not available');
+            }
+            const snapshot = await database.ref(`users/${userId}/quizzes`).once('value');
+            const quizzes = snapshot.val() || {};
+            return Object.values(quizzes);
+        } catch (error) {
+            console.error('Error getting Firebase quizzes:', error);
+            return [];
+        }
     }
 }
 
@@ -351,31 +281,20 @@ const sessionManager = new SessionManager();
 // Initialize session immediately when script loads
 sessionManager.initializeSession();
 
-// Authentication state management with session handling
-auth.onAuthStateChanged(async (user) => {
-    const wasGuest = sessionData.isGuest;
-    currentUser = user;
-    
-    if (user) {
-        console.log('User signed in:', user.email);
+// Authentication state management with better error handling
+if (typeof auth !== 'undefined') {
+    auth.onAuthStateChanged(async (user) => {
+        const wasGuest = sessionData.isGuest;
+        currentUser = user;
         
-        // Store user info for easy access
-        localStorage.setItem('userEmail', user.email);
-        localStorage.setItem('userName', user.displayName || user.email);
-        localStorage.setItem('userId', user.uid);
-        
-        // If user was a guest, migrate session data to Firebase
-        if (wasGuest && sessionData.quizzes && sessionData.quizzes.length > 0) {
-            console.log('Migrating guest session to user account...');
-            const migrationResult = await sessionManager.migrateToFirebase(user);
-            if (migrationResult.success) {
-                console.log('Session migration successful');
-                // Trigger refresh of any open quiz management pages
-                window.dispatchEvent(new CustomEvent('userDataUpdated', { 
-                    detail: { quizzes: migrationResult.quizzes, stats: migrationResult.stats }
-                }));
-            }
-        } else {
+        if (user) {
+            console.log('User signed in:', user.email);
+            
+            // Store user info for easy access
+            localStorage.setItem('userEmail', user.email);
+            localStorage.setItem('userName', user.displayName || user.email);
+            localStorage.setItem('userId', user.uid);
+            
             // Load existing user data from Firebase
             const loadResult = await sessionManager.loadUserDataFromFirebase(user);
             if (loadResult.success) {
@@ -384,29 +303,31 @@ auth.onAuthStateChanged(async (user) => {
                     detail: { quizzes: loadResult.quizzes, userData: loadResult.userData }
                 }));
             }
+            
+        } else {
+            console.log('User signed out');
+            
+            // Clear user info but keep session data
+            localStorage.removeItem('userEmail');
+            localStorage.removeItem('userName');
+            localStorage.removeItem('userId');
+            
+            // Reset session to guest mode but keep existing quizzes
+            sessionData.isGuest = true;
+            sessionData.userId = null;
+            sessionData.userEmail = null;
+            sessionManager.saveSession();
+            
+            // Only redirect to auth page if we're on host or manage pages
+            const currentPage = window.location.pathname.split('/').pop();
+            if (currentPage === 'host.html' || currentPage === 'manage.html') {
+                window.location.href = 'auth.html';
+            }
         }
-        
-    } else {
-        console.log('User signed out');
-        
-        // Clear user info but keep session data
-        localStorage.removeItem('userEmail');
-        localStorage.removeItem('userName');
-        localStorage.removeItem('userId');
-        
-        // Reset session to guest mode but keep existing quizzes
-        sessionData.isGuest = true;
-        sessionData.userId = null;
-        sessionData.userEmail = null;
-        sessionManager.saveSession();
-        
-        // Only redirect to auth page if we're on host or manage pages
-        const currentPage = window.location.pathname.split('/').pop();
-        if (currentPage === 'host.html' || currentPage === 'manage.html') {
-            window.location.href = 'auth.html';
-        }
-    }
-});
+    });
+} else {
+    console.log('Firebase Auth not available - running in offline mode');
+}
 
 // Utility functions
 function generateGamePin() {
@@ -417,34 +338,62 @@ function generatePlayerId() {
     return Date.now().toString() + Math.floor(Math.random() * 1000).toString();
 }
 
-// Database reference helpers
+// Database reference helpers with fallbacks
 function getGameRef(pin) {
-    return database.ref(`games/${pin}`);
+    if (typeof database !== 'undefined') {
+        return database.ref(`games/${pin}`);
+    }
+    console.warn('Database not available');
+    return null;
 }
 
 function getPlayersRef(pin) {
-    return database.ref(`games/${pin}/players`);
+    if (typeof database !== 'undefined') {
+        return database.ref(`games/${pin}/players`);
+    }
+    console.warn('Database not available');
+    return null;
 }
 
 function getQuestionsRef(pin) {
-    return database.ref(`games/${pin}/questions`);
+    if (typeof database !== 'undefined') {
+        return database.ref(`games/${pin}/questions`);
+    }
+    console.warn('Database not available');
+    return null;
 }
 
 function getGameStateRef(pin) {
-    return database.ref(`games/${pin}/gameState`);
+    if (typeof database !== 'undefined') {
+        return database.ref(`games/${pin}/gameState`);
+    }
+    console.warn('Database not available');
+    return null;
 }
 
 // User-specific database references
 function getUserQuizzesRef(userId) {
-    return database.ref(`users/${userId}/quizzes`);
+    if (typeof database !== 'undefined') {
+        return database.ref(`users/${userId}/quizzes`);
+    }
+    console.warn('Database not available');
+    return null;
 }
 
 function getUserDataRef(userId) {
-    return database.ref(`users/${userId}`);
+    if (typeof database !== 'undefined') {
+        return database.ref(`users/${userId}`);
+    }
+    console.warn('Database not available');
+    return null;
 }
 
 function getUserStatsRef(userId) {
-    return database.ref(`users/${userId}/stats`);
+    if (typeof database !== 'undefined') {
+        return database.ref(`users/${userId}/stats`);
+    }
+    console.warn('Database not available');
+    return null;
 }
 
 // Authentication helper functions
@@ -476,10 +425,9 @@ async function saveQuizToSystem(quizData) {
     sessionManager.addQuizToSession(quizData);
     
     // If user is logged in, also save to Firebase
-    if (currentUser) {
+    if (currentUser && typeof database !== 'undefined') {
         try {
             await sessionManager.saveQuizToFirebase(currentUser.uid, quizData);
-            await sessionManager.updateUserStats(currentUser.uid, { quizCount: 1 });
             console.log('Quiz saved to Firebase successfully');
             return { success: true, location: 'firebase' };
         } catch (error) {
@@ -495,7 +443,7 @@ async function saveQuizToSystem(quizData) {
 async function loadAllQuizzes() {
     console.log('Loading all quizzes...');
     
-    if (currentUser) {
+    if (currentUser && typeof database !== 'undefined') {
         // Load from Firebase for logged-in users
         const result = await sessionManager.loadUserDataFromFirebase(currentUser);
         if (result.success) {
@@ -515,7 +463,7 @@ async function deleteQuizFromSystem(quizId) {
     sessionManager.saveSession();
     
     // If user is logged in, also delete from Firebase
-    if (currentUser) {
+    if (currentUser && typeof database !== 'undefined') {
         try {
             await database.ref(`users/${currentUser.uid}/quizzes/${quizId}`).remove();
             console.log('Quiz deleted from Firebase');
@@ -530,7 +478,9 @@ async function deleteQuizFromSystem(quizId) {
 // Sign out function
 async function signOut() {
     try {
-        await auth.signOut();
+        if (typeof auth !== 'undefined') {
+            await auth.signOut();
+        }
         // Redirect logic is handled in onAuthStateChanged
     } catch (error) {
         console.error('Sign out error:', error);
@@ -581,3 +531,6 @@ function getFromLocalStorage(key) {
 
 // Export session manager for use in other files
 window.sessionManager = sessionManager;
+
+// Log initialization status
+console.log('Enhanced Firebase config loaded with session management');

@@ -1,4 +1,4 @@
-// Enhanced Host Page JavaScript with Time-Based Scoring
+// Complete Host Page JavaScript - Enhanced Version
 let hostCurrentQuiz = null;
 let hostGameInstance = null;
 let hostCurrentQuizData = null;
@@ -9,67 +9,117 @@ let questionStartTime = null;
 let scoringSystem = null;
 
 function initializeHost() {
-    console.log('Host page initializing...');
+    console.log('🎯 HOST: Initializing host page...');
     
     // Initialize scoring system
-    scoringSystem = new ScoringSystem();
+    if (typeof ScoringSystem !== 'undefined') {
+        scoringSystem = new ScoringSystem();
+    }
     
     // Wait for Firebase to be ready
     if (typeof auth === 'undefined') {
-        console.log('Waiting for Firebase auth to load...');
+        console.log('⏳ HOST: Waiting for Firebase auth...');
         setTimeout(initializeHost, 100);
         return;
     }
     
     // Check authentication and load quizzes
     auth.onAuthStateChanged((user) => {
-        if (user) {
-            console.log('Host authenticated:', user.email);
-            showUserStatus(user);
-            loadAvailableQuizzes();
-        } else {
-            console.log('Host not authenticated, redirecting...');
-            showStatus('Login required to host quizzes', 'error');
-            setTimeout(() => {
-                window.location.href = 'auth.html';
-            }, 2000);
+        try {
+            if (user) {
+                console.log('✅ HOST: User authenticated:', user.email);
+                showUserStatus(user);
+                loadAvailableQuizzes();
+            } else {
+                console.log('❌ HOST: User not authenticated, redirecting...');
+                showStatus('Login required to host quizzes', 'error');
+                setTimeout(() => {
+                    window.location.href = 'auth.html';
+                }, 2000);
+            }
+        } catch (error) {
+            console.error('💥 HOST: Error in auth state change:', error);
         }
     });
 
     // Listen for user data updates
     window.addEventListener('userDataUpdated', (event) => {
-        console.log('User data updated, refreshing quiz list');
+        console.log('🔄 HOST: User data updated, refreshing quiz list');
         loadAvailableQuizzes();
     });
+    
+    console.log('✅ HOST: Initialization complete');
 }
 
 function showUserStatus(user) {
-    if (!document.querySelector('.user-header')) {
-        const userHeaderHTML = `
-            <div class="user-header" style="position: absolute; top: 20px; right: 20px; display: flex; align-items: center; gap: 15px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); padding: 10px 20px; border-radius: 25px; border: 1px solid rgba(255, 255, 255, 0.2);">
-                <div class="user-info" style="color: white; font-size: 14px;">
-                    <div class="user-name" style="font-weight: bold; margin-bottom: 2px;">${user.displayName || user.email.split('@')[0]}</div>
-                    <div class="user-email" style="opacity: 0.8; font-size: 12px;">${user.email}</div>
-                </div>
-                <button onclick="signOut()" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 12px; border-radius: 15px; cursor: pointer; font-size: 12px;">Sign Out</button>
-            </div>
-        `;
-        document.body.insertAdjacentHTML('afterbegin', userHeaderHTML);
+    console.log('👤 HOST: Showing user status for:', user.email);
+    
+    // Remove existing user header if present
+    const existingHeader = document.querySelector('.user-header');
+    if (existingHeader) {
+        existingHeader.remove();
     }
+    
+    const userHeaderHTML = `
+        <div class="user-header" style="position: absolute; top: 20px; right: 20px; display: flex; align-items: center; gap: 15px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); padding: 10px 20px; border-radius: 25px; border: 1px solid rgba(255, 255, 255, 0.2); z-index: 1000;">
+            <div class="user-info" style="color: white; font-size: 14px;">
+                <div class="user-name" style="font-weight: bold; margin-bottom: 2px;">${user.displayName || user.email.split('@')[0]}</div>
+                <div class="user-email" style="opacity: 0.8; font-size: 12px;">${user.email}</div>
+            </div>
+            <button onclick="signOut()" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 12px; border-radius: 15px; cursor: pointer; font-size: 12px;">Sign Out</button>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('afterbegin', userHeaderHTML);
 }
 
-function loadAvailableQuizzes() {
-    console.log('Loading available quizzes...');
+async function loadAvailableQuizzes() {
+    console.log('📚 HOST: Loading available quizzes...');
     const quizList = document.getElementById('quiz-list');
+    
+    if (!quizList) {
+        console.error('❌ HOST: Quiz list element not found');
+        return;
+    }
     
     quizList.innerHTML = '<div style="text-align: center; padding: 20px;">Loading quizzes...</div>';
     
     let hasQuizzes = false;
     let loadedQuizIds = new Set();
     
-    function addSampleQuizzes() {
+    try {
+        // Load user's saved quizzes first
+        console.log('🔍 HOST: Loading user quizzes...');
+        const savedQuizzes = await loadUserQuizzes();
+        console.log('📝 HOST: Found saved quizzes:', savedQuizzes.length);
+        
+        quizList.innerHTML = ''; // Clear loading message
+        
+        // Add saved quizzes
+        if (savedQuizzes && savedQuizzes.length > 0) {
+            savedQuizzes.forEach(quiz => {
+                if (!loadedQuizIds.has(quiz.id)) {
+                    const quizCard = document.createElement('div');
+                    quizCard.className = 'menu-card';
+                    quizCard.innerHTML = `
+                        <div style="text-align: left;">
+                            <h3>${quiz.title}</h3>
+                            <p>${quiz.questions.length} questions</p>
+                            <p><small>💾 Created: ${new Date(quiz.createdAt).toLocaleDateString()}</small></p>
+                            ${quiz.updatedAt && quiz.updatedAt !== quiz.createdAt ? 
+                                `<p><small>Updated: ${new Date(quiz.updatedAt).toLocaleDateString()}</small></p>` : ''}
+                        </div>
+                        <button onclick="selectQuiz('${quiz.id}', 'saved')" class="btn btn-primary">Select Quiz</button>
+                    `;
+                    quizList.appendChild(quizCard);
+                    loadedQuizIds.add(quiz.id);
+                    hasQuizzes = true;
+                }
+            });
+        }
+        
+        // Add sample quizzes
         if (typeof sampleQuizzes !== 'undefined' && sampleQuizzes && sampleQuizzes.length > 0) {
-            console.log('Adding sample quizzes:', sampleQuizzes.length);
+            console.log('📚 HOST: Adding sample quizzes:', sampleQuizzes.length);
             
             sampleQuizzes.forEach(quiz => {
                 if (!loadedQuizIds.has(quiz.id)) {
@@ -89,37 +139,6 @@ function loadAvailableQuizzes() {
                 }
             });
         }
-    }
-    
-    function addSavedQuizzes(savedQuizzes) {
-        if (savedQuizzes && savedQuizzes.length > 0) {
-            console.log('Adding saved quizzes:', savedQuizzes.length);
-            
-            savedQuizzes.forEach(quiz => {
-                if (!loadedQuizIds.has(quiz.id)) {
-                    const quizCard = document.createElement('div');
-                    quizCard.className = 'menu-card';
-                    quizCard.innerHTML = `
-                        <div style="text-align: left;">
-                            <h3>${quiz.title}</h3>
-                            <p>${quiz.questions.length} questions</p>
-                            <p><small>💾 Created: ${new Date(quiz.createdAt).toLocaleDateString()}</small></p>
-                        </div>
-                        <button onclick="selectQuiz('${quiz.id}', 'saved')" class="btn btn-primary">Select Quiz</button>
-                    `;
-                    quizList.appendChild(quizCard);
-                    loadedQuizIds.add(quiz.id);
-                    hasQuizzes = true;
-                }
-            });
-        }
-    }
-    
-    loadUserQuizzes().then(savedQuizzes => {
-        console.log('Loaded saved quizzes:', savedQuizzes.length);
-        quizList.innerHTML = '';
-        addSampleQuizzes();
-        addSavedQuizzes(savedQuizzes);
         
         if (!hasQuizzes) {
             quizList.innerHTML = `
@@ -132,52 +151,55 @@ function loadAvailableQuizzes() {
                 </div>
             `;
         }
-    }).catch(error => {
-        console.error('Error loading user quizzes:', error);
-        quizList.innerHTML = '';
-        addSampleQuizzes();
         
-        if (!hasQuizzes) {
-            quizList.innerHTML = `
-                <div class="menu-card">
-                    <div style="text-align: center; color: #666;">
-                        <h3>Error Loading Quizzes</h3>
-                        <p>Please try refreshing the page</p>
-                        <button onclick="loadAvailableQuizzes()" class="btn btn-primary">Retry</button>
-                    </div>
+        console.log('✅ HOST: Quiz loading complete. Total quizzes:', loadedQuizIds.size);
+        
+    } catch (error) {
+        console.error('💥 HOST: Error loading quizzes:', error);
+        quizList.innerHTML = `
+            <div class="menu-card">
+                <div style="text-align: center; color: #666;">
+                    <h3>Error Loading Quizzes</h3>
+                    <p>Please try refreshing the page</p>
+                    <button onclick="loadAvailableQuizzes()" class="btn btn-primary">Retry</button>
                 </div>
-            `;
-        }
-    });
+            </div>
+        `;
+    }
 }
 
 async function loadUserQuizzes() {
     try {
+        console.log('📊 HOST: Loading user quizzes...');
+        
+        // Use the enhanced loading system from config.js
         if (typeof loadAllQuizzes === 'function') {
-            return await loadAllQuizzes();
-        } else {
-            console.log('loadAllQuizzes not available, using fallback');
-            if (typeof sessionManager !== 'undefined' && sessionManager) {
-                return sessionManager.getSessionQuizzes();
-            } else {
-                const savedQuizzes = localStorage.getItem('savedQuizzes');
-                return savedQuizzes ? JSON.parse(savedQuizzes) : [];
-            }
+            const quizzes = await loadAllQuizzes();
+            console.log('✅ HOST: Loaded via loadAllQuizzes:', quizzes.length);
+            return quizzes;
+        } 
+        
+        // Fallback to session manager
+        if (typeof sessionManager !== 'undefined' && sessionManager) {
+            const quizzes = sessionManager.getSessionQuizzes();
+            console.log('✅ HOST: Loaded via sessionManager:', quizzes.length);
+            return quizzes;
         }
+        
+        // Final fallback to localStorage
+        const savedQuizzes = localStorage.getItem('savedQuizzes');
+        const quizzes = savedQuizzes ? JSON.parse(savedQuizzes) : [];
+        console.log('✅ HOST: Loaded via localStorage:', quizzes.length);
+        return quizzes;
+        
     } catch (error) {
-        console.error('Error loading user quizzes:', error);
-        try {
-            const savedQuizzes = localStorage.getItem('savedQuizzes');
-            return savedQuizzes ? JSON.parse(savedQuizzes) : [];
-        } catch (fallbackError) {
-            console.error('Fallback also failed:', fallbackError);
-            return [];
-        }
+        console.error('💥 HOST: Error in loadUserQuizzes:', error);
+        return [];
     }
 }
 
 function selectQuiz(quizId, source = 'sample') {
-    console.log('Selecting quiz:', quizId, 'from source:', source);
+    console.log('🎯 HOST: Selecting quiz:', quizId, 'from source:', source);
     
     let selectedQuiz = null;
     
@@ -189,7 +211,7 @@ function selectQuiz(quizId, source = 'sample') {
             if (selectedQuiz) {
                 proceedWithQuizSelection(selectedQuiz);
             } else {
-                console.error('Quiz not found:', quizId);
+                console.error('❌ HOST: Quiz not found:', quizId);
                 showStatus('Quiz not found or invalid quiz format', 'error');
             }
         });
@@ -199,38 +221,45 @@ function selectQuiz(quizId, source = 'sample') {
     if (selectedQuiz) {
         proceedWithQuizSelection(selectedQuiz);
     } else {
-        console.error('Quiz not found:', quizId);
+        console.error('❌ HOST: Quiz not found:', quizId);
         showStatus('Quiz not found or invalid quiz format', 'error');
     }
 }
 
 function proceedWithQuizSelection(selectedQuiz) {
     if (selectedQuiz && selectedQuiz.questions && selectedQuiz.questions.length > 0) {
+        console.log('✅ HOST: Quiz selected successfully:', selectedQuiz.title);
         hostCurrentQuiz = selectedQuiz;
         createGameSession();
     } else {
-        console.error('Invalid quiz format or no questions');
+        console.error('❌ HOST: Invalid quiz format or no questions');
         showStatus('Invalid quiz format or no questions found', 'error');
     }
 }
 
 async function createGameSession() {
-    console.log('Creating game session with quiz:', hostCurrentQuiz.title);
+    console.log('🎮 HOST: Creating game session with quiz:', hostCurrentQuiz.title);
     
     const gamePin = generateGamePin();
     hostGameInstance = new QuizGame(gamePin, true);
     hostQuestionIndex = 0;
     
-    const success = await hostGameInstance.createGame(hostCurrentQuiz);
-    if (success) {
-        document.getElementById('game-pin').textContent = gamePin;
-        hideElement('quiz-selection');
-        showElement('game-lobby');
-        
-        hostGameInstance.listenToPlayers(updatePlayersList);
-        showStatus('Game created! Share the PIN with players.', 'success');
-    } else {
-        showStatus('Failed to create game. Please try again.', 'error');
+    try {
+        const success = await hostGameInstance.createGame(hostCurrentQuiz);
+        if (success) {
+            console.log('✅ HOST: Game created successfully with PIN:', gamePin);
+            document.getElementById('game-pin').textContent = gamePin;
+            hideElement('quiz-selection');
+            showElement('game-lobby');
+            
+            hostGameInstance.listenToPlayers(updatePlayersList);
+            showStatus('Game created! Share PIN: ' + gamePin, 'success');
+        } else {
+            throw new Error('Failed to create game in database');
+        }
+    } catch (error) {
+        console.error('💥 HOST: Game creation error:', error);
+        showStatus('Failed to create game: ' + error.message, 'error');
     }
 }
 
@@ -317,7 +346,8 @@ async function displayQuestion(questionIndex) {
     
     // Reset player answer states
     Object.keys(hostCurrentPlayers).forEach(playerId => {
-        getPlayersRef(hostGameInstance.gamePin).child(playerId).update({
+        const playerRef = database.ref(`games/${hostGameInstance.gamePin}/players/${playerId}`);
+        playerRef.update({
             status: 'waiting',
             currentAnswer: null,
             responseTime: null,
@@ -332,7 +362,8 @@ async function displayQuestion(questionIndex) {
 
 async function updateQuestionStartTime(questionIndex, timeLimit) {
     try {
-        await getGameStateRef(hostGameInstance.gamePin).update({
+        const gameStateRef = database.ref(`games/${hostGameInstance.gamePin}/gameState`);
+        await gameStateRef.update({
             currentQuestion: questionIndex,
             questionStartTime: questionStartTime,
             timeLimit: timeLimit,
@@ -377,9 +408,9 @@ function onQuestionTimeUp() {
     // Highlight correct answer
     for (let i = 0; i < answerElements.length; i++) {
         if (i === question.correct) {
-            answerElements[i].classList.add('correct');
+            answerElements[i].style.background = '#4caf50';
         } else {
-            answerElements[i].classList.add('incorrect');
+            answerElements[i].style.background = '#f44336';
         }
     }
     
@@ -407,8 +438,13 @@ async function calculateAndUpdateAllPlayerScores() {
             const isCorrect = player.currentAnswer === question.correct;
             const responseTime = player.responseTime || questionTimeLimit;
             
-            score = scoringSystem.calculateScore(isCorrect, responseTime, questionTimeLimit);
-            scoreBreakdown = scoringSystem.getScoreBreakdown(isCorrect, responseTime, questionTimeLimit);
+            if (scoringSystem) {
+                score = scoringSystem.calculateScore(isCorrect, responseTime, questionTimeLimit);
+                scoreBreakdown = scoringSystem.getScoreBreakdown(isCorrect, responseTime, questionTimeLimit);
+            } else {
+                // Simple scoring fallback
+                score = isCorrect ? 1000 : 0;
+            }
         }
         
         playerUpdates[`${playerId}/questionScore`] = score;
@@ -417,13 +453,15 @@ async function calculateAndUpdateAllPlayerScores() {
     });
     
     try {
-        await getPlayersRef(hostGameInstance.gamePin).update(playerUpdates);
+        const playersRef = database.ref(`games/${hostGameInstance.gamePin}/players`);
+        await playersRef.update(playerUpdates);
         
         // Update total scores
         for (const [playerId, player] of Object.entries(hostCurrentPlayers)) {
             const questionScore = playerUpdates[`${playerId}/questionScore`] || 0;
             
-            await getPlayersRef(hostGameInstance.gamePin).child(playerId).transaction((playerData) => {
+            const playerRef = database.ref(`games/${hostGameInstance.gamePin}/players/${playerId}`);
+            await playerRef.transaction((playerData) => {
                 if (playerData) {
                     playerData.score = (playerData.score || 0) + questionScore;
                     return playerData;
@@ -436,31 +474,12 @@ async function calculateAndUpdateAllPlayerScores() {
     }
 }
 
-// Enhanced player responses display (without showing actual answers)
 function updatePlayerResponses(players) {
     hostCurrentPlayers = players;
     const responsesContainer = document.getElementById('responses-container');
     responsesContainer.innerHTML = '';
     
-    // Create response summary
-    const summary = getResponseSummary(players);
-    
-    // Add summary header
-    const summaryDiv = document.createElement('div');
-    summaryDiv.className = 'response-summary';
-    summaryDiv.innerHTML = `
-        <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px; margin-bottom: 15px;">
-            <h4>Response Summary</h4>
-            <p>Answered: ${summary.answeredCount}/${summary.totalPlayers}</p>
-            ${summary.averageResponseTime > 0 ? 
-                `<p>Avg Response Time: ${summary.averageResponseTime.toFixed(1)}s</p>` : ''}
-            ${summary.fastestResponse ? 
-                `<p>Fastest: ${summary.fastestResponse.toFixed(1)}s | Slowest: ${summary.slowestResponse.toFixed(1)}s</p>` : ''}
-        </div>
-    `;
-    responsesContainer.appendChild(summaryDiv);
-    
-    // Show individual player status (without answers)
+    // Show individual player status (removed response summary)
     Object.values(players).forEach(player => {
         const responseItem = document.createElement('div');
         responseItem.className = 'player-item';
@@ -478,43 +497,11 @@ function updatePlayerResponses(players) {
             <div style="text-align: right;">
                 <div class="player-status">${statusInfo}</div>
                 ${player.questionScore !== undefined && player.questionScore !== null ? 
-                    `<small>+${player.questionScore} pts</small>` : ''}
+                    `<small>+${player.questionScore} points</small>` : ''}
             </div>
         `;
         responsesContainer.appendChild(responseItem);
     });
-}
-
-function getResponseSummary(players) {
-    const summary = {
-        totalPlayers: Object.keys(players).length,
-        answeredCount: 0,
-        waitingCount: 0,
-        averageResponseTime: 0,
-        fastestResponse: null,
-        slowestResponse: null
-    };
-
-    const responseTimes = [];
-    
-    Object.values(players).forEach(player => {
-        if (player.status === 'answered') {
-            summary.answeredCount++;
-            if (player.responseTime) {
-                responseTimes.push(player.responseTime);
-            }
-        } else {
-            summary.waitingCount++;
-        }
-    });
-
-    if (responseTimes.length > 0) {
-        summary.averageResponseTime = responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length;
-        summary.fastestResponse = Math.min(...responseTimes);
-        summary.slowestResponse = Math.max(...responseTimes);
-    }
-
-    return summary;
 }
 
 async function nextQuestion() {
@@ -523,7 +510,8 @@ async function nextQuestion() {
     const nextQuestionIndex = hostQuestionIndex + 1;
     
     try {
-        await getGameStateRef(hostGameInstance.gamePin).update({
+        const gameStateRef = database.ref(`games/${hostGameInstance.gamePin}/gameState`);
+        await gameStateRef.update({
             currentQuestion: nextQuestionIndex,
             status: 'playing'
         });
@@ -597,7 +585,21 @@ function resetGame() {
 }
 
 function createCustomQuiz() {
+    console.log('📝 HOST: Redirecting to quiz creation...');
     location.href = 'manage.html';
+}
+
+function showStatus(message, type) {
+    console.log(`📢 HOST STATUS (${type}):`, message);
+    const statusEl = document.getElementById('status-message');
+    if (statusEl) {
+        statusEl.textContent = message;
+        statusEl.className = `status-message ${type}`;
+        setTimeout(() => {
+            statusEl.textContent = '';
+            statusEl.className = 'status-message';
+        }, 3000);
+    }
 }
 
 function hideElement(elementId) {
@@ -608,18 +610,6 @@ function hideElement(elementId) {
 function showElement(elementId) {
     const element = document.getElementById(elementId);
     if (element) element.style.display = 'block';
-}
-
-function showStatus(message, type) {
-    const statusEl = document.getElementById('status-message');
-    if (statusEl) {
-        statusEl.textContent = message;
-        statusEl.className = `status-message ${type}`;
-        setTimeout(() => {
-            statusEl.textContent = '';
-            statusEl.className = 'status-message';
-        }, 3000);
-    }
 }
 
 // Cleanup when leaving the page
@@ -635,10 +625,14 @@ window.addEventListener('beforeunload', () => {
 
 // Auto-refresh quiz list when page becomes visible
 document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && document.getElementById('quiz-selection').style.display !== 'none') {
+    if (!document.hidden && document.getElementById('quiz-selection') && 
+        document.getElementById('quiz-selection').style.display !== 'none') {
         loadAvailableQuizzes();
     }
 });
 
-// Auto-initialize when page loads
-document.addEventListener('DOMContentLoaded', initializeHost);
+// Initialize when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('📄 HOST: DOM loaded, starting initialization...');
+    initializeHost();
+});

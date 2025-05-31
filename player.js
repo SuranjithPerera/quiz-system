@@ -1,4 +1,4 @@
-// Enhanced Player Page JavaScript with Time-Based Scoring
+// Player.js - Skip Database Connection Test (Fixed)
 let playerGameInstance = null;
 let playerId = null;
 let playerName = null;
@@ -8,442 +8,556 @@ let hasAnswered = false;
 let questionStartTime = null;
 let currentTimerInterval = null;
 let currentQuestionData = null;
-let playerAnswerManager = null;
+
+// Simple Answer Manager (built-in)
+class SimpleAnswerManager {
+    constructor() {
+        this.questionStartTime = null;
+        this.hasAnswered = false;
+    }
+
+    startQuestion(startTime) {
+        this.questionStartTime = startTime || Date.now();
+        this.hasAnswered = false;
+    }
+
+    getResponseTime() {
+        if (!this.questionStartTime) return 0;
+        return (Date.now() - this.questionStartTime) / 1000;
+    }
+
+    markAnswered() {
+        this.hasAnswered = true;
+    }
+
+    canAnswer() {
+        return !this.hasAnswered;
+    }
+}
+
+// Simple Game Class (built-in)
+class SimpleQuizGame {
+    constructor(gamePin, isHost = false) {
+        this.gamePin = gamePin;
+        this.isHost = isHost;
+    }
+
+    async joinGame(playerName) {
+        try {
+            console.log('🎮 GAME: Joining game with name:', playerName);
+            
+            const playerId = Date.now().toString() + '_' + Math.floor(Math.random() * 1000);
+            const playerData = {
+                id: playerId,
+                name: playerName,
+                score: 0,
+                status: 'waiting',
+                joinedAt: Date.now()
+            };
+
+            console.log('📤 GAME: Writing player data to Firebase...');
+            const playerRef = database.ref(`games/${this.gamePin}/players/${playerId}`);
+            await playerRef.set(playerData);
+            
+            console.log('✅ GAME: Player data written successfully');
+            return playerId;
+        } catch (error) {
+            console.error('💥 GAME: Error joining game:', error);
+            return null;
+        }
+    }
+
+    listenToGameState(callback) {
+        console.log('🎧 GAME: Setting up game state listener');
+        const gameStateRef = database.ref(`games/${this.gamePin}/gameState`);
+        
+        gameStateRef.on('value', (snapshot) => {
+            const gameState = snapshot.val();
+            console.log('📡 GAME: Game state update:', gameState);
+            if (gameState) {
+                callback(gameState);
+            }
+        }, (error) => {
+            console.error('💥 GAME: Game state listener error:', error);
+        });
+    }
+
+    listenToPlayers(callback) {
+        console.log('👥 GAME: Setting up players listener');
+        const playersRef = database.ref(`games/${this.gamePin}/players`);
+        
+        playersRef.on('value', (snapshot) => {
+            const players = snapshot.val() || {};
+            console.log('👥 GAME: Players update:', Object.keys(players).length, 'players');
+            callback(players);
+        }, (error) => {
+            console.error('💥 GAME: Players listener error:', error);
+        });
+    }
+
+    cleanup() {
+        if (this.gamePin && typeof database !== 'undefined') {
+            console.log('🧹 GAME: Cleaning up listeners');
+            database.ref(`games/${this.gamePin}`).off();
+        }
+    }
+}
+
+let answerManager = null;
 
 function initializePlayer() {
-    console.log('Initializing player page...');
+    console.log('🎮 PLAYER: Starting initialization...');
     
     // Initialize answer manager
-    playerAnswerManager = new PlayerAnswerManager();
+    answerManager = new SimpleAnswerManager();
     
     // Get player info from localStorage
     currentGamePin = localStorage.getItem('gamePin');
     playerName = localStorage.getItem('playerName');
     
+    console.log('🎮 PLAYER: Retrieved - PIN:', currentGamePin, 'Name:', playerName);
+    
     if (!currentGamePin || !playerName) {
-        showStatus('Invalid game information. Redirecting...', 'error');
-        setTimeout(() => {
-            location.href = 'index.html';
-        }, 2000);
+        console.error('❌ PLAYER: Missing game information');
+        showStatus('Invalid game information. Please refresh and try again.', 'error');
         return;
     }
     
-    console.log('Player joining game:', currentGamePin, 'as', playerName);
+    // Update UI immediately
+    const gamePinEl = document.getElementById('player-game-pin');
+    const playerNameEl = document.getElementById('player-name-display');
     
-    document.getElementById('player-game-pin').textContent = currentGamePin;
-    document.getElementById('player-name-display').textContent = playerName;
+    if (gamePinEl) gamePinEl.textContent = currentGamePin;
+    if (playerNameEl) playerNameEl.textContent = playerName;
     
-    joinGame();
+    // Wait for Firebase to be ready
+    waitForFirebaseReady();
+}
+
+function waitForFirebaseReady() {
+    let attempts = 0;
+    const maxAttempts = 40;
+    
+    function checkReady() {
+        attempts++;
+        console.log(`🔄 PLAYER: Firebase check ${attempts}/${maxAttempts}`);
+        
+        const firebaseReady = typeof firebase !== 'undefined';
+        const databaseReady = typeof database !== 'undefined' && database && database.ref;
+        
+        console.log('🔍 PLAYER: Readiness check:', {
+            firebase: firebaseReady,
+            database: databaseReady
+        });
+        
+        if (firebaseReady && databaseReady) {
+            console.log('✅ PLAYER: Firebase and database ready!');
+            setTimeout(() => {
+                joinGame();
+            }, 500);
+        } else if (attempts >= maxAttempts) {
+            console.error('❌ PLAYER: Timeout after', maxAttempts, 'attempts');
+            showStatus('Connection timeout. Firebase/Database not loading.', 'error');
+        } else {
+            setTimeout(checkReady, 500);
+        }
+    }
+    
+    checkReady();
 }
 
 async function joinGame() {
+    console.log('🚀 PLAYER: Starting join process...');
+    showStatus('Checking game...', 'info');
+    
     try {
-        console.log('Creating game instance...');
-        playerGameInstance = new QuizGame(currentGamePin, false);
+        // SKIP DATABASE CONNECTION TEST - Go directly to game check
+        console.log('⚡ PLAYER: Skipping database connection test, proceeding directly...');
         
-        // Check if game exists
-        console.log('Checking if game exists...');
-        const gameExists = await checkGameExists();
-        if (!gameExists) {
-            showStatus('Game not found. Please check the PIN.', 'error');
-            setTimeout(() => location.href = 'index.html', 3000);
+        // Step 1: Check if game exists with detailed logging
+        console.log('🔍 PLAYER: Checking if game exists...');
+        const gameCheckResult = await checkGameExistsDetailed();
+        
+        if (!gameCheckResult.exists) {
+            console.error('❌ PLAYER: Game not found -', gameCheckResult.reason);
+            showStatus(gameCheckResult.message, 'error');
             return;
         }
         
-        console.log('Game exists, joining...');
-        // Join the game with the original player name
+        console.log('✅ PLAYER: Game found and joinable!');
+        showStatus('Game found! Joining...', 'info');
+        
+        // Step 2: Create game instance and join
+        playerGameInstance = new SimpleQuizGame(currentGamePin, false);
         playerId = await playerGameInstance.joinGame(playerName);
         
-        if (playerId) {
-            console.log('Successfully joined game with player ID:', playerId);
-            showStatus('Successfully joined the game!', 'success');
-            
-            // Hide joining screen and show lobby
-            hideElement('joining-game');
-            showElement('waiting-lobby');
-            
-            // Listen for game state changes
-            playerGameInstance.listenToGameState(onGameStateChange);
-            playerGameInstance.listenToPlayers(onPlayersUpdate);
-            
-        } else {
-            console.error('Failed to get player ID');
-            showStatus('Failed to join game. Please try again.', 'error');
+        if (!playerId) {
+            throw new Error('Failed to get player ID from join operation');
         }
+        
+        console.log('🎉 PLAYER: Successfully joined with ID:', playerId);
+        
+        // Step 3: Update UI and set up listeners
+        hideElement('joining-game');
+        showElement('waiting-lobby');
+        showStatus('Joined successfully!', 'success');
+        
+        // Step 4: Start listening for game updates
+        console.log('🎧 PLAYER: Setting up listeners...');
+        playerGameInstance.listenToGameState(onGameStateChange);
+        playerGameInstance.listenToPlayers(onPlayersUpdate);
+        
+        console.log('✅ PLAYER: Setup complete! Waiting for game to start...');
+        
     } catch (error) {
-        console.error('Error joining game:', error);
-        showStatus('Connection error. Please check your internet connection.', 'error');
+        console.error('💥 PLAYER: Join failed:', error);
+        showStatus('Failed to join: ' + error.message, 'error');
     }
 }
 
-async function checkGameExists() {
+function checkGameExistsDetailed() {
     return new Promise((resolve) => {
-        getGameRef(currentGamePin).once('value', (snapshot) => {
-            const exists = snapshot.exists();
-            console.log('Game exists check result:', exists);
-            resolve(exists);
+        console.log('🔍 PLAYER: Detailed game check for PIN:', currentGamePin);
+        
+        const gameRef = database.ref(`games/${currentGamePin}`);
+        
+        const timeout = setTimeout(() => {
+            console.error('⏰ PLAYER: Game check timeout');
+            resolve({
+                exists: false,
+                reason: 'timeout',
+                message: 'Connection timeout. Please check your internet and try again.'
+            });
+        }, 10000);
+        
+        gameRef.once('value', (snapshot) => {
+            clearTimeout(timeout);
+            const gameData = snapshot.val();
+            
+            console.log('📦 PLAYER: Game data received:', !!gameData);
+            console.log('📊 PLAYER: Raw game data:', gameData);
+            
+            if (!gameData) {
+                console.log('❌ PLAYER: No game data found');
+                resolve({
+                    exists: false,
+                    reason: 'not_found',
+                    message: 'Game not found. Please check the PIN and try again.'
+                });
+                return;
+            }
+            
+            console.log('📋 PLAYER: Game details:', {
+                hasQuiz: !!gameData.quiz,
+                hasGameState: !!gameData.gameState,
+                status: gameData.gameState?.status,
+                quizTitle: gameData.quiz?.title,
+                questionCount: gameData.quiz?.questions?.length,
+                playerCount: Object.keys(gameData.players || {}).length
+            });
+            
+            // Check if game has required data
+            if (!gameData.quiz || !gameData.quiz.questions || gameData.quiz.questions.length === 0) {
+                console.error('❌ PLAYER: Invalid quiz data');
+                resolve({
+                    exists: false,
+                    reason: 'invalid_quiz',
+                    message: 'Game has invalid quiz data.'
+                });
+                return;
+            }
+            
+            // Check if game is joinable
+            const gameStatus = gameData.gameState?.status;
+            if (gameStatus && gameStatus !== 'waiting') {
+                console.error('❌ PLAYER: Game not joinable, status:', gameStatus);
+                resolve({
+                    exists: false,
+                    reason: 'game_started',
+                    message: `Game has already ${gameStatus}. Cannot join now.`
+                });
+                return;
+            }
+            
+            console.log('✅ PLAYER: Game is valid and joinable');
+            resolve({
+                exists: true,
+                reason: 'success',
+                message: 'Game found!'
+            });
+            
         }, (error) => {
-            console.error('Error checking game existence:', error);
-            resolve(false);
+            clearTimeout(timeout);
+            console.error('💥 PLAYER: Database error during game check:', error);
+            console.error('💥 PLAYER: Error details:', error.message, error.code);
+            resolve({
+                exists: false,
+                reason: 'database_error',
+                message: 'Database error: ' + error.message
+            });
         });
     });
 }
 
 function onGameStateChange(gameState) {
-    console.log('Game state changed:', gameState);
+    console.log('🎮 PLAYER: Game state changed:', gameState?.status);
     
     if (!gameState) {
-        console.log('No game state received');
+        console.log('⚠️ PLAYER: No game state received');
         return;
     }
     
     switch (gameState.status) {
         case 'waiting':
-            console.log('Game status: waiting');
+            console.log('🏠 PLAYER: Game waiting - showing lobby');
             showWaitingLobby();
             break;
         case 'playing':
-            console.log('Game status: playing, question:', gameState.currentQuestion);
-            // Reset answer state for new question
+            console.log('🎯 PLAYER: Game playing - showing question');
             hasAnswered = false;
-            playerAnswerManager.startQuestion(gameState.questionStartTime);
+            if (answerManager) {
+                answerManager.startQuestion(gameState.questionStartTime);
+            }
             showActiveQuestion(gameState);
             break;
         case 'finished':
-            console.log('Game status: finished');
+            console.log('🏁 PLAYER: Game finished - showing results');
             showFinalResults();
             break;
         default:
-            console.log('Unknown game status:', gameState.status);
+            console.log('❓ PLAYER: Unknown game status:', gameState.status);
     }
 }
 
 function onPlayersUpdate(players) {
-    console.log('Players updated:', Object.keys(players).length, 'players');
-    
     const playerCount = Object.keys(players).length;
+    console.log('👥 PLAYER: Players update - count:', playerCount);
     
-    // Update lobby player count
-    const lobbyCountEl = document.getElementById('lobby-player-count');
-    if (lobbyCountEl) {
-        lobbyCountEl.textContent = playerCount;
-    }
+    // Update lobby count
+    const countEl = document.getElementById('lobby-player-count');
+    if (countEl) countEl.textContent = playerCount;
     
-    // Update current player score and score breakdown
+    // Update player score
     if (players[playerId]) {
-        const playerData = players[playerId];
-        playerScore = playerData.score || 0;
-        console.log('Player score updated:', playerScore);
-        
-        // Show score breakdown if available
-        if (playerData.scoreBreakdown && playerData.questionScore !== undefined) {
-            showScoreBreakdown(playerData.scoreBreakdown, playerData.questionScore);
-        }
-        
+        playerScore = players[playerId].score || 0;
         updateScoreDisplay();
     }
     
-    // Update leaderboards
     updateLeaderboards(players);
 }
 
-function showScoreBreakdown(breakdown, questionScore) {
-    // Create or update score breakdown display
-    let breakdownEl = document.getElementById('score-breakdown');
-    if (!breakdownEl) {
-        breakdownEl = document.createElement('div');
-        breakdownEl.id = 'score-breakdown';
-        breakdownEl.style.cssText = `
-            background: rgba(255, 255, 255, 0.95);
-            color: #333;
-            padding: 15px;
-            border-radius: 10px;
-            margin: 15px 0;
-            border-left: 4px solid #4caf50;
-            font-size: 14px;
-        `;
-        
-        // Add to the waiting-next screen
-        const waitingNext = document.getElementById('waiting-next');
-        const scoreInfo = waitingNext.querySelector('#score-info');
-        if (scoreInfo) {
-            scoreInfo.appendChild(breakdownEl);
-        }
-    }
-    
-    breakdownEl.innerHTML = `
-        <h4 style="margin: 0 0 10px 0; color: #4caf50;">Question Score: +${questionScore} points</h4>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12px;">
-            <div>Base Score: ${breakdown.baseScore}</div>
-            <div>Speed Bonus: +${breakdown.speedBonus}</div>
-            <div>Correct Bonus: +${breakdown.correctBonus}</div>
-            <div>Response Time: ${breakdown.responseTime?.toFixed(1)}s</div>
-        </div>
-        <div style="margin-top: 10px; font-weight: bold; color: #667eea;">
-            ${breakdown.message}
-        </div>
-    `;
-}
-
 function showWaitingLobby() {
-    console.log('Showing waiting lobby');
+    console.log('🏠 PLAYER: Showing lobby');
     hideAllScreens();
     showElement('waiting-lobby');
 }
 
 function showActiveQuestion(gameState) {
-    console.log('Showing active question for question index:', gameState.currentQuestion);
+    console.log('❓ PLAYER: Showing question', gameState.currentQuestion);
     
-    // Get current question from Firebase
-    getGameRef(currentGamePin).once('value', (snapshot) => {
+    // Get question from Firebase
+    database.ref(`games/${currentGamePin}`).once('value', (snapshot) => {
         const gameData = snapshot.val();
-        if (gameData && gameData.quiz && gameData.quiz.questions) {
-            const question = gameData.quiz.questions[gameState.currentQuestion];
-            if (question) {
-                console.log('Displaying question:', question.question);
-                currentQuestionData = {
-                    ...question,
-                    questionIndex: gameState.currentQuestion,
-                    startTime: gameState.questionStartTime || Date.now()
-                };
-                displayQuestion(question, gameState.currentQuestion + 1, gameState.questionStartTime);
-            } else {
-                console.error('Question not found at index:', gameState.currentQuestion);
-            }
+        const question = gameData?.quiz?.questions?.[gameState.currentQuestion];
+        
+        if (question) {
+            console.log('📝 PLAYER: Question loaded:', question.question.substring(0, 50) + '...');
+            displayQuestion(question, gameState.currentQuestion + 1);
         } else {
-            console.error('Game data or questions not found');
+            console.error('❌ PLAYER: Question not found at index:', gameState.currentQuestion);
+            showStatus('Error loading question', 'error');
         }
     }, (error) => {
-        console.error('Error fetching question:', error);
+        console.error('💥 PLAYER: Error fetching question:', error);
+        showStatus('Error loading question', 'error');
     });
 }
 
-function displayQuestion(question, questionNumber, startTime) {
-    console.log('Displaying question', questionNumber, ':', question.question);
+function displayQuestion(question, questionNumber) {
+    console.log('📝 PLAYER: Displaying question', questionNumber);
     
     hideAllScreens();
     showElement('active-question');
     
-    // Clear any existing timer
+    // Clear timer
     if (currentTimerInterval) {
         clearInterval(currentTimerInterval);
-        currentTimerInterval = null;
     }
     
-    // Set question start time
-    questionStartTime = startTime || Date.now();
-    playerAnswerManager.startQuestion(questionStartTime);
-    
+    // Update UI
     document.getElementById('question-num').textContent = questionNumber;
     document.getElementById('question-text').textContent = question.question;
     
     // Create answer buttons
-    const answersGrid = document.getElementById('answers-grid');
-    answersGrid.innerHTML = '';
+    const grid = document.getElementById('answers-grid');
+    grid.innerHTML = '';
     hasAnswered = false;
     
     question.answers.forEach((answer, index) => {
-        const answerBtn = document.createElement('button');
-        answerBtn.className = 'answer-btn';
-        answerBtn.textContent = answer;
-        answerBtn.onclick = () => selectAnswer(index);
-        answersGrid.appendChild(answerBtn);
+        const btn = document.createElement('button');
+        btn.className = 'answer-btn';
+        btn.textContent = answer;
+        btn.onclick = () => selectAnswer(index);
+        grid.appendChild(btn);
     });
     
     // Start timer
-    startQuestionTimer(question.timeLimit || 20);
+    startTimer(question.timeLimit || 20);
     hideElement('answer-feedback');
 }
 
-function startQuestionTimer(duration) {
-    const timerDisplay = document.getElementById('question-timer');
+function startTimer(duration) {
+    const display = document.getElementById('question-timer');
     let timeLeft = duration;
     
-    const updateTimer = () => {
-        const minutes = Math.floor(timeLeft / 60);
-        const seconds = timeLeft % 60;
-        timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    const update = () => {
+        const mins = Math.floor(timeLeft / 60);
+        const secs = timeLeft % 60;
+        display.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
         
         if (timeLeft <= 0) {
             clearInterval(currentTimerInterval);
-            currentTimerInterval = null;
-            onQuestionTimeout();
+            onTimeout();
         } else {
             timeLeft--;
         }
     };
     
-    updateTimer();
-    currentTimerInterval = setInterval(updateTimer, 1000);
+    update();
+    currentTimerInterval = setInterval(update, 1000);
 }
 
 async function selectAnswer(answerIndex) {
-    if (hasAnswered || !playerAnswerManager.canAnswer()) return;
+    if (hasAnswered) {
+        console.log('⚠️ PLAYER: Already answered, ignoring click');
+        return;
+    }
     
-    console.log('Player selected answer:', answerIndex);
+    console.log('✅ PLAYER: Selected answer:', answerIndex);
     hasAnswered = true;
-    playerAnswerManager.markAnswered();
+    if (answerManager) {
+        answerManager.markAnswered();
+    }
     
-    const responseTime = playerAnswerManager.getResponseTime();
+    const responseTime = answerManager ? answerManager.getResponseTime() : 0;
     
     // Clear timer
     if (currentTimerInterval) {
         clearInterval(currentTimerInterval);
-        currentTimerInterval = null;
     }
     
-    // Disable all answer buttons and highlight selected
-    const answerButtons = document.querySelectorAll('.answer-btn');
-    answerButtons.forEach((btn, index) => {
+    // Update UI
+    const buttons = document.querySelectorAll('.answer-btn');
+    buttons.forEach((btn, index) => {
         btn.disabled = true;
         if (index === answerIndex) {
             btn.style.transform = 'scale(1.05)';
-            btn.style.opacity = '0.8';
             btn.style.border = '3px solid #fff';
         }
     });
     
-    // Submit answer with time tracking to Firebase
-    const success = await submitAnswerWithTime(answerIndex, responseTime);
-    if (success) {
-        console.log('Answer submitted successfully with response time:', responseTime);
-        showAnswerFeedback(`Answer submitted! (${responseTime.toFixed(1)}s)`);
-        setTimeout(() => {
-            showWaitingForNext();
-        }, 1500);
-    } else {
-        console.error('Failed to submit answer');
+    // Submit answer
+    try {
+        const playerRef = database.ref(`games/${currentGamePin}/players/${playerId}`);
+        await playerRef.update({
+            currentAnswer: answerIndex,
+            responseTime: responseTime,
+            status: 'answered',
+            answerTime: Date.now()
+        });
+        
+        console.log('📤 PLAYER: Answer submitted successfully');
+        showFeedback(`Answer submitted! (${responseTime.toFixed(1)}s)`);
+        setTimeout(showWaitingNext, 1500);
+        
+    } catch (error) {
+        console.error('💥 PLAYER: Submit failed:', error);
         showStatus('Failed to submit answer', 'error');
+        
+        // Reset answer state so they can try again
         hasAnswered = false;
-        playerAnswerManager = new PlayerAnswerManager(); // Reset
-        answerButtons.forEach(btn => {
+        if (answerManager) {
+            answerManager = new SimpleAnswerManager();
+        }
+        
+        buttons.forEach(btn => {
             btn.disabled = false;
             btn.style.transform = '';
-            btn.style.opacity = '';
             btn.style.border = '';
         });
     }
 }
 
-async function submitAnswerWithTime(answerIndex, responseTime) {
-    try {
-        const playerRef = getPlayersRef(currentGamePin).child(playerId);
-        
-        const answerData = {
-            currentAnswer: answerIndex,
-            responseTime: responseTime,
-            status: 'answered',
-            answerTime: Date.now()
-        };
-        
-        await playerRef.update(answerData);
-        return true;
-        
-    } catch (error) {
-        console.error('Error submitting answer with time:', error);
-        return false;
-    }
-}
-
-function onQuestionTimeout() {
-    console.log('Question timeout reached');
-    if (!hasAnswered && playerAnswerManager.canAnswer()) {
+function onTimeout() {
+    console.log('⏰ PLAYER: Question timeout');
+    if (!hasAnswered) {
         hasAnswered = true;
-        playerAnswerManager.markAnswered();
-        showAnswerFeedback('Time\'s up!');
-        setTimeout(() => {
-            showWaitingForNext();
-        }, 1500);
+        showFeedback('Time\'s up!');
+        setTimeout(showWaitingNext, 1500);
     }
 }
 
-function showAnswerFeedback(message) {
-    const feedbackEl = document.getElementById('answer-feedback');
+function showFeedback(message) {
+    const feedback = document.getElementById('answer-feedback');
     const messageEl = document.getElementById('feedback-message');
-    messageEl.textContent = message;
+    if (messageEl) messageEl.textContent = message;
     showElement('answer-feedback');
 }
 
-function showWaitingForNext() {
-    console.log('Showing waiting for next question screen');
+function showWaitingNext() {
+    console.log('⏳ PLAYER: Waiting for next question');
     hideAllScreens();
     showElement('waiting-next');
     updateScoreDisplay();
-    
-    // Clear any existing score breakdown
-    const existingBreakdown = document.getElementById('score-breakdown');
-    if (existingBreakdown) {
-        existingBreakdown.remove();
-    }
 }
 
 function updateScoreDisplay() {
     const scoreEl = document.getElementById('current-score');
-    if (scoreEl) {
-        scoreEl.textContent = playerScore;
-    }
+    if (scoreEl) scoreEl.textContent = playerScore;
     
-    const finalScoreEl = document.getElementById('player-final-score');
-    if (finalScoreEl) {
-        finalScoreEl.textContent = `${playerScore} points`;
-    }
+    const finalEl = document.getElementById('player-final-score');
+    if (finalEl) finalEl.textContent = `${playerScore} points`;
 }
 
 function updateLeaderboards(players) {
-    const sortedPlayers = Object.values(players).sort((a, b) => (b.score || 0) - (a.score || 0));
+    const sorted = Object.values(players).sort((a, b) => (b.score || 0) - (a.score || 0));
     
-    // Update current leaderboard
-    updateLeaderboard('current-leaderboard', sortedPlayers.slice(0, 5));
+    updateLeaderboard('current-leaderboard', sorted.slice(0, 5));
+    updateLeaderboard('final-leaderboard-player', sorted);
     
-    // Update final leaderboard
-    updateLeaderboard('final-leaderboard-player', sortedPlayers);
-    
-    // Update player rank
-    const playerRank = sortedPlayers.findIndex(p => p.id === playerId) + 1;
+    const rank = sorted.findIndex(p => p.id === playerId) + 1;
     const rankEl = document.getElementById('player-final-rank');
-    if (rankEl) {
-        rankEl.textContent = `#${playerRank} of ${sortedPlayers.length}`;
-    }
-    
-    // Update result message based on performance
-    const resultMessageEl = document.getElementById('result-message');
-    if (resultMessageEl && playerRank) {
-        resultMessageEl.textContent = getResultMessage(playerScore, sortedPlayers.length, playerRank);
-    }
+    if (rankEl) rankEl.textContent = `#${rank} of ${sorted.length}`;
 }
 
 function updateLeaderboard(elementId, players) {
-    const leaderboard = document.getElementById(elementId);
-    if (!leaderboard) return;
+    const board = document.getElementById(elementId);
+    if (!board) return;
     
-    leaderboard.innerHTML = '<h3>🏆 Leaderboard</h3>';
+    board.innerHTML = '<h3>🏆 Leaderboard</h3>';
     
     players.forEach((player, index) => {
-        const playerScoreDiv = document.createElement('div');
-        playerScoreDiv.className = `player-score ${index < 3 ? `rank-${index + 1}` : ''}`;
+        const div = document.createElement('div');
+        div.className = `player-score ${index < 3 ? `rank-${index + 1}` : ''}`;
         
-        // Highlight current player
         if (player.id === playerId) {
-            playerScoreDiv.style.backgroundColor = '#e3f2fd';
-            playerScoreDiv.style.fontWeight = 'bold';
-            playerScoreDiv.style.border = '2px solid #2196f3';
+            div.style.backgroundColor = '#e3f2fd';
+            div.style.fontWeight = 'bold';
         }
         
-        playerScoreDiv.innerHTML = `
-            <span class="player-name">#${index + 1} ${player.name} ${player.id === playerId ? '(You)' : ''}</span>
-            <span class="player-points">${player.score || 0} points</span>
+        div.innerHTML = `
+            <span>#${index + 1} ${player.name} ${player.id === playerId ? '(You)' : ''}</span>
+            <span>${player.score || 0} points</span>
         `;
-        leaderboard.appendChild(playerScoreDiv);
+        board.appendChild(div);
     });
 }
 
 function showFinalResults() {
-    console.log('Showing final results');
+    console.log('🏁 PLAYER: Showing final results');
     
-    // Clear any existing timer
     if (currentTimerInterval) {
         clearInterval(currentTimerInterval);
-        currentTimerInterval = null;
     }
     
     hideAllScreens();
@@ -452,67 +566,41 @@ function showFinalResults() {
 }
 
 function hideAllScreens() {
-    const screens = [
-        'joining-game', 
-        'waiting-lobby', 
-        'active-question', 
-        'waiting-next', 
-        'final-results'
-    ];
+    const screens = ['joining-game', 'waiting-lobby', 'active-question', 'waiting-next', 'final-results'];
     screens.forEach(hideElement);
 }
 
-function hideElement(elementId) {
-    const element = document.getElementById(elementId);
-    if (element) element.style.display = 'none';
+function hideElement(id) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
 }
 
-function showElement(elementId) {
-    const element = document.getElementById(elementId);
-    if (element) element.style.display = 'block';
+function showElement(id) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'block';
 }
 
 function showStatus(message, type) {
-    const statusEl = document.getElementById('status');
-    if (statusEl) {
-        statusEl.textContent = message;
-        statusEl.className = `status-message ${type}`;
+    console.log(`📢 PLAYER (${type}):`, message);
+    const status = document.getElementById('status');
+    if (status) {
+        status.textContent = message;
+        status.className = `status-message ${type}`;
         setTimeout(() => {
-            statusEl.textContent = '';
-            statusEl.className = 'status-message';
+            status.textContent = '';
+            status.className = 'status-message';
         }, 3000);
     }
 }
 
-// Result messages based on performance
-function getResultMessage(score, totalPlayers, rank) {
-    if (rank === 1) {
-        return "🏆 Outstanding! You're the Champion!";
-    } else if (rank <= 3) {
-        return "🥉 Excellent! You made the podium!";
-    } else if (rank <= Math.ceil(totalPlayers / 2)) {
-        return "👍 Great job! Above average performance!";
-    } else {
-        return "👏 Thanks for playing! Keep practicing!";
-    }
-}
-
-// Cleanup when leaving the page
+// Cleanup
 window.addEventListener('beforeunload', () => {
-    console.log('Player page unloading, cleaning up...');
-    
-    if (currentTimerInterval) {
-        clearInterval(currentTimerInterval);
-    }
-    
-    if (playerGameInstance) {
-        playerGameInstance.cleanup();
-    }
-    
-    // Clear localStorage
+    console.log('🧹 PLAYER: Page unloading - cleanup');
+    if (currentTimerInterval) clearInterval(currentTimerInterval);
+    if (playerGameInstance) playerGameInstance.cleanup();
     localStorage.removeItem('gamePin');
     localStorage.removeItem('playerName');
 });
 
-// Auto-initialize when page loads
+// Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', initializePlayer);
