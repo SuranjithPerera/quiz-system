@@ -1,4 +1,4 @@
-// Player.js - Skip Database Connection Test (Fixed)
+// Player.js - Enhanced with State Recovery
 let playerGameInstance = null;
 let playerId = null;
 let playerName = null;
@@ -8,6 +8,17 @@ let hasAnswered = false;
 let questionStartTime = null;
 let currentTimerInterval = null;
 let currentQuestionData = null;
+let isRecoveringState = false;
+
+// State persistence keys for player
+const PLAYER_STATE_KEYS = {
+    GAME_PIN: 'player_game_pin',
+    PLAYER_NAME: 'player_player_name',
+    PLAYER_ID: 'player_player_id',
+    GAME_STATE: 'player_game_state',
+    IS_ACTIVE: 'player_is_active',
+    CURRENT_SCORE: 'player_current_score'
+};
 
 // Simple Answer Manager (built-in)
 class SimpleAnswerManager {
@@ -67,6 +78,34 @@ class SimpleQuizGame {
         }
     }
 
+    async rejoinGame(existingPlayerId, playerName) {
+        try {
+            console.log('🔄 GAME: Rejoining game with existing ID:', existingPlayerId);
+            
+            const playerRef = database.ref(`games/${this.gamePin}/players/${existingPlayerId}`);
+            
+            // Check if player still exists in the game
+            const snapshot = await playerRef.once('value');
+            if (!snapshot.exists()) {
+                console.log('❌ GAME: Player no longer exists, creating new...');
+                return await this.joinGame(playerName);
+            }
+            
+            // Update rejoined status
+            await playerRef.update({
+                status: 'waiting',
+                rejoinedAt: Date.now()
+            });
+            
+            console.log('✅ GAME: Successfully rejoined game');
+            return existingPlayerId;
+        } catch (error) {
+            console.error('💥 GAME: Error rejoining game:', error);
+            // Fallback to new join
+            return await this.joinGame(playerName);
+        }
+    }
+
     listenToGameState(callback) {
         console.log('🎧 GAME: Setting up game state listener');
         const gameStateRef = database.ref(`games/${this.gamePin}/gameState`);
@@ -111,30 +150,217 @@ function initializePlayer() {
     // Initialize answer manager
     answerManager = new SimpleAnswerManager();
     
-    // Get player info from localStorage
-    currentGamePin = localStorage.getItem('gamePin');
-    playerName = localStorage.getItem('playerName');
+    // Check for state recovery first
+    const needsRecovery = checkForStateRecovery();
     
-    console.log('🎮 PLAYER: Retrieved - PIN:', currentGamePin, 'Name:', playerName);
-    
-    if (!currentGamePin || !playerName) {
-        console.error('❌ PLAYER: Missing game information');
-        showStatus('Invalid game information. Please refresh and try again.', 'error');
-        return;
+    if (needsRecovery) {
+        console.log('🔄 PLAYER: Recovery needed, starting recovery process...');
+        waitForFirebaseReady(() => {
+            recoverPlayerState();
+        });
+    } else {
+        // Get player info from localStorage (new join)
+        currentGamePin = localStorage.getItem('gamePin');
+        playerName = localStorage.getItem('playerName');
+        
+        console.log('🎮 PLAYER: Retrieved - PIN:', currentGamePin, 'Name:', playerName);
+        
+        if (!currentGamePin || !playerName) {
+            console.error('❌ PLAYER: Missing game information');
+            showStatus('Invalid game information. Please refresh and try again.', 'error');
+            return;
+        }
+        
+        // Update UI immediately
+        const gamePinEl = document.getElementById('player-game-pin');
+        const playerNameEl = document.getElementById('player-name-display');
+        
+        if (gamePinEl) gamePinEl.textContent = currentGamePin;
+        if (playerNameEl) playerNameEl.textContent = playerName;
+        
+        // Wait for Firebase to be ready
+        waitForFirebaseReady(() => {
+            joinGame();
+        });
     }
-    
-    // Update UI immediately
-    const gamePinEl = document.getElementById('player-game-pin');
-    const playerNameEl = document.getElementById('player-name-display');
-    
-    if (gamePinEl) gamePinEl.textContent = currentGamePin;
-    if (playerNameEl) playerNameEl.textContent = playerName;
-    
-    // Wait for Firebase to be ready
-    waitForFirebaseReady();
 }
 
-function waitForFirebaseReady() {
+// State Recovery Functions
+function checkForStateRecovery() {
+    const isActive = localStorage.getItem(PLAYER_STATE_KEYS.IS_ACTIVE);
+    const savedGamePin = localStorage.getItem(PLAYER_STATE_KEYS.GAME_PIN);
+    const savedPlayerId = localStorage.getItem(PLAYER_STATE_KEYS.PLAYER_ID);
+    const savedPlayerName = localStorage.getItem(PLAYER_STATE_KEYS.PLAYER_NAME);
+    
+    console.log('🔍 PLAYER: Checking recovery state:', {
+        isActive: !!isActive,
+        hasGamePin: !!savedGamePin,
+        hasPlayerId: !!savedPlayerId,
+        hasPlayerName: !!savedPlayerName
+    });
+    
+    return isActive && savedGamePin && savedPlayerId && savedPlayerName;
+}
+
+async function recoverPlayerState() {
+    console.log('🔄 PLAYER: Starting state recovery...');
+    isRecoveringState = true;
+    
+    try {
+        // Get saved state
+        currentGamePin = localStorage.getItem(PLAYER_STATE_KEYS.GAME_PIN);
+        playerId = localStorage.getItem(PLAYER_STATE_KEYS.PLAYER_ID);
+        playerName = localStorage.getItem(PLAYER_STATE_KEYS.PLAYER_NAME);
+        const savedGameState = localStorage.getItem(PLAYER_STATE_KEYS.GAME_STATE);
+        const savedScore = localStorage.getItem(PLAYER_STATE_KEYS.CURRENT_SCORE);
+        
+        if (savedScore) {
+            playerScore = parseInt(savedScore) || 0;
+        }
+        
+        console.log('📝 PLAYER: Recovered state:', {
+            gamePin: currentGamePin,
+            playerId,
+            playerName,
+            gameState: savedGameState,
+            score: playerScore
+        });
+        
+        // Update UI
+        const gamePinEl = document.getElementById('player-game-pin');
+        const playerNameEl = document.getElementById('player-name-display');
+        
+        if (gamePinEl) gamePinEl.textContent = currentGamePin;
+        if (playerNameEl) playerNameEl.textContent = playerName;
+        
+        // Check if game still exists
+        const gameExists = await checkGameExists(currentGamePin);
+        if (!gameExists) {
+            console.log('❌ PLAYER: Game no longer exists');
+            clearPlayerState();
+            showStatus('Game no longer exists', 'error');
+            setTimeout(() => {
+                window.location.href = 'index.html';
+            }, 3000);
+            return;
+        }
+        
+        // Rejoin the game
+        playerGameInstance = new SimpleQuizGame(currentGamePin, false);
+        const rejoinedPlayerId = await playerGameInstance.rejoinGame(playerId, playerName);
+        
+        if (rejoinedPlayerId) {
+            playerId = rejoinedPlayerId;
+            
+            // Get current game state to determine which screen to show
+            const gameStateRef = database.ref(`games/${currentGamePin}/gameState`);
+            const gameStateSnapshot = await gameStateRef.once('value');
+            const currentGameState = gameStateSnapshot.val();
+            
+            if (currentGameState) {
+                await recoverToCorrectScreen(currentGameState, savedGameState);
+            } else {
+                // Default to lobby
+                showWaitingLobby();
+            }
+            
+            // Set up listeners
+            playerGameInstance.listenToGameState(onGameStateChange);
+            playerGameInstance.listenToPlayers(onPlayersUpdate);
+            
+            showStatus('Reconnected to game!', 'success');
+            console.log('✅ PLAYER: State recovery complete');
+        } else {
+            throw new Error('Failed to rejoin game');
+        }
+        
+    } catch (error) {
+        console.error('💥 PLAYER: Recovery failed:', error);
+        clearPlayerState();
+        showStatus('Failed to reconnect to game', 'error');
+        setTimeout(() => {
+            window.location.href = 'index.html';
+        }, 3000);
+    } finally {
+        isRecoveringState = false;
+    }
+}
+
+async function recoverToCorrectScreen(currentGameState, savedGameState) {
+    console.log('🎯 PLAYER: Recovering to correct screen:', currentGameState.status);
+    
+    switch (currentGameState.status) {
+        case 'waiting':
+            showWaitingLobby();
+            break;
+        case 'playing':
+            // Get current question and show it
+            const gameRef = database.ref(`games/${currentGamePin}`);
+            const gameSnapshot = await gameRef.once('value');
+            const gameData = gameSnapshot.val();
+            
+            if (gameData && gameData.quiz && gameData.quiz.questions) {
+                const currentQuestion = gameData.quiz.questions[currentGameState.currentQuestion];
+                if (currentQuestion) {
+                    showActiveQuestion(currentGameState);
+                } else {
+                    showWaitingNext();
+                }
+            } else {
+                showWaitingLobby();
+            }
+            break;
+        case 'finished':
+            showFinalResults();
+            break;
+        default:
+            showWaitingLobby();
+    }
+}
+
+async function checkGameExists(gamePin) {
+    try {
+        const gameRef = database.ref(`games/${gamePin}`);
+        const snapshot = await gameRef.once('value');
+        return snapshot.exists();
+    } catch (error) {
+        console.error('Error checking game existence:', error);
+        return false;
+    }
+}
+
+function savePlayerState(gameState = 'lobby') {
+    try {
+        localStorage.setItem(PLAYER_STATE_KEYS.IS_ACTIVE, 'true');
+        localStorage.setItem(PLAYER_STATE_KEYS.GAME_PIN, currentGamePin);
+        localStorage.setItem(PLAYER_STATE_KEYS.PLAYER_ID, playerId);
+        localStorage.setItem(PLAYER_STATE_KEYS.PLAYER_NAME, playerName);
+        localStorage.setItem(PLAYER_STATE_KEYS.GAME_STATE, gameState);
+        localStorage.setItem(PLAYER_STATE_KEYS.CURRENT_SCORE, playerScore.toString());
+        
+        console.log('💾 PLAYER: State saved:', {
+            gamePin: currentGamePin,
+            playerId,
+            gameState,
+            score: playerScore
+        });
+    } catch (error) {
+        console.error('Error saving player state:', error);
+    }
+}
+
+function clearPlayerState() {
+    console.log('🧹 PLAYER: Clearing saved state');
+    Object.values(PLAYER_STATE_KEYS).forEach(key => {
+        localStorage.removeItem(key);
+    });
+    
+    // Also clear the original localStorage items
+    localStorage.removeItem('gamePin');
+    localStorage.removeItem('playerName');
+}
+
+function waitForFirebaseReady(callback) {
     let attempts = 0;
     const maxAttempts = 40;
     
@@ -153,7 +379,7 @@ function waitForFirebaseReady() {
         if (firebaseReady && databaseReady) {
             console.log('✅ PLAYER: Firebase and database ready!');
             setTimeout(() => {
-                joinGame();
+                callback();
             }, 500);
         } else if (attempts >= maxAttempts) {
             console.error('❌ PLAYER: Timeout after', maxAttempts, 'attempts');
@@ -206,6 +432,9 @@ async function joinGame() {
         console.log('🎧 PLAYER: Setting up listeners...');
         playerGameInstance.listenToGameState(onGameStateChange);
         playerGameInstance.listenToPlayers(onPlayersUpdate);
+        
+        // Save initial state
+        savePlayerState('lobby');
         
         console.log('✅ PLAYER: Setup complete! Waiting for game to start...');
         
@@ -269,12 +498,12 @@ function checkGameExistsDetailed() {
             
             // Check if game is joinable
             const gameStatus = gameData.gameState?.status;
-            if (gameStatus && gameStatus !== 'waiting') {
+            if (gameStatus && gameStatus !== 'waiting' && gameStatus !== 'playing') {
                 console.error('❌ PLAYER: Game not joinable, status:', gameStatus);
                 resolve({
                     exists: false,
-                    reason: 'game_started',
-                    message: `Game has already ${gameStatus}. Cannot join now.`
+                    reason: 'game_finished',
+                    message: `Game has ${gameStatus}. Cannot join now.`
                 });
                 return;
             }
@@ -311,6 +540,7 @@ function onGameStateChange(gameState) {
         case 'waiting':
             console.log('🏠 PLAYER: Game waiting - showing lobby');
             showWaitingLobby();
+            savePlayerState('lobby');
             break;
         case 'playing':
             console.log('🎯 PLAYER: Game playing - showing question');
@@ -319,10 +549,12 @@ function onGameStateChange(gameState) {
                 answerManager.startQuestion(gameState.questionStartTime);
             }
             showActiveQuestion(gameState);
+            savePlayerState('playing');
             break;
         case 'finished':
             console.log('🏁 PLAYER: Game finished - showing results');
             showFinalResults();
+            savePlayerState('finished');
             break;
         default:
             console.log('❓ PLAYER: Unknown game status:', gameState.status);
@@ -341,6 +573,7 @@ function onPlayersUpdate(players) {
     if (players[playerId]) {
         playerScore = players[playerId].score || 0;
         updateScoreDisplay();
+        savePlayerState(); // Save updated score
     }
     
     updateLeaderboards(players);
@@ -509,6 +742,7 @@ function showWaitingNext() {
     hideAllScreens();
     showElement('waiting-next');
     updateScoreDisplay();
+    savePlayerState('waiting-next');
 }
 
 function updateScoreDisplay() {
@@ -563,6 +797,11 @@ function showFinalResults() {
     hideAllScreens();
     showElement('final-results');
     updateScoreDisplay();
+    
+    // Clear state since game is finished
+    setTimeout(() => {
+        clearPlayerState();
+    }, 5000); // Clear after 5 seconds to allow viewing results
 }
 
 function hideAllScreens() {
@@ -598,8 +837,20 @@ window.addEventListener('beforeunload', () => {
     console.log('🧹 PLAYER: Page unloading - cleanup');
     if (currentTimerInterval) clearInterval(currentTimerInterval);
     if (playerGameInstance) playerGameInstance.cleanup();
-    localStorage.removeItem('gamePin');
-    localStorage.removeItem('playerName');
+    
+    // Only clear localStorage items for new joins, keep state for recovery
+    if (!isRecoveringState) {
+        localStorage.removeItem('gamePin');
+        localStorage.removeItem('playerName');
+    }
+});
+
+// Handle page visibility changes
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && playerId && currentGamePin) {
+        // Page became visible again, save current state
+        savePlayerState();
+    }
 });
 
 // Initialize when DOM is ready

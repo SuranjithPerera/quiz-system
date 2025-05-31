@@ -1,4 +1,4 @@
-// Complete Host Page JavaScript - Enhanced Version
+// Complete Host Page JavaScript - Enhanced Version with State Recovery
 let hostCurrentQuiz = null;
 let hostGameInstance = null;
 let hostCurrentQuizData = null;
@@ -7,6 +7,16 @@ let hostCurrentPlayers = {};
 let hostQuestionIndex = 0;
 let questionStartTime = null;
 let scoringSystem = null;
+let isRecoveringState = false;
+
+// State persistence keys
+const STATE_KEYS = {
+    GAME_PIN: 'host_game_pin',
+    CURRENT_QUIZ: 'host_current_quiz',
+    QUESTION_INDEX: 'host_question_index',
+    GAME_STATE: 'host_game_state',
+    IS_HOST_ACTIVE: 'host_is_active'
+};
 
 function initializeHost() {
     console.log('🎯 HOST: Initializing host page...');
@@ -29,9 +39,16 @@ function initializeHost() {
             if (user) {
                 console.log('✅ HOST: User authenticated:', user.email);
                 showUserStatus(user);
-                loadAvailableQuizzes();
+                
+                // Check if we need to recover from a refresh
+                checkAndRecoverState().then(() => {
+                    if (!isRecoveringState) {
+                        loadAvailableQuizzes();
+                    }
+                });
             } else {
                 console.log('❌ HOST: User not authenticated, redirecting...');
+                clearHostState(); // Clear any stale state
                 showStatus('Login required to host quizzes', 'error');
                 setTimeout(() => {
                     window.location.href = 'auth.html';
@@ -45,10 +62,198 @@ function initializeHost() {
     // Listen for user data updates
     window.addEventListener('userDataUpdated', (event) => {
         console.log('🔄 HOST: User data updated, refreshing quiz list');
-        loadAvailableQuizzes();
+        if (!isRecoveringState) {
+            loadAvailableQuizzes();
+        }
     });
     
     console.log('✅ HOST: Initialization complete');
+}
+
+// State Recovery Functions
+async function checkAndRecoverState() {
+    console.log('🔄 HOST: Checking for state recovery...');
+    
+    const isHostActive = localStorage.getItem(STATE_KEYS.IS_HOST_ACTIVE);
+    const savedGamePin = localStorage.getItem(STATE_KEYS.GAME_PIN);
+    const savedQuiz = localStorage.getItem(STATE_KEYS.CURRENT_QUIZ);
+    const savedGameState = localStorage.getItem(STATE_KEYS.GAME_STATE);
+    const savedQuestionIndex = localStorage.getItem(STATE_KEYS.QUESTION_INDEX);
+    
+    if (!isHostActive || !savedGamePin) {
+        console.log('✅ HOST: No active state to recover');
+        return;
+    }
+    
+    console.log('🔍 HOST: Found active state to recover:', {
+        gamePin: savedGamePin,
+        hasQuiz: !!savedQuiz,
+        gameState: savedGameState,
+        questionIndex: savedQuestionIndex
+    });
+    
+    try {
+        // Check if the game still exists in Firebase
+        const gameExists = await checkGameExists(savedGamePin);
+        if (!gameExists) {
+            console.log('❌ HOST: Game no longer exists, clearing state');
+            clearHostState();
+            return;
+        }
+        
+        isRecoveringState = true;
+        
+        // Restore the quiz data
+        if (savedQuiz) {
+            hostCurrentQuiz = JSON.parse(savedQuiz);
+            hostCurrentQuizData = hostCurrentQuiz;
+        }
+        
+        // Restore question index
+        if (savedQuestionIndex) {
+            hostQuestionIndex = parseInt(savedQuestionIndex);
+        }
+        
+        // Recreate game instance
+        hostGameInstance = new QuizGame(savedGamePin, true);
+        
+        // Determine which screen to show based on saved state
+        const gameState = savedGameState || 'lobby';
+        
+        switch (gameState) {
+            case 'lobby':
+                await recoverLobbyState(savedGamePin);
+                break;
+            case 'playing':
+                await recoverPlayingState(savedGamePin);
+                break;
+            case 'results':
+                await recoverResultsState(savedGamePin);
+                break;
+            default:
+                console.log('❓ HOST: Unknown game state, defaulting to lobby');
+                await recoverLobbyState(savedGamePin);
+        }
+        
+        showStatus('Game state recovered after refresh!', 'success');
+        console.log('✅ HOST: State recovery complete');
+        
+    } catch (error) {
+        console.error('💥 HOST: Error during state recovery:', error);
+        clearHostState();
+        showStatus('Failed to recover game state', 'error');
+        loadAvailableQuizzes();
+    } finally {
+        isRecoveringState = false;
+    }
+}
+
+async function checkGameExists(gamePin) {
+    try {
+        const gameRef = database.ref(`games/${gamePin}`);
+        const snapshot = await gameRef.once('value');
+        const gameData = snapshot.val();
+        return !!gameData;
+    } catch (error) {
+        console.error('Error checking game existence:', error);
+        return false;
+    }
+}
+
+async function recoverLobbyState(gamePin) {
+    console.log('🏠 HOST: Recovering lobby state');
+    
+    document.getElementById('game-pin').textContent = gamePin;
+    hideElement('quiz-selection');
+    showElement('game-lobby');
+    
+    // Set up listeners
+    hostGameInstance.listenToPlayers(updatePlayersList);
+    
+    // Get current players
+    const playersRef = database.ref(`games/${gamePin}/players`);
+    const snapshot = await playersRef.once('value');
+    const players = snapshot.val() || {};
+    updatePlayersList(players);
+}
+
+async function recoverPlayingState(gamePin) {
+    console.log('🎮 HOST: Recovering playing state');
+    
+    hideElement('quiz-selection');
+    hideElement('game-lobby');
+    showElement('active-game');
+    
+    document.getElementById('total-questions').textContent = hostCurrentQuiz.questions.length;
+    
+    // Get current game state from Firebase
+    const gameStateRef = database.ref(`games/${gamePin}/gameState`);
+    const gameStateSnapshot = await gameStateRef.once('value');
+    const gameState = gameStateSnapshot.val();
+    
+    if (gameState) {
+        hostQuestionIndex = gameState.currentQuestion || 0;
+        questionStartTime = gameState.questionStartTime;
+    }
+    
+    // Display current question
+    await displayQuestion(hostQuestionIndex);
+    
+    // Set up listeners
+    hostGameInstance.listenToPlayers(updatePlayerResponses);
+    
+    // Get current players
+    const playersRef = database.ref(`games/${gamePin}/players`);
+    const playersSnapshot = await playersRef.once('value');
+    const players = playersSnapshot.val() || {};
+    updatePlayerResponses(players);
+    
+    saveHostState('playing');
+}
+
+async function recoverResultsState(gamePin) {
+    console.log('🏆 HOST: Recovering results state');
+    
+    // Get final results
+    const playersRef = database.ref(`games/${gamePin}/players`);
+    const snapshot = await playersRef.once('value');
+    const players = snapshot.val() || {};
+    
+    hostCurrentPlayers = players;
+    showResults();
+}
+
+// State Persistence Functions
+function saveHostState(gameState = 'lobby') {
+    try {
+        localStorage.setItem(STATE_KEYS.IS_HOST_ACTIVE, 'true');
+        
+        if (hostGameInstance && hostGameInstance.gamePin) {
+            localStorage.setItem(STATE_KEYS.GAME_PIN, hostGameInstance.gamePin);
+        }
+        
+        if (hostCurrentQuiz) {
+            localStorage.setItem(STATE_KEYS.CURRENT_QUIZ, JSON.stringify(hostCurrentQuiz));
+        }
+        
+        localStorage.setItem(STATE_KEYS.GAME_STATE, gameState);
+        localStorage.setItem(STATE_KEYS.QUESTION_INDEX, hostQuestionIndex.toString());
+        
+        console.log('💾 HOST: State saved:', {
+            gameState,
+            questionIndex: hostQuestionIndex,
+            hasQuiz: !!hostCurrentQuiz
+        });
+    } catch (error) {
+        console.error('Error saving host state:', error);
+    }
+}
+
+function clearHostState() {
+    console.log('🧹 HOST: Clearing saved state');
+    Object.values(STATE_KEYS).forEach(key => {
+        localStorage.removeItem(key);
+    });
 }
 
 function showUserStatus(user) {
@@ -254,6 +459,9 @@ async function createGameSession() {
             
             hostGameInstance.listenToPlayers(updatePlayersList);
             showStatus('Game created! Share PIN: ' + gamePin, 'success');
+            
+            // Save state for recovery
+            saveHostState('lobby');
         } else {
             throw new Error('Failed to create game in database');
         }
@@ -310,6 +518,9 @@ async function startQuiz() {
         hostGameInstance.listenToPlayers(updatePlayerResponses);
         
         showStatus('Quiz started!', 'success');
+        
+        // Save state for recovery
+        saveHostState('playing');
     } else {
         showStatus('Failed to start quiz', 'error');
     }
@@ -358,6 +569,9 @@ async function displayQuestion(questionIndex) {
     
     hideElement('next-btn');
     hideElement('results-btn');
+    
+    // Update saved state
+    saveHostState('playing');
 }
 
 async function updateQuestionStartTime(questionIndex, timeLimit) {
@@ -548,6 +762,9 @@ function showResults() {
     if (hostGameInstance) {
         hostGameInstance.endGame();
     }
+    
+    // Save final state
+    saveHostState('results');
 }
 
 async function endQuiz() {
@@ -568,6 +785,9 @@ function resetGame() {
         clearInterval(hostQuestionTimer);
         hostQuestionTimer = null;
     }
+    
+    // Clear state
+    clearHostState();
     
     hostGameInstance = null;
     hostCurrentQuiz = null;
@@ -621,12 +841,16 @@ window.addEventListener('beforeunload', () => {
         clearInterval(hostQuestionTimer);
         hostQuestionTimer = null;
     }
+    
+    // Only clear state if we're actually leaving the site, not just refreshing
+    // The state will be cleared when the game naturally ends or user explicitly resets
 });
 
-// Auto-refresh quiz list when page becomes visible
+// Handle page visibility changes (tab switching, etc.)
 document.addEventListener('visibilitychange', () => {
     if (!document.hidden && document.getElementById('quiz-selection') && 
-        document.getElementById('quiz-selection').style.display !== 'none') {
+        document.getElementById('quiz-selection').style.display !== 'none' && 
+        !isRecoveringState) {
         loadAvailableQuizzes();
     }
 });

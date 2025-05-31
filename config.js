@@ -1,4 +1,4 @@
-// Enhanced Firebase Configuration with Better Error Handling
+// Enhanced Firebase Configuration with Better Error Handling and State Management
 const firebaseConfig = {
     apiKey: "AIzaSyDdVOTMNZfO-Pky1KWNcA0O1UKYBXDPlU8",
     authDomain: "quiz-system-1b9cc.firebaseapp.com",
@@ -88,11 +88,12 @@ let sessionData = {
     userData: {}
 };
 
-// Session Management Class
+// Enhanced Session Management Class with Recovery Support
 class SessionManager {
     constructor() {
         this.sessionKey = 'quizmaster_session';
         this.tempDataKey = 'quizmaster_temp_data';
+        this.recoveryKey = 'quizmaster_recovery';
         this.isInitialized = false;
     }
 
@@ -107,9 +108,56 @@ class SessionManager {
                 this.createNewSession();
             }
             this.isInitialized = true;
+            
+            // Handle recovery from unexpected shutdowns
+            this.handleRecovery();
         } catch (error) {
             console.error('Error initializing session:', error);
             this.createNewSession();
+        }
+    }
+
+    // Handle recovery scenarios
+    handleRecovery() {
+        try {
+            const recoveryData = localStorage.getItem(this.recoveryKey);
+            if (recoveryData) {
+                const recovery = JSON.parse(recoveryData);
+                const timeSinceLastSave = Date.now() - recovery.timestamp;
+                
+                // If less than 5 minutes, consider it a valid recovery scenario
+                if (timeSinceLastSave < 5 * 60 * 1000) {
+                    console.log('🔄 Recovery data found:', recovery);
+                    
+                    // Merge recovery data if it's newer
+                    if (recovery.sessionData && 
+                        (!sessionData.lastUpdated || recovery.sessionData.lastUpdated > sessionData.lastUpdated)) {
+                        sessionData = { ...sessionData, ...recovery.sessionData };
+                        this.saveSession();
+                        console.log('✅ Session recovered from recovery data');
+                    }
+                }
+                
+                // Clean up old recovery data
+                if (timeSinceLastSave > 10 * 60 * 1000) { // Older than 10 minutes
+                    localStorage.removeItem(this.recoveryKey);
+                }
+            }
+        } catch (error) {
+            console.error('Error during recovery handling:', error);
+        }
+    }
+
+    // Save recovery checkpoint
+    saveRecoveryCheckpoint() {
+        try {
+            const recoveryData = {
+                timestamp: Date.now(),
+                sessionData: { ...sessionData, lastUpdated: Date.now() }
+            };
+            localStorage.setItem(this.recoveryKey, JSON.stringify(recoveryData));
+        } catch (error) {
+            console.error('Error saving recovery checkpoint:', error);
         }
     }
 
@@ -121,6 +169,7 @@ class SessionManager {
             userData: {},
             sessionId: this.generateSessionId(),
             createdAt: Date.now(),
+            lastUpdated: Date.now(),
             isGuest: true
         };
         this.saveSession();
@@ -138,10 +187,18 @@ class SessionManager {
         }
     }
 
-    // Save session to localStorage
+    // Save session to localStorage with recovery checkpoint
     saveSession() {
         try {
+            sessionData.lastUpdated = Date.now();
             localStorage.setItem(this.sessionKey, JSON.stringify(sessionData));
+            
+            // Save recovery checkpoint every 30 seconds
+            if (!this.lastRecoveryCheckpoint || 
+                Date.now() - this.lastRecoveryCheckpoint > 30000) {
+                this.saveRecoveryCheckpoint();
+                this.lastRecoveryCheckpoint = Date.now();
+            }
         } catch (error) {
             console.error('Error saving session:', error);
         }
@@ -167,7 +224,7 @@ class SessionManager {
         return currentUser && !sessionData.isGuest;
     }
 
-    // Add quiz to session
+    // Add quiz to session with enhanced tracking
     addQuizToSession(quiz) {
         if (!sessionData.quizzes) {
             sessionData.quizzes = [];
@@ -193,24 +250,77 @@ class SessionManager {
         }
     }
 
-    // Save quiz to Firebase
-    async saveQuizToFirebase(userId, quiz) {
+    // Save quiz to Firebase with retry logic
+    async saveQuizToFirebase(userId, quiz, retryCount = 0) {
         try {
             if (typeof database === 'undefined') {
                 throw new Error('Firebase not available');
             }
+            
             await database.ref(`users/${userId}/quizzes/${quiz.id}`).set({
                 ...quiz,
                 userId: userId,
-                updatedAt: Date.now()
+                updatedAt: Date.now(),
+                syncedAt: Date.now()
             });
+            
+            console.log('✅ Quiz synced to Firebase:', quiz.title);
         } catch (error) {
             console.error('Error saving quiz to Firebase:', error);
+            
+            // Retry once after a delay
+            if (retryCount < 1) {
+                console.log('Retrying Firebase sync in 3 seconds...');
+                setTimeout(() => {
+                    this.saveQuizToFirebase(userId, quiz, retryCount + 1);
+                }, 3000);
+            } else {
+                // Store for later sync
+                this.queueForLaterSync(quiz);
+            }
             throw error;
         }
     }
 
-    // Load user data from Firebase when logged in
+    // Queue items for later sync when Firebase is available
+    queueForLaterSync(quiz) {
+        try {
+            let syncQueue = JSON.parse(localStorage.getItem('firebase_sync_queue') || '[]');
+            syncQueue.push({
+                type: 'quiz',
+                data: quiz,
+                timestamp: Date.now()
+            });
+            localStorage.setItem('firebase_sync_queue', JSON.stringify(syncQueue));
+            console.log('📦 Quiz queued for later sync:', quiz.title);
+        } catch (error) {
+            console.error('Error queuing for sync:', error);
+        }
+    }
+
+    // Process sync queue when Firebase becomes available
+    async processSyncQueue(userId) {
+        try {
+            const syncQueue = JSON.parse(localStorage.getItem('firebase_sync_queue') || '[]');
+            if (syncQueue.length === 0) return;
+            
+            console.log('🔄 Processing sync queue:', syncQueue.length, 'items');
+            
+            for (const item of syncQueue) {
+                if (item.type === 'quiz') {
+                    await this.saveQuizToFirebase(userId, item.data);
+                }
+            }
+            
+            // Clear queue after successful sync
+            localStorage.removeItem('firebase_sync_queue');
+            console.log('✅ Sync queue processed successfully');
+        } catch (error) {
+            console.error('Error processing sync queue:', error);
+        }
+    }
+
+    // Load user data from Firebase when logged in with state preservation
     async loadUserDataFromFirebase(user) {
         console.log('Loading user data from Firebase for:', user.email);
         
@@ -222,9 +332,13 @@ class SessionManager {
             const userData = await this.getFirebaseUserData(user.uid);
             const quizzes = await this.getFirebaseQuizzes(user.uid);
 
+            // Merge with existing session data (preserve local changes)
+            const localQuizzes = sessionData.quizzes || [];
+            const mergedQuizzes = this.mergeQuizzes(localQuizzes, quizzes);
+
             // Update session data
-            sessionData.quizzes = quizzes;
-            sessionData.stats = userData.stats || { quizCount: 0, totalPlays: 0 };
+            sessionData.quizzes = mergedQuizzes;
+            sessionData.stats = userData.stats || sessionData.stats || { quizCount: 0, totalPlays: 0 };
             sessionData.userData = userData;
             sessionData.isGuest = false;
             sessionData.userId = user.uid;
@@ -232,17 +346,63 @@ class SessionManager {
 
             this.saveSession();
 
-            console.log('User data loaded from Firebase:', { 
-                quizzes: quizzes.length, 
+            // Process any pending sync items
+            await this.processSyncQueue(user.uid);
+
+            console.log('User data loaded and merged from Firebase:', { 
+                quizzes: mergedQuizzes.length, 
                 stats: sessionData.stats 
             });
 
-            return { success: true, quizzes, userData };
+            return { success: true, quizzes: mergedQuizzes, userData };
 
         } catch (error) {
             console.error('Error loading user data from Firebase:', error);
             return { success: false, error: error.message };
         }
+    }
+
+    // Smart merge of local and remote quizzes
+    mergeQuizzes(localQuizzes, remoteQuizzes) {
+        const merged = [];
+        const processedIds = new Set();
+
+        // Add remote quizzes first (they're authoritative)
+        remoteQuizzes.forEach(remoteQuiz => {
+            merged.push(remoteQuiz);
+            processedIds.add(remoteQuiz.id);
+        });
+
+        // Add local quizzes that don't exist remotely or are newer
+        localQuizzes.forEach(localQuiz => {
+            if (!processedIds.has(localQuiz.id)) {
+                // New local quiz, add it
+                merged.push(localQuiz);
+                processedIds.add(localQuiz.id);
+                
+                // Queue for sync if user is logged in
+                if (currentUser && !sessionData.isGuest) {
+                    this.queueForLaterSync(localQuiz);
+                }
+            } else {
+                // Quiz exists in both, check if local version is newer
+                const remoteQuiz = remoteQuizzes.find(q => q.id === localQuiz.id);
+                if (localQuiz.updatedAt && remoteQuiz.updatedAt && 
+                    localQuiz.updatedAt > remoteQuiz.updatedAt) {
+                    // Local version is newer, replace remote version
+                    const index = merged.findIndex(q => q.id === localQuiz.id);
+                    if (index !== -1) {
+                        merged[index] = localQuiz;
+                        // Queue for sync
+                        if (currentUser && !sessionData.isGuest) {
+                            this.queueForLaterSync(localQuiz);
+                        }
+                    }
+                }
+            }
+        });
+
+        return merged;
     }
 
     // Get user data from Firebase
@@ -273,6 +433,14 @@ class SessionManager {
             return [];
         }
     }
+
+    // Clear session and recovery data
+    clearSession() {
+        localStorage.removeItem(this.sessionKey);
+        localStorage.removeItem(this.recoveryKey);
+        localStorage.removeItem('firebase_sync_queue');
+        this.createNewSession();
+    }
 }
 
 // Initialize session manager
@@ -281,7 +449,7 @@ const sessionManager = new SessionManager();
 // Initialize session immediately when script loads
 sessionManager.initializeSession();
 
-// Authentication state management with better error handling
+// Enhanced Authentication state management with better error handling
 if (typeof auth !== 'undefined') {
     auth.onAuthStateChanged(async (user) => {
         const wasGuest = sessionData.isGuest;
@@ -295,7 +463,7 @@ if (typeof auth !== 'undefined') {
             localStorage.setItem('userName', user.displayName || user.email);
             localStorage.setItem('userId', user.uid);
             
-            // Load existing user data from Firebase
+            // Load existing user data from Firebase with merge
             const loadResult = await sessionManager.loadUserDataFromFirebase(user);
             if (loadResult.success) {
                 // Trigger refresh of any open quiz management pages
@@ -417,7 +585,7 @@ function getCurrentUserName() {
            (sessionData.userData.displayName || sessionData.userEmail);
 }
 
-// Enhanced quiz management functions
+// Enhanced quiz management functions with recovery support
 async function saveQuizToSystem(quizData) {
     console.log('Saving quiz to system:', quizData.title);
     
@@ -444,7 +612,7 @@ async function loadAllQuizzes() {
     console.log('Loading all quizzes...');
     
     if (currentUser && typeof database !== 'undefined') {
-        // Load from Firebase for logged-in users
+        // Load from Firebase for logged-in users with merge
         const result = await sessionManager.loadUserDataFromFirebase(currentUser);
         if (result.success) {
             return result.quizzes;
@@ -475,9 +643,12 @@ async function deleteQuizFromSystem(quizId) {
     return true;
 }
 
-// Sign out function
+// Sign out function with cleanup
 async function signOut() {
     try {
+        // Save recovery checkpoint before signing out
+        sessionManager.saveRecoveryCheckpoint();
+        
         if (typeof auth !== 'undefined') {
             await auth.signOut();
         }
@@ -500,7 +671,7 @@ function showStatus(message, type = 'info') {
     }
 }
 
-// Backward compatibility functions
+// Enhanced backward compatibility functions
 function saveToLocalStorage(key, data) {
     if (key === 'savedQuizzes') {
         // Redirect to session manager
@@ -529,8 +700,30 @@ function getFromLocalStorage(key) {
     }
 }
 
+// Periodic session sync and recovery checkpoint
+setInterval(() => {
+    if (sessionManager && sessionManager.isInitialized) {
+        sessionManager.saveRecoveryCheckpoint();
+    }
+}, 60000); // Every minute
+
+// Handle beforeunload for graceful shutdowns
+window.addEventListener('beforeunload', () => {
+    if (sessionManager) {
+        sessionManager.saveRecoveryCheckpoint();
+    }
+});
+
+// Handle page visibility changes
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && sessionManager) {
+        // Page became visible, save recovery checkpoint
+        sessionManager.saveRecoveryCheckpoint();
+    }
+});
+
 // Export session manager for use in other files
 window.sessionManager = sessionManager;
 
 // Log initialization status
-console.log('Enhanced Firebase config loaded with session management');
+console.log('Enhanced Firebase config loaded with state recovery support');
