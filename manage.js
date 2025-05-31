@@ -703,42 +703,6 @@ function exportQuiz(quizId) {
         showStatus('Error exporting quiz', 'error');
     });
 }
-
-function convertToAikenFormat(quiz) {
-    let aikenContent = '';
-    
-    quiz.questions.forEach((question, index) => {
-        if (index > 0) aikenContent += '\n\n';
-        
-        aikenContent += question.question + '\n';
-        
-        question.answers.forEach((answer, answerIndex) => {
-            const letter = String.fromCharCode(65 + answerIndex);
-            aikenContent += `${letter}) ${answer}\n`;
-        });
-        
-        const correctLetter = String.fromCharCode(65 + question.correct);
-        aikenContent += `ANSWER: ${correctLetter}`;
-    });
-    
-    return aikenContent;
-}
-
-function downloadAikenFile(title, content) {
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_aiken.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    
-    URL.revokeObjectURL(url);
-}
-
-// Continue with the rest of the functions...
 // [The rest of the file continues with all the other functions unchanged]
 
 function showCreateQuiz() {
@@ -771,7 +735,8 @@ async function editQuizById(quizId) {
         if (quiz) {
             console.log('Found quiz to edit:', quiz.title);
             currentEditingQuiz = quiz;
-            currentQuestions = [...quiz.questions];
+            // CRITICAL FIX: Ensure questions is an array before spreading
+            currentQuestions = (quiz.questions && Array.isArray(quiz.questions)) ? [...quiz.questions] : [];
             importedQuestions = [];
             
             document.getElementById('editor-title').textContent = 'Edit Quiz';
