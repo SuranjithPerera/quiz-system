@@ -353,15 +353,25 @@ function confirmImport() {
     
     const validQuestions = importedQuestions.filter(q => q.question && q.answers && q.answers.length >= 2);
     
+    console.log('🔄 IMPORT: Confirming import of', validQuestions.length, 'questions');
+    console.log('📝 IMPORT: Sample question:', validQuestions[0]);
+    
     // Add imported questions to current questions array
     validQuestions.forEach(question => {
-        currentQuestions.push({
+        const questionToAdd = {
             question: question.question,
-            answers: [...question.answers],
+            answers: [...question.answers], // Ensure we copy the array
             correct: question.correct,
-            timeLimit: question.timeLimit
-        });
+            timeLimit: question.timeLimit || 20,
+            source: question.source || 'aiken_import' // Ensure source is preserved
+        };
+        
+        console.log('➕ IMPORT: Adding question:', questionToAdd.question.substring(0, 50) + '...');
+        currentQuestions.push(questionToAdd);
     });
+    
+    console.log('✅ IMPORT: Total questions now:', currentQuestions.length);
+    console.log('📊 IMPORT: Current questions array:', currentQuestions);
     
     // Switch to manual tab and refresh display
     switchTab('manual');
@@ -759,13 +769,26 @@ async function editQuizById(quizId) {
 }
 
 function loadQuestionsIntoEditor() {
-    console.log('Loading questions into editor:', currentQuestions.length);
+    console.log('📝 EDITOR: Loading questions into editor:', currentQuestions.length);
+    console.log('📝 EDITOR: Questions breakdown:', {
+        total: currentQuestions.length,
+        aiken: currentQuestions.filter(q => q.source === 'aiken_import').length,
+        manual: currentQuestions.filter(q => !q.source || q.source !== 'aiken_import').length
+    });
+    
     const container = document.getElementById('questions-container');
     container.innerHTML = '';
     
     currentQuestions.forEach((question, index) => {
+        console.log(`📝 EDITOR: Loading question ${index + 1}:`, {
+            question: question.question.substring(0, 30) + '...',
+            source: question.source || 'no-source',
+            answers: question.answers ? question.answers.length : 0
+        });
         addQuestionToEditor(question, index);
     });
+    
+    console.log('✅ EDITOR: All questions loaded into editor');
 }
 
 function addQuestion(questionData = null) {
@@ -912,7 +935,7 @@ function removeQuestion(index) {
 }
 
 function collectQuizData() {
-    console.log('Collecting quiz data...');
+    console.log('📊 COLLECT: Starting quiz data collection...');
     const title = document.getElementById('quiz-title').value.trim();
     
     if (!title) {
@@ -922,6 +945,9 @@ function collectQuizData() {
     
     const questionElements = document.querySelectorAll('.question-editor');
     const questions = [];
+    
+    console.log('📊 COLLECT: Found', questionElements.length, 'question elements');
+    console.log('📊 COLLECT: Current questions array has', currentQuestions.length, 'items');
     
     for (let i = 0; i < questionElements.length; i++) {
         const questionEl = questionElements[i];
@@ -961,6 +987,7 @@ function collectQuizData() {
             return null;
         }
         
+        // Get the original question data to preserve source information
         const originalQuestion = currentQuestions[i];
         const questionData = {
             question: questionText,
@@ -969,14 +996,29 @@ function collectQuizData() {
             timeLimit: timeLimit
         };
         
+        // CRITICAL FIX: Preserve source information from original question or currentQuestions array
         if (originalQuestion && originalQuestion.source) {
             questionData.source = originalQuestion.source;
+            console.log('📊 COLLECT: Preserving source for question', i + 1, ':', questionData.source);
         }
+        
+        console.log('✅ COLLECT: Question', i + 1, 'data:', {
+            question: questionData.question.substring(0, 30) + '...',
+            answers: questionData.answers.length,
+            correct: questionData.correct,
+            timeLimit: questionData.timeLimit,
+            source: questionData.source || 'manual'
+        });
         
         questions.push(questionData);
     }
     
-    console.log('Quiz data collected:', { title, questionCount: questions.length });
+    console.log('✅ COLLECT: Final quiz data:', { 
+        title, 
+        questionCount: questions.length,
+        aikenQuestions: questions.filter(q => q.source === 'aiken_import').length
+    });
+    
     return {
         title: title,
         questions: questions
@@ -984,13 +1026,20 @@ function collectQuizData() {
 }
 
 async function saveQuiz() {
-    console.log('Saving quiz...');
+    console.log('💾 SAVE: Starting quiz save process...');
     
     const quizData = collectQuizData();
     if (!quizData) {
-        console.log('Quiz data validation failed');
+        console.log('❌ SAVE: Quiz data validation failed');
         return;
     }
+    
+    console.log('✅ SAVE: Quiz data collected successfully:', {
+        title: quizData.title,
+        questionCount: quizData.questions.length,
+        aikenQuestions: quizData.questions.filter(q => q.source === 'aiken_import').length,
+        manualQuestions: quizData.questions.filter(q => !q.source || q.source !== 'aiken_import').length
+    });
     
     showStatus('Saving quiz...', 'info');
     
@@ -998,22 +1047,33 @@ async function saveQuiz() {
         let savedQuiz;
         
         if (currentEditingQuiz) {
-            console.log('Updating existing quiz:', currentEditingQuiz.id);
+            console.log('📝 SAVE: Updating existing quiz:', currentEditingQuiz.id);
             savedQuiz = {
                 ...currentEditingQuiz,
                 title: quizData.title,
-                questions: quizData.questions,
+                questions: quizData.questions, // This should include the source property
                 updatedAt: Date.now()
             };
         } else {
+            console.log('🆕 SAVE: Creating new quiz');
             savedQuiz = {
                 id: 'quiz_' + Date.now(),
                 title: quizData.title,
-                questions: quizData.questions,
+                questions: quizData.questions, // This should include the source property
                 createdAt: Date.now(),
                 updatedAt: Date.now()
             };
         }
+        
+        console.log('📤 SAVE: Final quiz object to save:', {
+            id: savedQuiz.id,
+            title: savedQuiz.title,
+            questionCount: savedQuiz.questions.length,
+            sampleQuestion: savedQuiz.questions[0] ? {
+                question: savedQuiz.questions[0].question.substring(0, 30) + '...',
+                source: savedQuiz.questions[0].source || 'no-source'
+            } : 'no-questions'
+        });
         
         const saveResult = await saveQuizToSystem(savedQuiz);
         
@@ -1027,8 +1087,8 @@ async function saveQuiz() {
                 message = currentEditingQuiz ? 'Quiz updated in session!' : 'Quiz created in session! Login to save to cloud.';
             }
             
+            console.log('✅ SAVE: Quiz saved successfully to:', saveResult.location);
             showStatus(message, 'success');
-            console.log('Quiz saved successfully');
             
             setTimeout(() => {
                 cancelEdit();
@@ -1039,7 +1099,7 @@ async function saveQuiz() {
         }
         
     } catch (error) {
-        console.error('Error saving quiz:', error);
+        console.error('💥 SAVE: Error saving quiz:', error);
         showStatus('Failed to save quiz: ' + error.message, 'error');
     }
 }
