@@ -1,6 +1,8 @@
-// Enhanced Quiz Management JavaScript with Session Management
+// Enhanced Quiz Management JavaScript with Aiken Import Support
 let currentEditingQuiz = null;
 let currentQuestions = [];
+let importedQuestions = [];
+let currentTab = 'manual';
 
 function initializeManage() {
     console.log('Initializing manage page...');
@@ -21,20 +23,21 @@ function initializeManage() {
         } else {
             console.log('User not authenticated');
             showGuestStatus();
-            // Still load quizzes from session for guests
             loadSavedQuizzes();
         }
     });
 
-    // Listen for user data updates (after login/migration)
+    // Listen for user data updates
     window.addEventListener('userDataUpdated', (event) => {
         console.log('User data updated, refreshing quiz list');
         loadSavedQuizzes();
     });
+
+    // Initialize file drag and drop
+    initializeFileUpload();
 }
 
 function showUserStatus(user) {
-    // Add user header if not exists
     if (!document.querySelector('.user-header')) {
         const userHeaderHTML = `
             <div class="user-header" style="position: absolute; top: 20px; right: 20px; display: flex; align-items: center; gap: 15px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); padding: 10px 20px; border-radius: 25px; border: 1px solid rgba(255, 255, 255, 0.2);">
@@ -50,7 +53,6 @@ function showUserStatus(user) {
 }
 
 function showGuestStatus() {
-    // Add guest header if not exists
     if (!document.querySelector('.guest-header')) {
         const guestHeaderHTML = `
             <div class="guest-header" style="position: absolute; top: 20px; right: 20px; display: flex; align-items: center; gap: 15px; background: rgba(255, 165, 0, 0.1); backdrop-filter: blur(10px); padding: 10px 20px; border-radius: 25px; border: 1px solid rgba(255, 165, 0, 0.3);">
@@ -65,6 +67,341 @@ function showGuestStatus() {
     }
 }
 
+// Tab Management
+function switchTab(tabName) {
+    console.log('Switching to tab:', tabName);
+    currentTab = tabName;
+    
+    // Update tab buttons
+    document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+    document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
+    
+    // Update tab content
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+    document.getElementById(`${tabName}-tab`).classList.add('active');
+    
+    // Reset import state when switching away from import tabs
+    if (tabName === 'manual') {
+        resetImportState();
+    }
+}
+
+// File Upload Initialization
+function initializeFileUpload() {
+    const fileArea = document.querySelector('.file-upload-area');
+    
+    if (fileArea) {
+        fileArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            fileArea.classList.add('dragover');
+        });
+        
+        fileArea.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            fileArea.classList.remove('dragover');
+        });
+        
+        fileArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            fileArea.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelect({ target: { files: files } });
+            }
+        });
+    }
+}
+
+// File Selection Handler
+function handleFileSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    console.log('File selected:', file.name, file.type);
+    
+    if (!file.name.toLowerCase().endsWith('.txt')) {
+        showStatus('Please select a .txt file in Aiken format', 'error');
+        return;
+    }
+    
+    if (file.size > 10 * 1024 * 1024) { // 10MB limit
+        showStatus('File too large. Please select a file smaller than 10MB', 'error');
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const content = e.target.result;
+        parseAikenContent(content, file.name);
+    };
+    
+    reader.onerror = function() {
+        showStatus('Error reading file. Please try again.', 'error');
+    };
+    
+    reader.readAsText(file);
+}
+
+// Text Import Handler
+function parseTextImport() {
+    const textContent = document.getElementById('text-import').value.trim();
+    
+    if (!textContent) {
+        showStatus('Please enter some text to import', 'error');
+        return;
+    }
+    
+    parseAikenContent(textContent, 'Text Input');
+}
+
+function clearTextImport() {
+    document.getElementById('text-import').value = '';
+    resetImportState();
+}
+
+// Aiken Format Parser
+function parseAikenContent(content, source) {
+    console.log('Parsing Aiken content from:', source);
+    
+    try {
+        const questions = parseAikenFormat(content);
+        
+        if (questions.length === 0) {
+            showStatus('No valid questions found in the content', 'error');
+            return;
+        }
+        
+        importedQuestions = questions;
+        showImportPreview(questions, source);
+        
+    } catch (error) {
+        console.error('Error parsing Aiken content:', error);
+        showStatus('Error parsing content: ' + error.message, 'error');
+    }
+}
+
+function parseAikenFormat(content) {
+    const questions = [];
+    const errors = [];
+    
+    // Split content into individual questions
+    const questionBlocks = content.split(/\n\s*\n/).filter(block => block.trim());
+    
+    questionBlocks.forEach((block, blockIndex) => {
+        try {
+            const question = parseAikenQuestion(block.trim(), blockIndex + 1);
+            if (question) {
+                questions.push(question);
+            }
+        } catch (error) {
+            errors.push({
+                block: blockIndex + 1,
+                error: error.message,
+                content: block.substring(0, 100) + '...'
+            });
+        }
+    });
+    
+    // Store errors for display
+    window.aikenParsingErrors = errors;
+    
+    return questions;
+}
+
+function parseAikenQuestion(block, questionNumber) {
+    const lines = block.split('\n').map(line => line.trim()).filter(line => line);
+    
+    if (lines.length < 6) { // Minimum: question + 4 answers + ANSWER line
+        throw new Error(`Question ${questionNumber}: Too few lines (minimum 6 required)`);
+    }
+    
+    // First line is the question
+    const questionText = lines[0];
+    if (!questionText) {
+        throw new Error(`Question ${questionNumber}: Empty question text`);
+    }
+    
+    // Find the answer line
+    const answerLineIndex = lines.findIndex(line => 
+        line.toUpperCase().startsWith('ANSWER:') || 
+        line.toUpperCase().startsWith('ANS:')
+    );
+    
+    if (answerLineIndex === -1) {
+        throw new Error(`Question ${questionNumber}: No ANSWER line found`);
+    }
+    
+    // Extract answer options (between question and ANSWER line)
+    const answerLines = lines.slice(1, answerLineIndex);
+    const answers = [];
+    const answerPattern = /^([A-Z])\)\s*(.+)$/;
+    
+    answerLines.forEach(line => {
+        const match = line.match(answerPattern);
+        if (match) {
+            answers.push({
+                letter: match[1],
+                text: match[2].trim()
+            });
+        }
+    });
+    
+    if (answers.length < 2) {
+        throw new Error(`Question ${questionNumber}: At least 2 answer options required`);
+    }
+    
+    if (answers.length > 6) {
+        throw new Error(`Question ${questionNumber}: Maximum 6 answer options allowed`);
+    }
+    
+    // Parse correct answer
+    const answerLine = lines[answerLineIndex];
+    const correctAnswerMatch = answerLine.match(/ANSWER:\s*([A-Z])/i);
+    
+    if (!correctAnswerMatch) {
+        throw new Error(`Question ${questionNumber}: Invalid ANSWER format. Use 'ANSWER: A' format`);
+    }
+    
+    const correctLetter = correctAnswerMatch[1].toUpperCase();
+    const correctIndex = answers.findIndex(answer => answer.letter === correctLetter);
+    
+    if (correctIndex === -1) {
+        throw new Error(`Question ${questionNumber}: Correct answer '${correctLetter}' not found in options`);
+    }
+    
+    return {
+        question: questionText,
+        answers: answers.map(answer => answer.text),
+        correct: correctIndex,
+        timeLimit: 20,
+        source: 'aiken_import',
+        originalBlock: block
+    };
+}
+
+// Import Preview Functions
+function showImportPreview(questions, source) {
+    console.log('Showing import preview for', questions.length, 'questions from', source);
+    
+    const previewDiv = document.getElementById('import-preview');
+    const questionsDiv = document.getElementById('preview-questions');
+    
+    // Update statistics
+    const validQuestions = questions.filter(q => q.question && q.answers && q.answers.length >= 2);
+    const errorCount = (window.aikenParsingErrors || []).length;
+    
+    document.getElementById('preview-count').textContent = questions.length;
+    document.getElementById('valid-count').textContent = validQuestions.length;
+    document.getElementById('error-count').textContent = errorCount;
+    
+    // Show/hide error section
+    const errorsDiv = document.getElementById('import-errors');
+    if (errorCount > 0) {
+        showImportErrors(window.aikenParsingErrors);
+        errorsDiv.style.display = 'block';
+    } else {
+        errorsDiv.style.display = 'none';
+    }
+    
+    // Generate preview HTML
+    questionsDiv.innerHTML = validQuestions.map((question, index) => `
+        <div class="preview-question">
+            <div class="question-text">Q${index + 1}: ${question.question}</div>
+            ${question.answers.map((answer, answerIndex) => `
+                <div class="answer-option ${answerIndex === question.correct ? 'correct' : 'incorrect'}">
+                    ${String.fromCharCode(65 + answerIndex)}) ${answer}
+                    ${answerIndex === question.correct ? ' ✓' : ''}
+                </div>
+            `).join('')}
+            <div style="margin-top: 10px; font-size: 0.9rem; color: #666;">
+                Time Limit: ${question.timeLimit} seconds
+            </div>
+        </div>
+    `).join('');
+    
+    // Enable/disable import button
+    const importBtn = document.getElementById('confirm-import-btn');
+    if (validQuestions.length > 0) {
+        importBtn.disabled = false;
+        importBtn.textContent = `Import ${validQuestions.length} Question${validQuestions.length !== 1 ? 's' : ''}`;
+    } else {
+        importBtn.disabled = true;
+        importBtn.textContent = 'No Valid Questions to Import';
+    }
+    
+    previewDiv.style.display = 'block';
+    previewDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function showImportErrors(errors) {
+    const errorDetailsDiv = document.getElementById('error-details');
+    
+    errorDetailsDiv.innerHTML = errors.map(error => `
+        <div style="margin: 10px 0; padding: 10px; background: rgba(244, 67, 54, 0.1); border-radius: 5px;">
+            <strong>Block ${error.block}:</strong> ${error.error}<br>
+            <small style="color: #666;">Content: ${error.content}</small>
+        </div>
+    `).join('');
+}
+
+function confirmImport() {
+    if (!importedQuestions || importedQuestions.length === 0) {
+        showStatus('No questions to import', 'error');
+        return;
+    }
+    
+    const validQuestions = importedQuestions.filter(q => q.question && q.answers && q.answers.length >= 2);
+    
+    // Add imported questions to current questions array
+    validQuestions.forEach(question => {
+        currentQuestions.push({
+            question: question.question,
+            answers: [...question.answers],
+            correct: question.correct,
+            timeLimit: question.timeLimit
+        });
+    });
+    
+    // Switch to manual tab and refresh display
+    switchTab('manual');
+    loadQuestionsIntoEditor();
+    resetImportState();
+    
+    showStatus(`Successfully imported ${validQuestions.length} question${validQuestions.length !== 1 ? 's' : ''}!`, 'success');
+    
+    // Scroll to questions container
+    document.getElementById('questions-container').scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'start' 
+    });
+}
+
+function cancelImport() {
+    resetImportState();
+    showStatus('Import cancelled', 'info');
+}
+
+function resetImportState() {
+    importedQuestions = [];
+    window.aikenParsingErrors = [];
+    
+    // Hide preview and error sections
+    document.getElementById('import-preview').style.display = 'none';
+    document.getElementById('import-errors').style.display = 'none';
+    
+    // Clear file input
+    const fileInput = document.getElementById('file-input');
+    if (fileInput) fileInput.value = '';
+    
+    // Clear text area if on text tab
+    if (currentTab === 'text') {
+        const textArea = document.getElementById('text-import');
+        if (textArea) textArea.value = '';
+    }
+}
+
+// Quiz Management Functions
 async function loadSavedQuizzes() {
     console.log('Loading saved quizzes...');
     const quizzesList = document.getElementById('saved-quizzes-list');
@@ -72,9 +409,7 @@ async function loadSavedQuizzes() {
     quizzesList.innerHTML = '<div style="text-align: center; padding: 20px;">Loading your quizzes...</div>';
     
     try {
-        // Load quizzes using the enhanced system
         const allQuizzes = await loadAllQuizzes();
-        
         console.log('Found', allQuizzes.length, 'total quizzes');
         
         if (allQuizzes.length === 0) {
@@ -88,15 +423,12 @@ async function loadSavedQuizzes() {
         }
         
         quizzesList.innerHTML = '';
-        
-        // Sort quizzes by creation date (newest first)
         allQuizzes.sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
         
         allQuizzes.forEach(quiz => {
             const quizCard = document.createElement('div');
             quizCard.className = 'menu-card';
             
-            // Determine source information
             let sourceInfo = '';
             if (quiz.migratedFromSession) {
                 sourceInfo = '🔄 Migrated • ';
@@ -104,6 +436,11 @@ async function loadSavedQuizzes() {
                 sourceInfo = '☁️ Cloud • ';
             } else {
                 sourceInfo = '💾 Local • ';
+            }
+            
+            const hasImportedQuestions = quiz.questions && quiz.questions.some(q => q.source === 'aiken_import');
+            if (hasImportedQuestions) {
+                sourceInfo += '📁 Imported • ';
             }
             
             quizCard.innerHTML = `
@@ -117,6 +454,7 @@ async function loadSavedQuizzes() {
                 <div class="quiz-actions">
                     <button onclick="editQuizById('${quiz.id}')" class="btn btn-secondary">Edit</button>
                     <button onclick="duplicateQuiz('${quiz.id}')" class="btn btn-tertiary">Duplicate</button>
+                    <button onclick="exportQuiz('${quiz.id}')" class="btn" style="background: #26d0ce;">Export</button>
                     <button onclick="deleteQuiz('${quiz.id}')" class="btn" style="background: #f44336;">Delete</button>
                 </div>
             `;
@@ -139,10 +477,14 @@ function showCreateQuiz() {
     
     currentEditingQuiz = null;
     currentQuestions = [];
+    importedQuestions = [];
     
     document.getElementById('editor-title').textContent = 'Create New Quiz';
     document.getElementById('quiz-title').value = '';
     document.getElementById('questions-container').innerHTML = '';
+    
+    switchTab('manual');
+    resetImportState();
     
     hideElement('quiz-list-view');
     showElement('quiz-editor');
@@ -154,7 +496,6 @@ async function editQuizById(quizId) {
     console.log('Editing quiz:', quizId);
     
     try {
-        // Load all quizzes and find the one to edit
         const allQuizzes = await loadAllQuizzes();
         const quiz = allQuizzes.find(q => q.id === quizId);
         
@@ -162,6 +503,7 @@ async function editQuizById(quizId) {
             console.log('Found quiz to edit:', quiz.title);
             currentEditingQuiz = quiz;
             currentQuestions = [...quiz.questions];
+            importedQuestions = [];
             
             document.getElementById('editor-title').textContent = 'Edit Quiz';
             document.getElementById('quiz-title').value = quiz.title;
@@ -169,6 +511,8 @@ async function editQuizById(quizId) {
             hideElement('quiz-list-view');
             showElement('quiz-editor');
             
+            switchTab('manual');
+            resetImportState();
             loadQuestionsIntoEditor();
         } else {
             console.error('Quiz not found:', quizId);
@@ -178,6 +522,60 @@ async function editQuizById(quizId) {
         console.error('Error loading quiz for edit:', error);
         showStatus('Error loading quiz', 'error');
     }
+}
+
+// Export Quiz to Aiken Format
+function exportQuiz(quizId) {
+    console.log('Exporting quiz:', quizId);
+    
+    loadAllQuizzes().then(quizzes => {
+        const quiz = quizzes.find(q => q.id === quizId);
+        if (!quiz) {
+            showStatus('Quiz not found', 'error');
+            return;
+        }
+        
+        const aikenContent = convertToAikenFormat(quiz);
+        downloadAikenFile(quiz.title, aikenContent);
+        showStatus('Quiz exported successfully!', 'success');
+    }).catch(error => {
+        console.error('Error exporting quiz:', error);
+        showStatus('Error exporting quiz', 'error');
+    });
+}
+
+function convertToAikenFormat(quiz) {
+    let aikenContent = '';
+    
+    quiz.questions.forEach((question, index) => {
+        if (index > 0) aikenContent += '\n\n';
+        
+        aikenContent += question.question + '\n';
+        
+        question.answers.forEach((answer, answerIndex) => {
+            const letter = String.fromCharCode(65 + answerIndex);
+            aikenContent += `${letter}) ${answer}\n`;
+        });
+        
+        const correctLetter = String.fromCharCode(65 + question.correct);
+        aikenContent += `ANSWER: ${correctLetter}`;
+    });
+    
+    return aikenContent;
+}
+
+function downloadAikenFile(title, content) {
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_aiken.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    
+    URL.revokeObjectURL(url);
 }
 
 function loadQuestionsIntoEditor() {
@@ -206,7 +604,6 @@ function addQuestion(questionData = null) {
     
     addQuestionToEditor(defaultQuestion, questionIndex);
     
-    // Scroll to the newly added question for better UX
     setTimeout(() => {
         const newQuestionElement = document.querySelector(`.question-editor[data-index="${questionIndex}"]`);
         if (newQuestionElement) {
@@ -215,7 +612,6 @@ function addQuestion(questionData = null) {
                 block: 'center' 
             });
             
-            // Focus on the question input field
             const questionInput = newQuestionElement.querySelector('.question-input');
             if (questionInput) {
                 questionInput.focus();
@@ -232,7 +628,6 @@ function addQuestionToEditor(questionData, index) {
     questionDiv.className = 'question-editor';
     questionDiv.setAttribute('data-index', index);
     
-    // Force visible styles with inline CSS
     questionDiv.style.cssText = `
         display: block !important;
         visibility: visible !important;
@@ -247,9 +642,12 @@ function addQuestionToEditor(questionData, index) {
         box-sizing: border-box !important;
     `;
     
+    const sourceIndicator = questionData.source === 'aiken_import' ? 
+        '<span style="background: #e3f2fd; color: #1368ce; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; margin-left: 10px;">📁 IMPORTED</span>' : '';
+    
     questionDiv.innerHTML = `
         <div class="question-header" style="display: flex !important; justify-content: space-between !important; align-items: center !important; margin-bottom: 15px !important; padding-bottom: 10px !important; border-bottom: 2px solid #eee !important;">
-            <h4 style="color: #333 !important; margin: 0 !important;">Question ${index + 1}</h4>
+            <h4 style="color: #333 !important; margin: 0 !important;">Question ${index + 1}${sourceIndicator}</h4>
             <div style="display: flex !important; gap: 10px !important;">
                 <button onclick="addQuestionAfter(${index})" style="background: #4caf50 !important; color: white !important; padding: 5px 10px !important; border: none !important; border-radius: 5px !important; cursor: pointer !important; font-size: 12px !important;">+ Add Below</button>
                 <button onclick="removeQuestion(${index})" style="background: #f44336 !important; color: white !important; padding: 5px 10px !important; border: none !important; border-radius: 5px !important; cursor: pointer !important;">Remove</button>
@@ -295,13 +693,9 @@ function addQuestionAfter(afterIndex) {
         timeLimit: 20
     };
     
-    // Insert the new question after the specified index
     currentQuestions.splice(afterIndex + 1, 0, newQuestion);
-    
-    // Rebuild the entire editor to maintain proper indexing
     loadQuestionsIntoEditor();
     
-    // Scroll to the newly added question
     setTimeout(() => {
         const newQuestionElement = document.querySelector(`.question-editor[data-index="${afterIndex + 1}"]`);
         if (newQuestionElement) {
@@ -310,13 +704,11 @@ function addQuestionAfter(afterIndex) {
                 block: 'center' 
             });
             
-            // Focus on the question input field
             const questionInput = newQuestionElement.querySelector('.question-input');
             if (questionInput) {
                 questionInput.focus();
             }
             
-            // Add a subtle highlight animation
             newQuestionElement.style.border = '3px solid #4caf50';
             setTimeout(() => {
                 newQuestionElement.style.border = '2px solid #ddd';
@@ -389,12 +781,19 @@ function collectQuizData() {
             return null;
         }
         
-        questions.push({
+        const originalQuestion = currentQuestions[i];
+        const questionData = {
             question: questionText,
             answers: answers,
             correct: parseInt(correctRadio.value),
             timeLimit: timeLimit
-        });
+        };
+        
+        if (originalQuestion && originalQuestion.source) {
+            questionData.source = originalQuestion.source;
+        }
+        
+        questions.push(questionData);
     }
     
     console.log('Quiz data collected:', { title, questionCount: questions.length });
@@ -419,7 +818,6 @@ async function saveQuiz() {
         let savedQuiz;
         
         if (currentEditingQuiz) {
-            // Update existing quiz
             console.log('Updating existing quiz:', currentEditingQuiz.id);
             savedQuiz = {
                 ...currentEditingQuiz,
@@ -428,7 +826,6 @@ async function saveQuiz() {
                 updatedAt: Date.now()
             };
         } else {
-            // Create new quiz
             savedQuiz = {
                 id: 'quiz_' + Date.now(),
                 title: quizData.title,
@@ -438,7 +835,6 @@ async function saveQuiz() {
             };
         }
         
-        // Save using the enhanced system
         const saveResult = await saveQuizToSystem(savedQuiz);
         
         if (saveResult.success) {
@@ -454,7 +850,6 @@ async function saveQuiz() {
             showStatus(message, 'success');
             console.log('Quiz saved successfully');
             
-            // Return to list view
             setTimeout(() => {
                 cancelEdit();
                 loadSavedQuizzes();
@@ -482,9 +877,13 @@ function previewQuiz() {
     quizData.questions.forEach((question, index) => {
         const questionDiv = document.createElement('div');
         questionDiv.className = 'preview-question';
+        
+        const sourceIndicator = question.source === 'aiken_import' ? 
+            '<span style="background: #e3f2fd; color: #1368ce; padding: 2px 6px; border-radius: 8px; font-size: 10px; font-weight: bold; margin-left: 8px;">📁 IMPORTED</span>' : '';
+        
         questionDiv.innerHTML = `
             <div class="question-preview">
-                <h4>Question ${index + 1}</h4>
+                <h4>Question ${index + 1}${sourceIndicator}</h4>
                 <p class="question-text">${question.question}</p>
                 <div class="answers-preview">
                     ${question.answers.map((answer, answerIndex) => `
@@ -513,22 +912,19 @@ function closePreview() {
     showElement('quiz-editor');
 }
 
-// Function to completely reset the interface to the main view
 function resetToMainView() {
     console.log('Resetting interface to main view');
     
-    // Hide all editor and preview screens
     hideElement('quiz-editor');
     hideElement('quiz-preview');
-    
-    // Show the main quiz list
     showElement('quiz-list-view');
     
-    // Clear all editing state
     currentEditingQuiz = null;
     currentQuestions = [];
+    importedQuestions = [];
     
-    // Clear all form fields
+    resetImportState();
+    
     const titleInput = document.getElementById('quiz-title');
     const questionsContainer = document.getElementById('questions-container');
     const editorTitle = document.getElementById('editor-title');
@@ -537,7 +933,8 @@ function resetToMainView() {
     if (questionsContainer) questionsContainer.innerHTML = '';
     if (editorTitle) editorTitle.textContent = 'Create New Quiz';
     
-    // Clear any status messages
+    switchTab('manual');
+    
     const statusEl = document.getElementById('status-message');
     if (statusEl) {
         statusEl.textContent = '';
@@ -556,7 +953,6 @@ async function duplicateQuiz(quizId) {
     console.log('Duplicating quiz:', quizId);
     
     try {
-        // Load all quizzes and find the one to duplicate
         const allQuizzes = await loadAllQuizzes();
         const originalQuiz = allQuizzes.find(q => q.id === quizId);
         
@@ -569,7 +965,6 @@ async function duplicateQuiz(quizId) {
                 updatedAt: Date.now()
             };
             
-            // Save using the enhanced system
             const saveResult = await saveQuizToSystem(duplicatedQuiz);
             
             if (saveResult.success) {
@@ -606,14 +1001,11 @@ async function deleteQuiz(quizId) {
             if (success) {
                 showStatus('Quiz deleted successfully!', 'success');
                 
-                // Check if we're currently editing the quiz that was deleted
                 if (currentEditingQuiz && currentEditingQuiz.id === quizId) {
                     console.log('Currently editing quiz was deleted, resetting interface');
-                    // Reset the entire interface to main view
                     resetToMainView();
                 }
                 
-                // Reload the quiz list to refresh the interface
                 loadSavedQuizzes();
             } else {
                 throw new Error('Failed to delete quiz');
@@ -625,20 +1017,16 @@ async function deleteQuiz(quizId) {
     }
 }
 
-// Function to update correct answer highlighting
 function updateCorrectAnswer(questionIndex, answerIndex) {
     console.log('Updating correct answer for question', questionIndex, 'to answer', answerIndex);
     
-    // Find the question container
     const questionDiv = document.querySelector(`.question-editor[data-index="${questionIndex}"]`);
     if (!questionDiv) return;
     
-    // Remove correct highlighting from all answer groups in this question
     const answerGroups = questionDiv.querySelectorAll('.answer-input-group');
     answerGroups.forEach((group, index) => {
         const indicator = group.querySelector('.correct-indicator');
         if (index === answerIndex) {
-            // Mark as correct
             group.classList.add('correct-answer');
             group.style.background = '#e8f5e8';
             group.style.borderColor = '#4caf50';
@@ -646,7 +1034,6 @@ function updateCorrectAnswer(questionIndex, answerIndex) {
                 indicator.style.display = 'inline-block';
             }
         } else {
-            // Mark as incorrect
             group.classList.remove('correct-answer');
             group.style.background = '#f8f8f8';
             group.style.borderColor = 'transparent';
@@ -656,7 +1043,6 @@ function updateCorrectAnswer(questionIndex, answerIndex) {
         }
     });
     
-    // Update the current questions array if editing
     if (currentQuestions[questionIndex]) {
         currentQuestions[questionIndex].correct = answerIndex;
     }
@@ -689,6 +1075,7 @@ window.showCreateQuiz = showCreateQuiz;
 window.editQuizById = editQuizById;
 window.duplicateQuiz = duplicateQuiz;
 window.deleteQuiz = deleteQuiz;
+window.exportQuiz = exportQuiz;
 window.addQuestion = addQuestion;
 window.addQuestionAfter = addQuestionAfter;
 window.removeQuestion = removeQuestion;
@@ -698,6 +1085,12 @@ window.editQuiz = editQuiz;
 window.closePreview = closePreview;
 window.cancelEdit = cancelEdit;
 window.updateCorrectAnswer = updateCorrectAnswer;
+window.switchTab = switchTab;
+window.handleFileSelect = handleFileSelect;
+window.parseTextImport = parseTextImport;
+window.clearTextImport = clearTextImport;
+window.confirmImport = confirmImport;
+window.cancelImport = cancelImport;
 
 // Auto-initialize when page loads
 document.addEventListener('DOMContentLoaded', initializeManage);
