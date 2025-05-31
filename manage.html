@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Quizzes - QuizMaster</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* FORCE VISIBILITY FIX for questions */
+        #questions-container {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            position: relative !important;
+            width: 100% !important;
+            height: auto !important;
+            min-height: 100px !important;
+            overflow: visible !important;
+            background: #ffffff !important;
+            border: 2px solid #ddd !important;
+            padding: 20px !important;
+            margin: 20px 0 !important;
+            z-index: auto !important;
+            transform: none !important;
+            clip: none !important;
+            clip-path: none !important;
+        }
+        
+        .question-editor {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            position: relative !important;
+            width: 100% !important;
+            height: auto !important;
+            min-height: 200px !important;
+            max-height: none !important;
+            overflow: visible !important;
+            background: #f9f9f9 !important;
+            border: 2px solid #ddd !important;
+            border-radius: 10px !important;
+            padding: 20px !important;
+            margin: 15px 0 !important;
+            box-sizing: border-box !important;
+            transform: none !important;
+            clip: none !important;
+            clip-path: none !important;
+        }
+        
+        .question-editor * {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            position: static !important;
+            transform: none !important;
+            clip: none !important;
+            clip-path: none !important;
+        }
+        
+        .question-editor input[type="radio"] {
+            display: inline-block !important;
+            width: 16px !important;
+            height: 16px !important;
+            margin-right: 10px !important;
+        }
+        
+        .question-editor .answer-input-group {
+            display: flex !important;
+            align-items: center !important;
+            margin: 8px 0 !important;
+            gap: 10px !important;
+            padding: 8px !important;
+            border-radius: 5px !important;
+            border: 2px solid transparent !important;
+            transition: all 0.3s ease !important;
+        }
+        
+        .question-editor .answer-input-group.correct-answer {
+            background: #e8f5e8 !important;
+            border-color: #4caf50 !important;
+        }
+        
+        .question-editor .answer-input-group .correct-indicator {
+            display: none !important;
+            background: #4caf50 !important;
+            color: white !important;
+            padding: 2px 8px !important;
+            border-radius: 12px !important;
+            font-size: 12px !important;
+            font-weight: bold !important;
+            margin-left: 10px !important;
+        }
+        
+        .question-editor .answer-input-group.correct-answer .correct-indicator {
+            display: inline-block !important;
+        }
+        
+        .question-editor input[type="text"],
+        .question-editor input[type="number"] {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            background: #ffffff !important;
+            border: 1px solid #ddd !important;
+            padding: 10px !important;
+            margin: 5px 0 !important;
+            font-size: 14px !important;
+            color: #333 !important;
+        }
+        
+        .question-editor .answer-input {
+            flex: 1 !important;
+            display: block !important;
+        }
+        
+        .question-editor label {
+            display: block !important;
+            font-weight: bold !important;
+            margin-bottom: 5px !important;
+            color: #333 !important;
+        }
+        
+        .question-editor button {
+            display: inline-block !important;
+            background: #f44336 !important;
+            color: white !important;
+            border: none !important;
+            padding: 5px 10px !important;
+            border-radius: 3px !important;
+            cursor: pointer !important;
+        }
+        
+        .question-editor .question-header {
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            margin-bottom: 15px !important;
+            padding-bottom: 10px !important;
+            border-bottom: 2px solid #eee !important;
+        }
+        
+        .question-editor h4 {
+            display: block !important;
+            color: #333 !important;
+            margin: 0 !important;
+        }
+        
+        #quiz-editor {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+        
+        .quiz-form {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📝 Quiz Management</h1>
+            <button onclick="location.href='index.html'" class="btn btn-secondary">← Back to Home</button>
+        </header>
+        
+        <!-- Quiz List -->
+        <div id="quiz-list-view" class="quiz-container">
+            <div class="question-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2>Your Quizzes</h2>
+                    <button onclick="showCreateQuiz()" class="btn btn-primary">+ Create New Quiz</button>
+                </div>
+                <div id="saved-quizzes-list"></div>
+            </div>
+        </div>
+        
+        <!-- Create/Edit Quiz -->
+        <div id="quiz-editor" class="quiz-container" style="display: none;">
+            <div class="question-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 id="editor-title">Create New Quiz</h2>
+                    <button onclick="cancelEdit()" class="btn btn-secondary">Cancel</button>
+                </div>
+                
+                <div class="quiz-form">
+                    <div class="input-group">
+                        <label>Quiz Title:</label>
+                        <input type="text" id="quiz-title" placeholder="Enter quiz title" maxlength="100">
+                    </div>
+                    
+                    <div class="questions-section">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <h3>Questions</h3>
+                            <button onclick="addQuestion()" class="btn btn-tertiary">+ Add Question</button>
+                        </div>
+                        <div id="questions-container"></div>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button onclick="saveQuiz()" class="btn btn-primary" id="save-btn">Save Quiz</button>
+                        <button onclick="previewQuiz()" class="btn btn-secondary">Preview</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Preview Quiz -->
+        <div id="quiz-preview" class="quiz-container" style="display: none;">
+            <div class="question-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2>Quiz Preview</h2>
+                    <div>
+                        <button onclick="editQuiz()" class="btn btn-tertiary">Edit</button>
+                        <button onclick="closePreview()" class="btn btn-secondary">Close</button>
+                    </div>
+                </div>
+                
+                <div id="preview-content">
+                    <div class="quiz-info">
+                        <h3 id="preview-title"></h3>
+                        <p>Questions: <span id="preview-question-count">0</span></p>
+                    </div>
+                    
+                    <div id="preview-questions"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="status-message" class="status-message"></div>
+    </div>
+    
+    <!-- Firebase CDN Scripts - MUST BE IN THIS ORDER -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    
+    <!-- Your application scripts - MUST BE AFTER Firebase -->
+    <script src="config.js"></script>
+    <script src="script.js"></script>
+    <script src="manage.js"></script>
+</body>
+</html>

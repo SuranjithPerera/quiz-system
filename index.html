@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuizMaster - Interactive Quiz System</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .user-header {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 10px 20px;
+            border-radius: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .user-info {
+            color: white;
+            font-size: 14px;
+        }
+        
+        .user-name {
+            font-weight: bold;
+            margin-bottom: 2px;
+        }
+        
+        .user-email {
+            opacity: 0.8;
+            font-size: 12px;
+        }
+        
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        
+        .user-menu {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .user-menu-btn {
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 50%;
+            transition: background 0.3s ease;
+        }
+        
+        .user-menu-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .user-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            min-width: 200px;
+            z-index: 1000;
+            overflow: hidden;
+            display: none;
+        }
+        
+        .user-dropdown.show {
+            display: block;
+        }
+        
+        .dropdown-item {
+            display: block;
+            width: 100%;
+            padding: 12px 20px;
+            border: none;
+            background: none;
+            text-align: left;
+            cursor: pointer;
+            color: #333;
+            text-decoration: none;
+            transition: background 0.3s ease;
+        }
+        
+        .dropdown-item:hover {
+            background: #f5f5f5;
+        }
+        
+        .dropdown-item.danger {
+            color: #f44336;
+            border-top: 1px solid #eee;
+        }
+        
+        .dropdown-item.danger:hover {
+            background: #ffebee;
+        }
+        
+        .stats-preview {
+            padding: 15px 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #eee;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .stats-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+        
+        .stats-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .host-login-btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .host-login-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+
+        .menu-card .host-section {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .menu-card .host-section p {
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- User Header (Only show when logged in) -->
+        <div class="user-header" id="user-header" style="display: none;">
+            <div class="user-info">
+                <div class="user-name" id="user-name">User Name</div>
+                <div class="user-email" id="user-email">user@example.com</div>
+            </div>
+            <div class="user-avatar" id="user-avatar">U</div>
+            <div class="user-menu">
+                <button class="user-menu-btn" onclick="toggleUserMenu()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
+                    </svg>
+                </button>
+                <div class="user-dropdown" id="user-dropdown">
+                    <div class="stats-preview" id="user-stats">
+                        <div class="stats-item">
+                            <span>Quizzes Created:</span>
+                            <span id="quiz-count">0</span>
+                        </div>
+                        <div class="stats-item">
+                            <span>Total Plays:</span>
+                            <span id="total-plays">0</span>
+                        </div>
+                    </div>
+                    <a href="manage.html" class="dropdown-item">📝 Manage Quizzes</a>
+                    <a href="host.html" class="dropdown-item">🎮 Host Quiz</a>
+                    <button onclick="viewProfile()" class="dropdown-item">👤 Profile Settings</button>
+                    <button onclick="signOut()" class="dropdown-item danger">🚪 Sign Out</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Host Login Button (Only show when not logged in) -->
+        <div style="position: absolute; top: 20px; right: 20px;" id="host-login-section">
+            <a href="auth.html" class="host-login-btn">🔑 Host Login</a>
+        </div>
+        
+        <header>
+            <h1>🎯 QuizMaster</h1>
+            <p>Interactive Quiz System for Everyone</p>
+        </header>
+        
+        <div class="main-menu">
+            <div class="menu-card">
+                <h2>🎮 Join Quiz</h2>
+                <p>Enter a game PIN to join an active quiz</p>
+                <div class="input-group">
+                    <input type="text" id="gamePin" placeholder="Enter Game PIN" maxlength="6">
+                    <input type="text" id="playerName" placeholder="Your Name" maxlength="20">
+                </div>
+                <button onclick="joinQuiz()" class="btn btn-primary">Join Quiz</button>
+            </div>
+            
+            <div class="menu-card">
+                <h2>🎯 Host a Quiz</h2>
+                <p>Create and host your own quiz session</p>
+                <button onclick="goToHosting()" class="btn btn-secondary" id="host-quiz-btn">Host Quiz</button>
+                <div class="host-section" id="host-login-info" style="display: none;">
+                    <p>Login required to create and host quizzes</p>
+                    <button onclick="location.href='auth.html'" class="btn btn-tertiary">Login to Host</button>
+                </div>
+            </div>
+            
+            <div class="menu-card">
+                <h2>📊 Quiz Management</h2>
+                <p>Create, edit and manage your quiz library</p>
+                <button onclick="goToManagement()" class="btn btn-tertiary" id="manage-quiz-btn">Manage Quizzes</button>
+                <div class="host-section" id="manage-login-info" style="display: none;">
+                    <p>Login required to manage quizzes</p>
+                    <button onclick="location.href='auth.html'" class="btn btn-primary">Login to Manage</button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="status-message" class="status-message"></div>
+    </div>
+    
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="config.js"></script>
+    <script src="script.js"></script>
+    
+    <script>
+        let indexCurrentUser = null;
+        
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check authentication status but don't redirect
+            auth.onAuthStateChanged((user) => {
+                indexCurrentUser = user;
+                updateUserInterface(user);
+            });
+        });
+        
+        function updateUserInterface(user) {
+            const userHeader = document.getElementById('user-header');
+            const hostLoginSection = document.getElementById('host-login-section');
+            const hostQuizBtn = document.getElementById('host-quiz-btn');
+            const manageQuizBtn = document.getElementById('manage-quiz-btn');
+            const hostLoginInfo = document.getElementById('host-login-info');
+            const manageLoginInfo = document.getElementById('manage-login-info');
+            
+            if (user) {
+                // User is logged in - show user menu, hide login button
+                userHeader.style.display = 'flex';
+                hostLoginSection.style.display = 'none';
+                
+                // Update user info
+                const userName = document.getElementById('user-name');
+                const userEmail = document.getElementById('user-email');
+                const userAvatar = document.getElementById('user-avatar');
+                
+                userName.textContent = user.displayName || user.email.split('@')[0];
+                userEmail.textContent = user.email;
+                
+                // Set avatar
+                if (user.photoURL) {
+                    userAvatar.innerHTML = `<img src="${user.photoURL}" alt="Avatar" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
+                } else {
+                    const initials = (user.displayName || user.email)
+                        .split(' ')
+                        .map(n => n[0])
+                        .join('')
+                        .toUpperCase()
+                        .substring(0, 2);
+                    userAvatar.textContent = initials;
+                }
+                
+                // Show host/manage buttons, hide login prompts
+                hostQuizBtn.style.display = 'inline-block';
+                manageQuizBtn.style.display = 'inline-block';
+                hostLoginInfo.style.display = 'none';
+                manageLoginInfo.style.display = 'none';
+                
+                // Load user stats
+                loadUserStats(user.uid);
+                
+            } else {
+                // User is not logged in - show login button, hide user menu
+                userHeader.style.display = 'none';
+                hostLoginSection.style.display = 'block';
+                
+                // Hide host/manage buttons, show login prompts
+                hostQuizBtn.style.display = 'none';
+                manageQuizBtn.style.display = 'none';
+                hostLoginInfo.style.display = 'block';
+                manageLoginInfo.style.display = 'block';
+            }
+        }
+        
+        async function loadUserStats(userId) {
+            try {
+                const snapshot = await getUserStatsRef(userId).once('value');
+                const stats = snapshot.val() || {};
+                
+                document.getElementById('quiz-count').textContent = stats.quizCount || 0;
+                document.getElementById('total-plays').textContent = stats.totalPlays || 0;
+            } catch (error) {
+                console.error('Error loading user stats:', error);
+            }
+        }
+        
+        function toggleUserMenu() {
+            const dropdown = document.getElementById('user-dropdown');
+            dropdown.classList.toggle('show');
+        }
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            const userMenu = document.querySelector('.user-menu');
+            const dropdown = document.getElementById('user-dropdown');
+            
+            if (userMenu && !userMenu.contains(event.target)) {
+                dropdown.classList.remove('show');
+            }
+        });
+        
+        function viewProfile() {
+            alert('Profile settings coming soon!');
+        }
+        
+        async function signOut() {
+            try {
+                await auth.signOut();
+                showStatus('Signed out successfully', 'success');
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 1500);
+            } catch (error) {
+                console.error('Sign out error:', error);
+                showStatus('Error signing out', 'error');
+            }
+        }
+        
+        function goToHosting() {
+            if (indexCurrentUser) {
+                location.href = 'host.html';
+            } else {
+                showStatus('Please login to host quizzes', 'error');
+                setTimeout(() => {
+                    location.href = 'auth.html';
+                }, 2000);
+            }
+        }
+        
+        function goToManagement() {
+            if (indexCurrentUser) {
+                location.href = 'manage.html';
+            } else {
+                showStatus('Please login to manage quizzes', 'error');
+                setTimeout(() => {
+                    location.href = 'auth.html';
+                }, 2000);
+            }
+        }
+        
+        function joinQuiz() {
+            const gamePin = document.getElementById('gamePin').value.trim();
+            const playerName = document.getElementById('playerName').value.trim();
+            
+            if (!gamePin || !playerName) {
+                showStatus('Please enter both Game PIN and your name', 'error');
+                return;
+            }
+            
+            if (gamePin.length !== 6) {
+                showStatus('Game PIN must be 6 digits', 'error');
+                return;
+            }
+            
+            // Validate that the game PIN contains only numbers
+            if (!/^\d{6}$/.test(gamePin)) {
+                showStatus('Game PIN must be 6 digits', 'error');
+                return;
+            }
+            
+            // Store player info and redirect to player page
+            localStorage.setItem('gamePin', gamePin);
+            localStorage.setItem('playerName', playerName);
+            location.href = 'player.html';
+        }
+        
+        function showStatus(message, type) {
+            const statusEl = document.getElementById('status-message');
+            statusEl.textContent = message;
+            statusEl.className = `status-message ${type}`;
+            setTimeout(() => {
+                statusEl.textContent = '';
+                statusEl.className = 'status-message';
+            }, 3000);
+        }
+        
+        // Make functions globally accessible
+        window.goToHosting = goToHosting;
+        window.goToManagement = goToManagement;
+        window.toggleUserMenu = toggleUserMenu;
+        window.viewProfile = viewProfile;
+        window.signOut = signOut;
+        window.joinQuiz = joinQuiz;
+    </script>
+</body>
+</html>

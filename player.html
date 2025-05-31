@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Join Quiz - QuizMaster</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Joining Game -->
+        <div id="joining-game" class="quiz-container">
+            <div class="question-card">
+                <h2>🎮 Joining Game...</h2>
+                <div id="join-status">
+                    <p>Connecting to game...</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Waiting Lobby -->
+        <div id="waiting-lobby" class="quiz-container" style="display: none;">
+            <div class="question-card">
+                <h2>🎯 Ready to Play!</h2>
+                <div class="game-info">
+                    <p>Game PIN: <span id="player-game-pin" class="game-pin"></span></p>
+                    <p>Player: <strong id="player-name-display"></strong></p>
+                    <div id="waiting-message">
+                        <p>⏳ Waiting for the host to start the quiz...</p>
+                        <div class="player-count-info">
+                            <p>Players in game: <span id="lobby-player-count">1</span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Active Question -->
+        <div id="active-question" class="quiz-container" style="display: none;">
+            <div class="question-card">
+                <div class="question-header">
+                    <div class="question-number">Question <span id="question-num">1</span></div>
+                    <div class="timer" id="question-timer">00:20</div>
+                </div>
+                <div class="question-text" id="question-text"></div>
+                <div class="answers-grid" id="answers-grid"></div>
+                <div id="answer-feedback" style="display: none;">
+                    <div id="feedback-message"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Waiting for Next Question -->
+        <div id="waiting-next" class="quiz-container" style="display: none;">
+            <div class="question-card">
+                <div id="answer-result">
+                    <h2 id="result-message">Great job!</h2>
+                    <div id="score-info">
+                        <p>Your score: <span id="current-score">0</span> points</p>
+                    </div>
+                </div>
+                <div class="leaderboard" id="current-leaderboard"></div>
+                <div id="next-question-message">
+                    <p>⏳ Waiting for next question...</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Final Results -->
+        <div id="final-results" class="quiz-container" style="display: none;">
+            <div class="question-card">
+                <h2>🏆 Quiz Complete!</h2>
+                <div id="final-score-card">
+                    <h3>Your Final Score</h3>
+                    <div class="final-score" id="player-final-score">0 points</div>
+                    <div class="final-rank" id="player-final-rank">#1</div>
+                </div>
+                <div class="leaderboard" id="final-leaderboard-player"></div>
+                <div class="game-controls">
+                    <button onclick="location.href='index.html'" class="btn btn-primary">Play Again</button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="status" class="status-message"></div>
+    </div>
+    
+    <!-- Firebase CDN Scripts - Only Database, NO AUTH for players -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    
+    <!-- Create a minimal config for players (no auth) -->
+    <script>
+        // Minimal Firebase config for players (no authentication)
+        const firebaseConfig = {
+            apiKey: "AIzaSyDdVOTMNZfO-Pky1KWNcA0O1UKYBXDPlU8",
+            authDomain: "quiz-system-1b9cc.firebaseapp.com",
+            databaseURL: "https://quiz-system-1b9cc-default-rtdb.firebaseio.com",
+            projectId: "quiz-system-1b9cc",
+            storageBucket: "quiz-system-1b9cc.firebasestorage.app",
+            messagingSenderId: "769000169705",
+            appId: "1:769000169705:web:2cf26d22b03839459a9078"
+        };
+
+        // Initialize Firebase for players (database only)
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        
+        // Player-specific utility functions
+        function generatePlayerId() {
+            return Date.now().toString() + '_' + Math.floor(Math.random() * 1000).toString();
+        }
+
+        function getGameRef(pin) {
+            return database.ref(`games/${pin}`);
+        }
+
+        function getPlayersRef(pin) {
+            return database.ref(`games/${pin}/players`);
+        }
+
+        function getGameStateRef(pin) {
+            return database.ref(`games/${pin}/gameState`);
+        }
+
+        // Minimal QuizGame class for players
+        class QuizGame {
+            constructor(gamePin, isHost = false) {
+                this.gamePin = gamePin;
+                this.isHost = isHost;
+                this.players = {};
+            }
+
+            async joinGame(playerName) {
+                try {
+                    const playerId = generatePlayerId();
+                    const playerData = {
+                        id: playerId,
+                        name: playerName,
+                        score: 0,
+                        status: 'waiting',
+                        joinedAt: Date.now()
+                    };
+
+                    await getPlayersRef(this.gamePin).child(playerId).set(playerData);
+                    return playerId;
+                } catch (error) {
+                    console.error('Error joining game:', error);
+                    return null;
+                }
+            }
+
+            async submitAnswer(playerId, answerIndex) {
+                try {
+                    const playerRef = getPlayersRef(this.gamePin).child(playerId);
+                    await playerRef.update({
+                        currentAnswer: answerIndex,
+                        status: 'answered',
+                        answerTime: Date.now()
+                    });
+                    return true;
+                } catch (error) {
+                    console.error('Error submitting answer:', error);
+                    return false;
+                }
+            }
+
+            listenToGameState(callback) {
+                getGameStateRef(this.gamePin).on('value', (snapshot) => {
+                    const gameState = snapshot.val();
+                    if (gameState) {
+                        callback(gameState);
+                    }
+                });
+            }
+
+            listenToPlayers(callback) {
+                getPlayersRef(this.gamePin).on('value', (snapshot) => {
+                    const players = snapshot.val() || {};
+                    callback(players);
+                });
+            }
+
+            cleanup() {
+                if (this.gamePin) {
+                    getGameRef(this.gamePin).off();
+                    getPlayersRef(this.gamePin).off();
+                    getGameStateRef(this.gamePin).off();
+                }
+            }
+        }
+    </script>
+    
+    <!-- Player JavaScript -->
+    <script src="player.js"></script>
+</body>
+</html>

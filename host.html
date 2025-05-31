@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Host Quiz - QuizMaster</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎯 Quiz Host Dashboard</h1>
+            <button onclick="location.href='index.html'" class="btn btn-secondary">← Back to Home</button>
+        </header>
+        
+        <!-- Quiz Selection -->
+        <div id="quiz-selection" class="quiz-container">
+            <div class="question-card">
+                <h2>Select a Quiz to Host</h2>
+                <div id="quiz-list"></div>
+                <button onclick="createCustomQuiz()" class="btn btn-tertiary">Create New Quiz</button>
+            </div>
+        </div>
+        
+        <!-- Game Lobby -->
+        <div id="game-lobby" class="quiz-container" style="display: none;">
+            <div class="host-dashboard">
+                <div class="main-content">
+                    <div class="question-card">
+                        <div class="game-info">
+                            <h2>Game PIN: <span id="game-pin" class="game-pin"></span></h2>
+                            <p>Players can join using this PIN</p>
+                            <div id="lobby-status">
+                                <p>Waiting for players to join...</p>
+                                <button onclick="startQuiz()" class="btn btn-primary" id="start-btn" disabled>Start Quiz</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="game-controls">
+                    <div class="players-list">
+                        <h3>Players (<span id="player-count">0</span>)</h3>
+                        <div id="players-container"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Active Game -->
+        <div id="active-game" class="quiz-container" style="display: none;">
+            <div class="host-dashboard">
+                <div class="main-content">
+                    <div class="question-card">
+                        <div class="question-header">
+                            <div class="question-number">Question <span id="current-q-num">1</span> of <span id="total-questions">0</span></div>
+                            <div class="timer" id="host-timer">00:20</div>
+                        </div>
+                        <div class="question-text" id="host-question"></div>
+                        <div class="answers-grid" id="host-answers"></div>
+                        <div class="game-controls">
+                            <button onclick="nextQuestion()" class="btn btn-primary" id="next-btn" style="display: none;">Next Question</button>
+                            <button onclick="showResults()" class="btn btn-secondary" id="results-btn" style="display: none;">Show Results</button>
+                            <button onclick="endQuiz()" class="btn btn-tertiary" id="end-btn">End Quiz</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="game-controls">
+                    <div class="players-list">
+                        <h3>Player Responses</h3>
+                        <div id="responses-container"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Results Screen -->
+        <div id="results-screen" class="quiz-container" style="display: none;">
+            <div class="question-card">
+                <h2>🏆 Final Results</h2>
+                <div class="leaderboard" id="final-leaderboard"></div>
+                <div class="game-controls">
+                    <button onclick="resetGame()" class="btn btn-primary">Host New Game</button>
+                    <button onclick="location.href='index.html'" class="btn btn-secondary">Back to Home</button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="status-message" class="status-message"></div>
+    </div>
+    
+    <!-- Firebase CDN Scripts - MUST BE IN THIS ORDER -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    
+    <!-- Your application scripts - MUST BE AFTER Firebase -->
+    <script src="config.js"></script>
+    <script src="script.js"></script>
+    <script src="host.js"></script>
+</body>
+</html>
