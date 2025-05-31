@@ -278,7 +278,7 @@ header p {
 }
 
 /* ========================================
-   QUIZ GAME STYLES - KAHOOT! COLORS
+   QUIZ GAME STYLES - KAHOOT! BRIGHT COLORS
    ======================================== */
 
 .quiz-container {
@@ -288,85 +288,103 @@ header p {
 }
 
 .question-card {
-    background: linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%);
-    color: #46178f;
+    background: linear-gradient(135deg, #46178f 0%, #7b2cbf 50%, #9c4dff 100%);
+    color: #ffffff;
     padding: clamp(25px, 5vw, 50px);
     border-radius: 30px;
     margin: 20px auto;
-    max-width: 900px;
-    box-shadow: 0 20px 60px rgba(70, 23, 143, 0.3);
+    max-width: 1000px;
+    box-shadow: 0 20px 60px rgba(70, 23, 143, 0.4);
     position: relative;
     overflow: hidden;
-    border: 4px solid #ff6900;
+    border: 5px solid #ffffff;
+    min-height: 500px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
 .question-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 30px;
-    padding-bottom: 20px;
-    border-bottom: 3px solid #9c4dff;
+    margin-bottom: 40px;
+    padding-bottom: 25px;
+    border-bottom: 4px solid rgba(255, 255, 255, 0.3);
     flex-wrap: wrap;
-    gap: 15px;
+    gap: 20px;
 }
 
 .question-number {
-    background: linear-gradient(135deg, #46178f 0%, #9c4dff 100%);
-    color: white;
-    padding: 12px 20px;
-    border-radius: 25px;
-    font-weight: 800;
-    font-size: clamp(0.9rem, 2.5vw, 1.1rem);
-    white-space: nowrap;
-    box-shadow: 0 6px 20px rgba(70, 23, 143, 0.3);
-}
-
-.timer {
-    background: linear-gradient(135deg, #e21b3c 0%, #ff6900 100%);
+    background: linear-gradient(135deg, #1368ce 0%, #3742fa 100%);
     color: white;
     padding: 15px 25px;
     border-radius: 30px;
-    font-weight: 800;
-    font-size: clamp(1.1rem, 3vw, 1.4rem);
-    box-shadow: 0 8px 25px rgba(226, 27, 60, 0.4);
+    font-weight: 900;
+    font-size: clamp(1rem, 2.5vw, 1.3rem);
+    white-space: nowrap;
+    box-shadow: 0 8px 25px rgba(19, 104, 206, 0.4);
+    border: 3px solid rgba(255, 255, 255, 0.4);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.timer {
+    background: linear-gradient(135deg, #e21b3c 0%, #ff4757 100%);
+    color: white;
+    padding: 18px 30px;
+    border-radius: 35px;
+    font-weight: 900;
+    font-size: clamp(1.3rem, 3vw, 1.8rem);
+    box-shadow: 0 10px 30px rgba(226, 27, 60, 0.5);
     transition: all 0.3s ease;
     white-space: nowrap;
-    border: 3px solid rgba(255, 255, 255, 0.3);
+    border: 4px solid rgba(255, 255, 255, 0.4);
+    min-width: 120px;
+    text-align: center;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 2px;
 }
 
 .question-text {
-    font-size: clamp(1.4rem, 4vw, 2.2rem);
-    margin-bottom: 30px;
-    line-height: 1.4;
-    color: #46178f;
+    font-size: clamp(1.8rem, 5vw, 2.8rem);
+    margin-bottom: 40px;
+    line-height: 1.3;
+    color: #ffffff;
     word-wrap: break-word;
     hyphens: auto;
-    font-weight: 700;
-    text-shadow: 1px 1px 2px rgba(70, 23, 143, 0.1);
+    font-weight: 800;
+    text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.3);
+    text-align: center;
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 0 20px;
 }
 
 /* ========================================
-   ANSWERS GRID - KAHOOT! SIGNATURE COLORS
+   ANSWERS GRID - AUTHENTIC KAHOOT! COLORS
    ======================================== */
 
 .answers-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 20px;
-    margin-bottom: 30px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 25px;
+    margin: 40px auto;
+    max-width: 800px;
+    padding: 0 20px;
 }
 
 .answer-btn {
-    padding: 20px;
+    padding: 25px 20px;
     border: none;
-    border-radius: 20px;
-    font-size: clamp(1.1rem, 3vw, 1.4rem);
-    font-weight: 700;
+    border-radius: 25px;
+    font-size: clamp(1.2rem, 3.5vw, 1.6rem);
+    font-weight: 800;
     cursor: pointer;
     transition: all 0.3s ease;
     color: white;
-    min-height: 80px;
+    min-height: 100px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -374,33 +392,41 @@ header p {
     word-wrap: break-word;
     hyphens: auto;
     line-height: 1.4;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-    border: 4px solid rgba(255, 255, 255, 0.3);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+    text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.4);
+    border: 4px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.3);
+    position: relative;
+    overflow: hidden;
 }
 
-/* Kahoot's signature answer colors */
+/* Authentic Kahoot answer colors with shapes reference */
 .answer-btn:nth-child(1) { 
-    background: linear-gradient(135deg, #e21b3c 0%, #ff4757 100%); /* Red */
+    background: linear-gradient(135deg, #e21b3c 0%, #ff3838 100%); /* Red Triangle */
 }
 .answer-btn:nth-child(2) { 
-    background: linear-gradient(135deg, #1368ce 0%, #3742fa 100%); /* Blue */
+    background: linear-gradient(135deg, #1368ce 0%, #2980ff 100%); /* Blue Diamond */
 }
 .answer-btn:nth-child(3) { 
-    background: linear-gradient(135deg, #ffc048 0%, #ff6900 100%); /* Orange/Yellow */
+    background: linear-gradient(135deg, #ffc048 0%, #ffb400 100%); /* Yellow Circle */
+    color: #333; /* Dark text for better contrast on yellow */
+    text-shadow: 1px 1px 3px rgba(255, 255, 255, 0.8);
 }
 .answer-btn:nth-child(4) { 
-    background: linear-gradient(135deg, #26d0ce 0%, #1dd1a1 100%); /* Green/Teal */
+    background: linear-gradient(135deg, #26d0ce 0%, #00a8a6 100%); /* Green Square */
 }
 
 .answer-btn:hover {
-    transform: scale(1.08) translateY(-5px);
-    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
-    border-color: rgba(255, 255, 255, 0.6);
+    transform: scale(1.08) translateY(-8px);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+    border-color: rgba(255, 255, 255, 0.8);
+}
+
+.answer-btn:active {
+    transform: scale(1.05) translateY(-4px);
 }
 
 .answer-btn:disabled {
-    opacity: 0.7;
+    opacity: 0.8;
     cursor: not-allowed;
     transform: none;
 }
@@ -424,7 +450,7 @@ header p {
 }
 
 /* ========================================
-   HOST DASHBOARD - VIBRANT LAYOUT
+   HOST DASHBOARD - BRIGHT KAHOOT! LAYOUT
    ======================================== */
 
 .host-dashboard {
@@ -439,74 +465,83 @@ header p {
 }
 
 .players-list {
-    background: linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%);
+    background: linear-gradient(135deg, #ffffff 0%, #f0f4ff 100%);
     color: #46178f;
     padding: 25px;
-    border-radius: 20px;
+    border-radius: 25px;
     max-height: 400px;
     overflow-y: auto;
     order: 2;
-    border: 3px solid #ff6900;
-    box-shadow: 0 15px 35px rgba(255, 105, 0, 0.2);
+    border: 4px solid #ff6900;
+    box-shadow: 0 15px 35px rgba(255, 105, 0, 0.3);
 }
 
 .players-list h3 {
     color: #46178f;
-    font-weight: 800;
+    font-weight: 900;
     margin-bottom: 20px;
-    font-size: 1.3rem;
+    font-size: 1.4rem;
+    text-align: center;
 }
 
 .player-item {
-    padding: 15px;
-    margin: 10px 0;
-    background: linear-gradient(135deg, #e21b3c 0%, #ff6900 100%);
-    border-radius: 15px;
+    padding: 15px 20px;
+    margin: 12px 0;
+    background: linear-gradient(135deg, #e21b3c 0%, #ff4757 100%);
+    border-radius: 20px;
     display: flex;
     justify-content: space-between;
     align-items: center;
     transition: all 0.3s ease;
-    border: 2px solid rgba(255, 255, 255, 0.3);
+    border: 3px solid rgba(255, 255, 255, 0.4);
     flex-wrap: wrap;
     gap: 10px;
     color: white;
-    box-shadow: 0 5px 15px rgba(226, 27, 60, 0.3);
+    box-shadow: 0 8px 25px rgba(226, 27, 60, 0.4);
 }
 
 .player-item:hover {
     transform: translateY(-3px) scale(1.02);
-    box-shadow: 0 8px 25px rgba(226, 27, 60, 0.4);
+    box-shadow: 0 12px 35px rgba(226, 27, 60, 0.5);
 }
 
 .player-name {
-    font-weight: 700;
-    font-size: clamp(1rem, 2.5vw, 1.1rem);
+    font-weight: 800;
+    font-size: clamp(1rem, 2.5vw, 1.2rem);
     color: white;
     word-wrap: break-word;
     flex: 1;
     min-width: 0;
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .player-details {
     text-align: right;
     font-size: clamp(0.9rem, 2vw, 1rem);
     flex-shrink: 0;
-    color: #ffe6d1;
-    font-weight: 600;
+    color: #ffe6e6;
+    font-weight: 700;
+}
+
+.player-status {
+    font-size: 0.9rem;
+    padding: 4px 12px;
+    border-radius: 15px;
+    background: rgba(255, 255, 255, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.3);
 }
 
 /* ========================================
-   LEADERBOARD - KAHOOT! PODIUM STYLE
+   LEADERBOARD - BRIGHT KAHOOT! PODIUM STYLE
    ======================================== */
 
 .leaderboard {
-    background: linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%);
+    background: linear-gradient(135deg, #ffffff 0%, #f0f4ff 100%);
     color: #46178f;
     padding: 30px;
     border-radius: 25px;
     margin: 20px auto;
-    max-width: 600px;
+    max-width: 650px;
     border: 4px solid #9c4dff;
     box-shadow: 0 20px 50px rgba(156, 77, 255, 0.3);
 }
@@ -515,64 +550,75 @@ header p {
     margin-bottom: 25px;
     color: #46178f;
     font-size: clamp(1.4rem, 4vw, 1.8rem);
-    font-weight: 800;
+    font-weight: 900;
     text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
 .player-score {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 15px 20px;
-    margin: 12px 0;
-    background: linear-gradient(135deg, #26d0ce 0%, #1dd1a1 100%);
-    border-radius: 15px;
-    border: 3px solid rgba(255, 255, 255, 0.3);
+    padding: 18px 25px;
+    margin: 15px 0;
+    background: linear-gradient(135deg, #26d0ce 0%, #00a8a6 100%);
+    border-radius: 20px;
+    border: 3px solid rgba(255, 255, 255, 0.4);
     transition: all 0.3s ease;
     flex-wrap: wrap;
     gap: 10px;
     color: white;
-    box-shadow: 0 6px 20px rgba(38, 208, 206, 0.3);
+    box-shadow: 0 8px 25px rgba(38, 208, 206, 0.4);
+    min-height: 60px;
 }
 
 .player-score:hover {
-    transform: translateX(8px) scale(1.02);
-    box-shadow: 0 8px 25px rgba(38, 208, 206, 0.4);
+    transform: translateX(10px) scale(1.02);
+    box-shadow: 0 12px 35px rgba(38, 208, 206, 0.5);
 }
 
 .player-score.rank-1 {
-    background: linear-gradient(135deg, #ffc048 0%, #ff6900 100%);
+    background: linear-gradient(135deg, #ffc048 0%, #ffb400 100%);
     border-color: #ffffff;
-    box-shadow: 0 8px 30px rgba(255, 192, 72, 0.4);
+    box-shadow: 0 12px 40px rgba(255, 192, 72, 0.5);
+    transform: scale(1.05);
+    color: #333;
+    text-shadow: 1px 1px 3px rgba(255, 255, 255, 0.8);
 }
 
 .player-score.rank-2 {
     background: linear-gradient(135deg, #ddd6fe 0%, #9c4dff 100%);
     color: white;
-    box-shadow: 0 6px 25px rgba(156, 77, 255, 0.4);
+    box-shadow: 0 10px 30px rgba(156, 77, 255, 0.4);
+    transform: scale(1.02);
 }
 
 .player-score.rank-3 {
     background: linear-gradient(135deg, #fed7aa 0%, #ff6900 100%);
     color: white;
-    box-shadow: 0 6px 20px rgba(255, 105, 0, 0.4);
+    box-shadow: 0 8px 25px rgba(255, 105, 0, 0.4);
 }
 
 .player-score .player-name {
-    font-size: clamp(1rem, 2.5vw, 1.2rem);
+    font-size: clamp(1rem, 2.5vw, 1.3rem);
     word-wrap: break-word;
     flex: 1;
     min-width: 0;
-    font-weight: 700;
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+    font-weight: 800;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .player-points {
-    font-weight: 800;
-    color: white;
-    font-size: clamp(1rem, 2.5vw, 1.1rem);
+    font-weight: 900;
+    color: inherit;
+    font-size: clamp(1.1rem, 2.5vw, 1.2rem);
     flex-shrink: 0;
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+    background: rgba(255, 255, 255, 0.2);
+    padding: 8px 15px;
+    border-radius: 15px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
 }
 
 /* ========================================
@@ -652,24 +698,36 @@ header p {
     
     .question-card {
         margin: 15px 5px;
-        padding: 20px 15px;
+        padding: 25px 15px;
+        min-height: 400px;
     }
     
     .question-header {
         flex-direction: column;
         text-align: center;
         gap: 15px;
+        margin-bottom: 30px;
+    }
+    
+    .question-text {
+        font-size: clamp(1.4rem, 6vw, 2rem);
+        margin-bottom: 30px;
+        padding: 0 10px;
     }
     
     .answers-grid {
         grid-template-columns: 1fr;
         gap: 15px;
+        margin: 30px auto;
+        max-width: 100%;
+        padding: 0 10px;
     }
     
     .answer-btn {
-        min-height: 60px;
-        padding: 15px;
-        font-size: 1.1rem;
+        min-height: 70px;
+        padding: 18px 15px;
+        font-size: clamp(1rem, 4vw, 1.3rem);
+        border-radius: 20px;
     }
     
     .user-header {
@@ -678,6 +736,68 @@ header p {
         right: 10px;
         left: 10px;
         justify-content: space-between;
+        padding: 12px 18px;
+        max-width: none;
+    }
+    
+    .user-info {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .user-name, .user-email {
+        max-width: 150px;
+    }
+    
+    .game-controls {
+        flex-direction: column;
+        gap: 15px;
+        margin-top: 20px;
+    }
+    
+    .game-controls .btn {
+        min-width: 220px;
+        width: 100%;
+        max-width: 320px;
+    }
+    
+    .player-item {
+        flex-direction: column;
+        text-align: center;
+        padding: 18px;
+    }
+    
+    .player-details {
+        text-align: center;
+        width: 100%;
+    }
+    
+    .host-dashboard {
+        gap: 20px;
+    }
+    
+    .players-list {
+        max-height: 300px;
+        padding: 20px;
+    }
+    
+    .leaderboard {
+        padding: 25px 20px;
+        margin: 15px 10px;
+    }
+    
+    .player-score {
+        flex-direction: column;
+        text-align: center;
+        padding: 15px;
+        gap: 8px;
+    }
+    
+    .player-score .player-name {
+        text-align: center;
+        margin-bottom: 5px;
+    }
+ .space-between{
         padding: 12px 18px;
         max-width: none;
     }
