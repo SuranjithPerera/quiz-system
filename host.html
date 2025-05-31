@@ -5,6 +5,248 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Host Quiz - QuizMaster</title>
     <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Enhanced lobby layout for centered Game PIN */
+        .lobby-container {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 30px;
+            min-height: calc(100vh - 200px);
+            margin-top: 20px;
+        }
+        
+        .main-lobby-content {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 40px 20px;
+        }
+        
+        .game-pin-display {
+            background: linear-gradient(135deg, #46178f 0%, #9c4dff 100%);
+            color: white;
+            padding: 60px 40px;
+            border-radius: 30px;
+            margin-bottom: 40px;
+            border: 6px solid #ffffff;
+            box-shadow: 0 20px 60px rgba(70, 23, 143, 0.4);
+            animation: pinGlow 2s ease-in-out infinite alternate;
+            min-width: 400px;
+        }
+        
+        .game-pin-display h2 {
+            font-size: clamp(2rem, 4vw, 3rem);
+            margin-bottom: 30px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        
+        .game-pin-number {
+            font-size: clamp(3rem, 6vw, 5rem);
+            font-weight: 900;
+            letter-spacing: 8px;
+            text-shadow: 4px 4px 8px rgba(0, 0, 0, 0.4);
+            margin-bottom: 20px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .game-pin-instructions {
+            font-size: clamp(1.2rem, 2.5vw, 1.5rem);
+            opacity: 0.9;
+            font-weight: 600;
+            margin-bottom: 30px;
+        }
+        
+        .start-game-section {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            padding: 30px;
+            border-radius: 25px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            max-width: 500px;
+            width: 100%;
+        }
+        
+        .players-sidebar {
+            background: linear-gradient(135deg, #ffffff 0%, #f0f4ff 100%);
+            border-radius: 25px;
+            padding: 25px;
+            border: 4px solid #ff6900;
+            box-shadow: 0 15px 35px rgba(255, 105, 0, 0.3);
+            max-height: calc(100vh - 150px);
+            overflow-y: auto;
+            position: sticky;
+            top: 20px;
+        }
+        
+        .players-sidebar h3 {
+            color: #46178f;
+            font-weight: 900;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 3px solid #ff6900;
+            padding-bottom: 15px;
+        }
+        
+        .player-count-badge {
+            background: linear-gradient(135deg, #e21b3c 0%, #ff4757 100%);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 800;
+            font-size: 1.1rem;
+            margin-left: 10px;
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 4px 15px rgba(226, 27, 60, 0.3);
+        }
+        
+        .players-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .player-item-lobby {
+            padding: 15px 20px;
+            background: linear-gradient(135deg, #26d0ce 0%, #00a8a6 100%);
+            border-radius: 15px;
+            color: white;
+            font-weight: 700;
+            text-align: center;
+            border: 3px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 6px 20px rgba(38, 208, 206, 0.3);
+            transition: all 0.3s ease;
+            font-size: 1.1rem;
+        }
+        
+        .player-item-lobby:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 8px 25px rgba(38, 208, 206, 0.4);
+        }
+        
+        .start-btn-container {
+            margin-top: 30px;
+        }
+        
+        .start-btn {
+            background: linear-gradient(135deg, #e21b3c 0%, #ff4757 100%);
+            color: white;
+            border: none;
+            padding: 20px 40px;
+            border-radius: 50px;
+            font-size: clamp(1.2rem, 3vw, 1.5rem);
+            font-weight: 900;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border: 4px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 10px 30px rgba(226, 27, 60, 0.4);
+            min-width: 200px;
+        }
+        
+        .start-btn:hover:not(:disabled) {
+            background: linear-gradient(135deg, #ff4757 0%, #ff6b6b 100%);
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(226, 27, 60, 0.5);
+        }
+        
+        .start-btn:disabled {
+            background: linear-gradient(135deg, #999 0%, #666 100%);
+            cursor: not-allowed;
+            opacity: 0.6;
+            transform: none;
+        }
+        
+        /* Mobile responsive */
+        @media (max-width: 768px) {
+            .lobby-container {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .players-sidebar {
+                order: -1;
+                max-height: 250px;
+                position: static;
+            }
+            
+            .main-lobby-content {
+                padding: 20px;
+            }
+            
+            .game-pin-display {
+                min-width: auto;
+                width: 100%;
+                padding: 40px 20px;
+                margin-bottom: 30px;
+            }
+            
+            .game-pin-number {
+                font-size: clamp(2.5rem, 8vw, 4rem);
+                letter-spacing: 4px;
+            }
+            
+            .start-game-section {
+                padding: 20px;
+            }
+        }
+        
+        @media (min-width: 769px) and (max-width: 1024px) {
+            .lobby-container {
+                grid-template-columns: 1fr 300px;
+                gap: 25px;
+            }
+            
+            .game-pin-display {
+                min-width: 350px;
+            }
+        }
+        
+        @keyframes pinGlow {
+            0% { 
+                box-shadow: 0 20px 60px rgba(70, 23, 143, 0.4);
+            }
+            100% { 
+                box-shadow: 0 25px 70px rgba(70, 23, 143, 0.6), 0 0 40px rgba(156, 77, 255, 0.3);
+            }
+        }
+        
+        /* Empty players state */
+        .no-players-message {
+            text-align: center;
+            padding: 30px 20px;
+            color: #46178f;
+            font-size: 1.1rem;
+            opacity: 0.8;
+            border: 2px dashed #9c4dff;
+            border-radius: 15px;
+            background: rgba(156, 77, 255, 0.05);
+        }
+        
+        .waiting-animation {
+            display: inline-block;
+            animation: bounce 1.5s ease-in-out infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {
+                transform: translateY(0);
+            }
+            40% {
+                transform: translateY(-10px);
+            }
+            60% {
+                transform: translateY(-5px);
+            }
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -22,26 +264,45 @@
             </div>
         </div>
         
-        <!-- Game Lobby -->
+        <!-- Game Lobby - Enhanced Layout -->
         <div id="game-lobby" class="quiz-container" style="display: none;">
-            <div class="host-dashboard">
-                <div class="main-content">
-                    <div class="question-card">
-                        <div class="game-info">
-                            <h2>Game PIN: <span id="game-pin" class="game-pin"></span></h2>
-                            <p>Players can join using this PIN</p>
-                            <div id="lobby-status">
-                                <p>Waiting for players to join...</p>
-                                <button onclick="startQuiz()" class="btn btn-primary" id="start-btn" disabled>Start Quiz</button>
+            <div class="lobby-container">
+                <!-- Main centered content -->
+                <div class="main-lobby-content">
+                    <div class="game-pin-display">
+                        <h2>Game PIN</h2>
+                        <div class="game-pin-number" id="game-pin">000000</div>
+                        <div class="game-pin-instructions">
+                            Players join at kahoot.it with this PIN
+                        </div>
+                    </div>
+                    
+                    <div class="start-game-section">
+                        <div id="lobby-status">
+                            <p class="waiting-animation">⏳ Waiting for players to join...</p>
+                            <div class="start-btn-container">
+                                <button onclick="startQuiz()" class="start-btn" id="start-btn" disabled>
+                                    Waiting for players...
+                                </button>
                             </div>
                         </div>
                     </div>
                 </div>
                 
-                <div class="game-controls">
-                    <div class="players-list">
-                        <h3>Players (<span id="player-count">0</span>)</h3>
-                        <div id="players-container"></div>
+                <!-- Players sidebar -->
+                <div class="players-sidebar">
+                    <h3>
+                        Players
+                        <span class="player-count-badge" id="player-count">0</span>
+                    </h3>
+                    <div class="players-container" id="players-container">
+                        <div class="no-players-message">
+                            <div style="font-size: 2rem; margin-bottom: 10px;">👥</div>
+                            <div>No players yet</div>
+                            <div style="font-size: 0.9rem; margin-top: 8px; opacity: 0.7;">
+                                Share the game PIN to get started!
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
