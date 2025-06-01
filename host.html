@@ -256,17 +256,30 @@
 
         .player-response {
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 20px;
+            flex-direction: column;
+            padding: 15px 20px;
             margin: 8px 0;
             background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
             border-radius: 15px;
             border: 2px solid #2196f3;
+            transition: all 0.3s ease;
         }
 
-        .response-status.answered {
-            background: linear-gradient(135deg, #26d0ce 0%, #1dd1a1 100%);
+        .player-response-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .player-name {
+            font-weight: 700;
+            color: #1976d2;
+            font-size: 1.1rem;
+        }
+
+        .player-total-score {
+            background: linear-gradient(135deg, #ff6900 0%, #ff8c00 100%);
             color: white;
             padding: 4px 12px;
             border-radius: 12px;
@@ -274,13 +287,101 @@
             font-weight: 700;
         }
 
-        .response-status.waiting {
-            background: linear-gradient(135deg, #ffc048 0%, #ffb400 100%);
-            color: #333;
-            padding: 4px 12px;
+        .response-status.answered {
+            background: linear-gradient(135deg, #26d0ce 0%, #1dd1a1 100%);
+            color: white;
+            padding: 6px 12px;
             border-radius: 12px;
             font-size: 0.9rem;
             font-weight: 700;
+            align-self: flex-start;
+        }
+
+        .response-status.answered.correct {
+            background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
+            border: 2px solid #ffffff;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+        }
+
+        .response-status.answered.incorrect {
+            background: linear-gradient(135deg, #f44336 0%, #ef5350 100%);
+            border: 2px solid #ffffff;
+            box-shadow: 0 4px 15px rgba(244, 67, 54, 0.3);
+        }
+
+        .response-status.waiting {
+            background: linear-gradient(135deg, #ffc048 0%, #ffb400 100%);
+            color: #333;
+            padding: 6px 12px;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            align-self: flex-start;
+        }
+
+        .score-info {
+            margin-top: 5px;
+            font-weight: 800;
+            color: #4caf50;
+            font-size: 0.9rem;
+            text-align: center;
+            background: rgba(76, 175, 80, 0.1);
+            padding: 4px 8px;
+            border-radius: 8px;
+            border: 1px solid rgba(76, 175, 80, 0.3);
+        }
+
+        /* Enhanced timer animations */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .timer {
+            transition: all 0.3s ease;
+        }
+
+        /* Answer option enhancements for host view */
+        .answer-option {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .answer-option.correct::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(76, 175, 80, 0.2) 0%, rgba(102, 187, 106, 0.2) 100%);
+            border-radius: 15px;
+            animation: correctPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes correctPulse {
+            0%, 100% { opacity: 0.2; }
+            50% { opacity: 0.4; }
+        }
+
+        .correct-indicator {
+            background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-weight: 800;
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
+            animation: bounce 0.5s ease-out;
+        }
+
+        @keyframes bounce {
+            0% { transform: scale(0.8); opacity: 0; }
+            50% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
         }
         
         /* Mobile responsive */
@@ -776,7 +877,7 @@
             }
         }
 
-        // Create game session
+        // Create game session with proper scoring integration
         async function createGameSession() {
             console.log('🎮 HOST: Creating game session...');
             showStatus('Creating game session...', 'info');
@@ -786,7 +887,7 @@
                 hostGamePin = generateGamePin();
                 console.log('🎯 HOST: Generated game PIN:', hostGamePin);
                 
-                // Create game instance
+                // Create game instance using the existing QuizGame class
                 hostGameInstance = new QuizGame(hostGamePin, true);
                 
                 // Create game in Firebase
@@ -993,6 +1094,21 @@
                 const secs = timeLeft % 60;
                 timerEl.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
                 
+                // Add visual urgency as time runs out
+                if (timeLeft <= 5) {
+                    timerEl.style.background = 'linear-gradient(135deg, #e21b3c 0%, #ff4757 100%)';
+                    timerEl.style.animation = 'pulse 0.5s infinite';
+                    timerEl.style.transform = 'scale(1.1)';
+                } else if (timeLeft <= 10) {
+                    timerEl.style.background = 'linear-gradient(135deg, #ff6900 0%, #ff8c00 100%)';
+                    timerEl.style.animation = 'none';
+                    timerEl.style.transform = 'scale(1.05)';
+                } else {
+                    timerEl.style.background = 'linear-gradient(135deg, #e21b3c 0%, #ff4757 100%)';
+                    timerEl.style.animation = 'none';
+                    timerEl.style.transform = 'scale(1)';
+                }
+                
                 if (timeLeft <= 0) {
                     clearInterval(hostQuestionTimer);
                     onQuestionTimeUp();
@@ -1007,6 +1123,10 @@
 
         function onQuestionTimeUp() {
             console.log('⏰ HOST: Question time is up');
+            
+            // Calculate scores for all players using existing scoring system
+            calculatePlayerScores();
+            
             showElement('next-btn');
             
             if (hostCurrentQuestionIndex >= hostCurrentQuiz.questions.length - 1) {
@@ -1016,11 +1136,68 @@
             showStatus('Time\'s up! Review responses and continue.', 'info');
         }
 
+        // Calculate scores for players using the existing scoring system
+        async function calculatePlayerScores() {
+            if (!hostCurrentQuiz || !hostCurrentQuiz.questions[hostCurrentQuestionIndex]) {
+                return;
+            }
+
+            const currentQuestion = hostCurrentQuiz.questions[hostCurrentQuestionIndex];
+            const db = await hostGameInstance.waitForDatabase();
+            if (!db) return;
+
+            try {
+                console.log('🏆 HOST: Calculating scores for current question...');
+                
+                for (const playerId in hostPlayers) {
+                    const player = hostPlayers[playerId];
+                    
+                    if (player.status === 'answered') {
+                        const isCorrect = player.currentAnswer === currentQuestion.correct;
+                        const responseTime = player.responseTime || 0;
+                        const timeLimit = currentQuestion.timeLimit || 20;
+                        
+                        // Use existing calculateScore function from script.js
+                        const timeLeft = Math.max(0, timeLimit - responseTime);
+                        const questionScore = calculateScore(isCorrect, timeLeft, timeLimit);
+                        const newTotalScore = (player.score || 0) + questionScore;
+                        
+                        // Update player score in Firebase
+                        await db.ref(`games/${hostGamePin}/players/${playerId}`).update({
+                            isCorrect: isCorrect,
+                            questionScore: questionScore,
+                            score: newTotalScore
+                        });
+                        
+                        console.log(`🏆 HOST: Player ${player.name} scored ${questionScore} points (Total: ${newTotalScore})`);
+                    } else {
+                        // Player didn't answer
+                        await db.ref(`games/${hostGamePin}/players/${playerId}`).update({
+                            isCorrect: false,
+                            questionScore: 0
+                        });
+                    }
+                }
+                
+                // Refresh the responses display
+                setTimeout(() => {
+                    updateResponsesDisplay();
+                }, 1000);
+                
+            } catch (error) {
+                console.error('💥 HOST: Error calculating scores:', error);
+            }
+        }
+
         function updateResponsesDisplay() {
             const responsesContainer = document.getElementById('responses-container');
             if (!responsesContainer) return;
             
             responsesContainer.innerHTML = '';
+            
+            // Get current question for scoring
+            const currentQuestion = hostCurrentQuiz && hostCurrentQuiz.questions ? 
+                hostCurrentQuiz.questions[hostCurrentQuestionIndex] : null;
             
             Object.values(hostPlayers).forEach(player => {
                 const responseDiv = document.createElement('div');
@@ -1028,15 +1205,41 @@
                 
                 let statusText = 'Not answered';
                 let statusClass = 'waiting';
+                let scoreInfo = '';
                 
                 if (player.status === 'answered') {
-                    statusText = `Answered in ${(player.responseTime || 0).toFixed(1)}s`;
+                    const responseTime = (player.responseTime || 0).toFixed(1);
+                    statusText = `Answered in ${responseTime}s`;
                     statusClass = 'answered';
+                    
+                    // Show if answer is correct/incorrect
+                    if (currentQuestion && typeof player.currentAnswer === 'number') {
+                        const isCorrect = player.currentAnswer === currentQuestion.correct;
+                        const answerLetter = String.fromCharCode(65 + player.currentAnswer);
+                        
+                        if (isCorrect) {
+                            statusClass += ' correct';
+                            statusText += ` - ${answerLetter} ✓`;
+                            
+                            // Show score if available
+                            if (typeof player.questionScore === 'number') {
+                                scoreInfo = `<div class="score-info">+${player.questionScore} pts</div>`;
+                            }
+                        } else {
+                            statusClass += ' incorrect';
+                            statusText += ` - ${answerLetter} ❌`;
+                            scoreInfo = `<div class="score-info">+0 pts</div>`;
+                        }
+                    }
                 }
                 
                 responseDiv.innerHTML = `
-                    <span class="player-name">${player.name}</span>
+                    <div class="player-response-header">
+                        <span class="player-name">${player.name}</span>
+                        <span class="player-total-score">${player.score || 0} pts</span>
+                    </div>
                     <span class="response-status ${statusClass}">${statusText}</span>
+                    ${scoreInfo}
                 `;
                 
                 responsesContainer.appendChild(responseDiv);
