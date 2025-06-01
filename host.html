@@ -478,11 +478,11 @@
         let hostCurrentQuiz = null;
         let hostGameInstance = null;
         let hostPlayers = {};
-        let currentQuestionIndex = 0;
-        let questionTimer = null;
-        let gamePin = null;
-        let isGameActive = false;
-        let currentGameState = 'waiting';
+        let hostCurrentQuestionIndex = 0; // Changed to avoid conflict
+        let hostQuestionTimer = null; // Changed to avoid conflict
+        let hostGamePin = null; // Changed to avoid conflict
+        let isHostGameActive = false; // Changed to avoid conflict
+        let hostCurrentGameState = 'waiting'; // Changed to avoid conflict
 
         // Initialize host page
         function initializeHost() {
@@ -783,11 +783,11 @@
             
             try {
                 // Generate game PIN
-                gamePin = generateGamePin();
-                console.log('🎯 HOST: Generated game PIN:', gamePin);
+                hostGamePin = generateGamePin();
+                console.log('🎯 HOST: Generated game PIN:', hostGamePin);
                 
                 // Create game instance
-                hostGameInstance = new QuizGame(gamePin, true);
+                hostGameInstance = new QuizGame(hostGamePin, true);
                 
                 // Create game in Firebase
                 const gameCreated = await hostGameInstance.createGame(hostCurrentQuiz);
@@ -804,7 +804,7 @@
                 
                 // Show lobby
                 showGameLobby();
-                showStatus('Game created! Share PIN: ' + gamePin, 'success');
+                showStatus('Game created! Share PIN: ' + hostGamePin, 'success');
                 
             } catch (error) {
                 console.error('💥 HOST: Error creating game session:', error);
@@ -816,7 +816,7 @@
             console.log('🏠 HOST: Showing game lobby');
             
             // Update UI
-            document.getElementById('game-pin').textContent = gamePin;
+            document.getElementById('game-pin').textContent = hostGamePin;
             
             // Hide quiz selection, show lobby
             hideElement('quiz-selection');
@@ -825,8 +825,8 @@
             // Reset players display
             updatePlayersDisplay({});
             
-            currentGameState = 'waiting';
-            isGameActive = false;
+            hostCurrentGameState = 'waiting';
+            isHostGameActive = false;
         }
 
         function onPlayersUpdate(players) {
@@ -884,12 +884,12 @@
             
             if (!gameState) return;
             
-            currentGameState = gameState.status;
+            hostCurrentGameState = gameState.status;
             
             switch (gameState.status) {
                 case 'playing':
                     if (gameState.currentQuestion !== undefined) {
-                        currentQuestionIndex = gameState.currentQuestion;
+                        hostCurrentQuestionIndex = gameState.currentQuestion;
                         showActiveGame();
                     }
                     break;
@@ -920,8 +920,8 @@
                 
                 if (started) {
                     console.log('✅ HOST: Game started successfully');
-                    currentQuestionIndex = 0;
-                    isGameActive = true;
+                    hostCurrentQuestionIndex = 0;
+                    isHostGameActive = true;
                     showActiveGame();
                     showStatus('Game started!', 'success');
                 } else {
@@ -934,7 +934,7 @@
         }
 
         function showActiveGame() {
-            console.log('🎯 HOST: Showing active game for question', currentQuestionIndex + 1);
+            console.log('🎯 HOST: Showing active game for question', hostCurrentQuestionIndex + 1);
             
             hideElement('game-lobby');
             showElement('active-game');
@@ -944,18 +944,18 @@
         }
 
         function displayCurrentQuestion() {
-            if (!hostCurrentQuiz || !hostCurrentQuiz.questions || currentQuestionIndex >= hostCurrentQuiz.questions.length) {
+            if (!hostCurrentQuiz || !hostCurrentQuiz.questions || hostCurrentQuestionIndex >= hostCurrentQuiz.questions.length) {
                 console.error('❌ HOST: Invalid question index or quiz data');
                 return;
             }
             
-            const question = hostCurrentQuiz.questions[currentQuestionIndex];
+            const question = hostCurrentQuiz.questions[hostCurrentQuestionIndex];
             const totalQuestions = hostCurrentQuiz.questions.length;
             
-            console.log('📝 HOST: Displaying question:', currentQuestionIndex + 1, 'of', totalQuestions);
+            console.log('📝 HOST: Displaying question:', hostCurrentQuestionIndex + 1, 'of', totalQuestions);
             
             // Update question info
-            document.getElementById('current-q-num').textContent = currentQuestionIndex + 1;
+            document.getElementById('current-q-num').textContent = hostCurrentQuestionIndex + 1;
             document.getElementById('total-questions').textContent = totalQuestions;
             document.getElementById('host-question').textContent = question.question;
             
@@ -994,7 +994,7 @@
                 timerEl.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
                 
                 if (timeLeft <= 0) {
-                    clearInterval(questionTimer);
+                    clearInterval(hostQuestionTimer);
                     onQuestionTimeUp();
                 } else {
                     timeLeft--;
@@ -1002,14 +1002,14 @@
             };
             
             updateTimer();
-            questionTimer = setInterval(updateTimer, 1000);
+            hostQuestionTimer = setInterval(updateTimer, 1000);
         }
 
         function onQuestionTimeUp() {
             console.log('⏰ HOST: Question time is up');
             showElement('next-btn');
             
-            if (currentQuestionIndex >= hostCurrentQuiz.questions.length - 1) {
+            if (hostCurrentQuestionIndex >= hostCurrentQuiz.questions.length - 1) {
                 showElement('results-btn');
             }
             
@@ -1047,22 +1047,22 @@
         async function nextQuestion() {
             console.log('➡️ HOST: Moving to next question');
             
-            if (questionTimer) {
-                clearInterval(questionTimer);
+            if (hostQuestionTimer) {
+                clearInterval(hostQuestionTimer);
             }
             
-            if (currentQuestionIndex >= hostCurrentQuiz.questions.length - 1) {
+            if (hostCurrentQuestionIndex >= hostCurrentQuiz.questions.length - 1) {
                 // No more questions, end game
                 endQuiz();
                 return;
             }
             
             try {
-                currentQuestionIndex++;
+                hostCurrentQuestionIndex++;
                 const success = await hostGameInstance.nextQuestion();
                 
                 if (success) {
-                    console.log('✅ HOST: Moved to question', currentQuestionIndex + 1);
+                    console.log('✅ HOST: Moved to question', hostCurrentQuestionIndex + 1);
                     displayCurrentQuestion();
                     updateResponsesDisplay();
                 } else {
@@ -1078,8 +1078,8 @@
         function showResults() {
             console.log('🏆 HOST: Showing final results');
             
-            if (questionTimer) {
-                clearInterval(questionTimer);
+            if (hostQuestionTimer) {
+                clearInterval(hostQuestionTimer);
             }
             
             hideElement('active-game');
@@ -1114,8 +1114,8 @@
         async function endQuiz() {
             console.log('🏁 HOST: Ending quiz');
             
-            if (questionTimer) {
-                clearInterval(questionTimer);
+            if (hostQuestionTimer) {
+                clearInterval(hostQuestionTimer);
             }
             
             try {
@@ -1136,9 +1136,9 @@
             console.log('🔄 HOST: Resetting game');
             
             // Cleanup
-            if (questionTimer) {
-                clearInterval(questionTimer);
-                questionTimer = null;
+            if (hostQuestionTimer) {
+                clearInterval(hostQuestionTimer);
+                hostQuestionTimer = null;
             }
             
             if (hostGameInstance) {
@@ -1149,10 +1149,10 @@
             // Reset variables
             hostCurrentQuiz = null;
             hostPlayers = {};
-            currentQuestionIndex = 0;
-            gamePin = null;
-            isGameActive = false;
-            currentGameState = 'waiting';
+            hostCurrentQuestionIndex = 0;
+            hostGamePin = null;
+            isHostGameActive = false;
+            hostCurrentGameState = 'waiting';
             
             // Reset UI
             hideElement('game-lobby');
@@ -1203,7 +1203,7 @@
         // Cleanup on page unload
         window.addEventListener('beforeunload', () => {
             console.log('🧹 HOST: Page unloading - cleanup');
-            if (questionTimer) clearInterval(questionTimer);
+            if (hostQuestionTimer) clearInterval(hostQuestionTimer);
             if (hostGameInstance) hostGameInstance.cleanup();
         });
 
