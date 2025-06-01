@@ -390,14 +390,139 @@
         <div id="status-message" class="status-message"></div>
     </div>
     
-    <!-- Firebase CDN Scripts - MUST BE IN THIS ORDER -->
+    <!-- CRITICAL FIX: Firebase CDN Scripts - MUST BE IN THIS ORDER -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     
-    <!-- Your application scripts - MUST BE AFTER Firebase -->
+    <!-- CRITICAL FIX: Application scripts - MUST BE AFTER Firebase AND IN CORRECT ORDER -->
     <script src="config.js"></script>
     <script src="script.js"></script>
+    <!-- CRITICAL FIX: Make sure host.js loads AFTER all dependencies -->
     <script src="host.js"></script>
+    
+    <!-- CRITICAL FIX: Fallback initialization if host.js doesn't load -->
+    <script>
+        // Fallback initialization check
+        window.addEventListener('DOMContentLoaded', function() {
+            console.log('🔍 HOST: DOM loaded, checking initialization...');
+            
+            // Check if host.js loaded properly
+            if (typeof initializeHost === 'undefined') {
+                console.error('❌ HOST: host.js not loaded properly! Creating fallback...');
+                
+                // Create minimal fallback initialization
+                window.initializeHost = function() {
+                    console.log('🔧 HOST: Using fallback initialization...');
+                    
+                    // Check authentication
+                    if (typeof auth !== 'undefined') {
+                        auth.onAuthStateChanged((user) => {
+                            if (user) {
+                                console.log('✅ HOST: User authenticated (fallback):', user.email);
+                                loadQuizzesWithFallback();
+                            } else {
+                                console.log('❌ HOST: User not authenticated, redirecting...');
+                                setTimeout(() => {
+                                    window.location.href = 'auth.html';
+                                }, 2000);
+                            }
+                        });
+                    } else {
+                        console.error('❌ HOST: Firebase auth not available');
+                        setTimeout(() => {
+                            window.location.href = 'auth.html';
+                        }, 2000);
+                    }
+                };
+                
+                // Fallback quiz loading
+                window.loadQuizzesWithFallback = async function() {
+                    console.log('📚 HOST: Loading quizzes (fallback)...');
+                    const quizList = document.getElementById('quiz-list');
+                    
+                    if (!quizList) {
+                        console.error('❌ HOST: Quiz list element not found');
+                        return;
+                    }
+                    
+                    try {
+                        // Try to load quizzes using config.js functions
+                        if (typeof loadAllQuizzes === 'function') {
+                            const quizzes = await loadAllQuizzes();
+                            console.log('📝 HOST: Found quizzes (fallback):', quizzes.length);
+                            
+                            quizList.innerHTML = '';
+                            
+                            if (quizzes.length === 0) {
+                                quizList.innerHTML = `
+                                    <div class="menu-card">
+                                        <div style="text-align: center; color: #666;">
+                                            <h3>No Quizzes Available</h3>
+                                            <p>Create your first quiz to get started!</p>
+                                            <a href="manage.html" class="btn btn-tertiary">Create New Quiz</a>
+                                        </div>
+                                    </div>
+                                `;
+                            } else {
+                                quizzes.forEach(quiz => {
+                                    // Validate quiz data
+                                    if (!quiz || !quiz.id || !quiz.title) {
+                                        console.warn('⚠️ HOST: Skipping invalid quiz:', quiz);
+                                        return;
+                                    }
+                                    
+                                    // Ensure questions array exists
+                                    if (!quiz.questions || !Array.isArray(quiz.questions)) {
+                                        console.warn('⚠️ HOST: Quiz has invalid questions array:', quiz.title);
+                                        quiz.questions = [];
+                                    }
+                                    
+                                    const questionsCount = quiz.questions.length;
+                                    
+                                    const quizCard = document.createElement('div');
+                                    quizCard.className = 'menu-card';
+                                    quizCard.innerHTML = `
+                                        <div style="text-align: left;">
+                                            <h3>${quiz.title}</h3>
+                                            <p>${questionsCount} questions</p>
+                                            <p><small>Created: ${new Date(quiz.createdAt || Date.now()).toLocaleDateString()}</small></p>
+                                        </div>
+                                        <button onclick="selectQuizFallback('${quiz.id}')" class="btn btn-primary">Select Quiz</button>
+                                    `;
+                                    quizList.appendChild(quizCard);
+                                });
+                            }
+                        } else {
+                            throw new Error('loadAllQuizzes function not available');
+                        }
+                    } catch (error) {
+                        console.error('💥 HOST: Error loading quizzes (fallback):', error);
+                        quizList.innerHTML = `
+                            <div class="menu-card">
+                                <div style="text-align: center; color: #f44336;">
+                                    <h3>Error Loading Quizzes</h3>
+                                    <p>Please try refreshing the page or check console for details</p>
+                                    <button onclick="window.location.reload()" class="btn btn-primary">Refresh Page</button>
+                                </div>
+                            </div>
+                        `;
+                    }
+                };
+                
+                // Fallback quiz selection
+                window.selectQuizFallback = function(quizId) {
+                    console.log('🎯 HOST: Selecting quiz (fallback):', quizId);
+                    alert('Host functionality is limited due to missing host.js. Please check that host.js is loading properly.');
+                };
+                
+                // Call the fallback initialization
+                console.log('🚀 HOST: Starting fallback initialization...');
+                initializeHost();
+            } else {
+                console.log('✅ HOST: host.js loaded successfully, functions available');
+            }
+        });
+    </script>
 </body>
 </html>
