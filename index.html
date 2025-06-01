@@ -156,80 +156,113 @@
             margin-bottom: 10px;
             opacity: 0.8;
         }
+
+        .loading-state {
+            text-align: center;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            margin: 20px 0;
+            backdrop-filter: blur(10px);
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-left: 4px solid #ffffff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <!-- User Header (Only show when logged in) -->
-        <div class="user-header" id="user-header" style="display: none;">
-            <div class="user-info">
-                <div class="user-name" id="user-name">User Name</div>
-                <div class="user-email" id="user-email">user@example.com</div>
-            </div>
-            <div class="user-avatar" id="user-avatar">U</div>
-            <div class="user-menu">
-                <button class="user-menu-btn" onclick="toggleUserMenu()">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
-                    </svg>
-                </button>
-                <div class="user-dropdown" id="user-dropdown">
-                    <div class="stats-preview" id="user-stats">
-                        <div class="stats-item">
-                            <span>Quizzes Created:</span>
-                            <span id="quiz-count">0</span>
-                        </div>
-                        <div class="stats-item">
-                            <span>Total Plays:</span>
-                            <span id="total-plays">0</span>
-                        </div>
-                    </div>
-                    <a href="manage.html" class="dropdown-item">📝 Manage Quizzes</a>
-                    <a href="host.html" class="dropdown-item">🎮 Host Quiz</a>
-                    <button onclick="viewProfile()" class="dropdown-item">👤 Profile Settings</button>
-                    <button onclick="signOut()" class="dropdown-item danger">🚪 Sign Out</button>
-                </div>
-            </div>
+        <!-- Loading State -->
+        <div id="loading-state" class="loading-state">
+            <div class="loading-spinner"></div>
+            <p>Loading QuizMaster...</p>
         </div>
 
-        <!-- Host Login Button (Only show when not logged in) -->
-        <div style="position: absolute; top: 20px; right: 20px;" id="host-login-section">
-            <a href="auth.html" class="host-login-btn">🔑 Host Login</a>
-        </div>
-        
-        <header>
-            <h1>🎯 QuizMaster</h1>
-            <p>Interactive Quiz System for Everyone</p>
-        </header>
-        
-        <div class="main-menu">
-            <div class="menu-card">
-                <h2>🎮 Join Quiz</h2>
-                <p>Enter a game PIN to join an active quiz</p>
-                <div class="input-group">
-                    <input type="text" id="gamePin" placeholder="Enter Game PIN" maxlength="6">
-                    <input type="text" id="playerName" placeholder="Your Name" maxlength="20">
+        <!-- Main Content (Hidden until loaded) -->
+        <div id="main-content" style="display: none;">
+            <!-- User Header (Only show when logged in) -->
+            <div class="user-header" id="user-header" style="display: none;">
+                <div class="user-info">
+                    <div class="user-name" id="user-name">User Name</div>
+                    <div class="user-email" id="user-email">user@example.com</div>
                 </div>
-                <button onclick="joinQuiz()" class="btn btn-primary">Join Quiz</button>
+                <div class="user-avatar" id="user-avatar">U</div>
+                <div class="user-menu">
+                    <button class="user-menu-btn" onclick="toggleUserMenu()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
+                        </svg>
+                    </button>
+                    <div class="user-dropdown" id="user-dropdown">
+                        <div class="stats-preview" id="user-stats">
+                            <div class="stats-item">
+                                <span>Quizzes Created:</span>
+                                <span id="quiz-count">0</span>
+                            </div>
+                            <div class="stats-item">
+                                <span>Total Plays:</span>
+                                <span id="total-plays">0</span>
+                            </div>
+                        </div>
+                        <a href="manage.html" class="dropdown-item">📝 Manage Quizzes</a>
+                        <a href="host.html" class="dropdown-item">🎮 Host Quiz</a>
+                        <button onclick="viewProfile()" class="dropdown-item">👤 Profile Settings</button>
+                        <button onclick="signOut()" class="dropdown-item danger">🚪 Sign Out</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Host Login Button (Only show when not logged in) -->
+            <div style="position: absolute; top: 20px; right: 20px;" id="host-login-section">
+                <a href="auth.html" class="host-login-btn">🔑 Host Login</a>
             </div>
             
-            <div class="menu-card">
-                <h2>🎯 Host a Quiz</h2>
-                <p>Create and host your own quiz session</p>
-                <button onclick="goToHosting()" class="btn btn-secondary" id="host-quiz-btn">Host Quiz</button>
-                <div class="host-section" id="host-login-info" style="display: none;">
-                    <p>Login required to create and host quizzes</p>
-                    <button onclick="location.href='auth.html'" class="btn btn-tertiary">Login to Host</button>
-                </div>
-            </div>
+            <header>
+                <h1>🎯 QuizMaster</h1>
+                <p>Interactive Quiz System for Everyone</p>
+            </header>
             
-            <div class="menu-card">
-                <h2>📊 Quiz Management</h2>
-                <p>Create, edit and manage your quiz library</p>
-                <button onclick="goToManagement()" class="btn btn-tertiary" id="manage-quiz-btn">Manage Quizzes</button>
-                <div class="host-section" id="manage-login-info" style="display: none;">
-                    <p>Login required to manage quizzes</p>
-                    <button onclick="location.href='auth.html'" class="btn btn-primary">Login to Manage</button>
+            <div class="main-menu">
+                <div class="menu-card">
+                    <h2>🎮 Join Quiz</h2>
+                    <p>Enter a game PIN to join an active quiz</p>
+                    <div class="input-group">
+                        <input type="text" id="gamePin" placeholder="Enter Game PIN" maxlength="6">
+                        <input type="text" id="playerName" placeholder="Your Name" maxlength="20">
+                    </div>
+                    <button onclick="joinQuiz()" class="btn btn-primary">Join Quiz</button>
+                </div>
+                
+                <div class="menu-card">
+                    <h2>🎯 Host a Quiz</h2>
+                    <p>Create and host your own quiz session</p>
+                    <button onclick="goToHosting()" class="btn btn-secondary" id="host-quiz-btn">Host Quiz</button>
+                    <div class="host-section" id="host-login-info" style="display: none;">
+                        <p>Login required to create and host quizzes</p>
+                        <button onclick="location.href='auth.html'" class="btn btn-tertiary">Login to Host</button>
+                    </div>
+                </div>
+                
+                <div class="menu-card">
+                    <h2>📊 Quiz Management</h2>
+                    <p>Create, edit and manage your quiz library</p>
+                    <button onclick="goToManagement()" class="btn btn-tertiary" id="manage-quiz-btn">Manage Quizzes</button>
+                    <div class="host-section" id="manage-login-info" style="display: none;">
+                        <p>Login required to manage quizzes</p>
+                        <button onclick="location.href='auth.html'" class="btn btn-primary">Login to Manage</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -237,23 +270,94 @@
         <div id="status-message" class="status-message"></div>
     </div>
     
+    <!-- Firebase CDN Scripts - MUST BE IN CORRECT ORDER -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    
+    <!-- Application scripts - MUST BE AFTER Firebase -->
     <script src="config.js"></script>
     <script src="script.js"></script>
     
+    <!-- Index page specific initialization -->
     <script>
         let indexCurrentUser = null;
+        let isSystemReady = false;
         
-        // Initialize page
+        // Initialize page with proper loading sequence
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('🏠 INDEX: DOM loaded, starting initialization...');
+            initializeIndexPage();
+        });
+        
+        function initializeIndexPage() {
+            console.log('🏠 INDEX: Starting index page initialization...');
+            
+            // Wait for Firebase and config to be ready
+            waitForSystemReady(() => {
+                console.log('✅ INDEX: System ready, setting up auth listener...');
+                setupAuthenticationListener();
+                hideLoadingShowContent();
+            });
+        }
+        
+        function waitForSystemReady(callback) {
+            let attempts = 0;
+            const maxAttempts = 30;
+            
+            const checkSystem = () => {
+                attempts++;
+                console.log(`🔍 INDEX: System readiness check ${attempts}/${maxAttempts}`);
+                
+                const configReady = window.sessionManager && typeof window.sessionManager === 'object';
+                const authReady = window.auth && typeof window.auth.onAuthStateChanged === 'function';
+                const databaseReady = window.database && typeof window.database.ref === 'function';
+                
+                console.log('🔍 INDEX: Ready status:', {
+                    config: configReady,
+                    auth: authReady,
+                    database: databaseReady
+                });
+                
+                if (configReady && authReady && databaseReady) {
+                    console.log('✅ INDEX: All systems ready!');
+                    isSystemReady = true;
+                    callback();
+                } else if (attempts >= maxAttempts) {
+                    console.error('💥 INDEX: System readiness timeout');
+                    // Still proceed to avoid hanging
+                    callback();
+                } else {
+                    setTimeout(checkSystem, 200);
+                }
+            };
+            
+            checkSystem();
+        }
+        
+        function setupAuthenticationListener() {
+            if (!window.auth) {
+                console.error('💥 INDEX: Auth not available');
+                return;
+            }
+            
             // Check authentication status but don't redirect
-            auth.onAuthStateChanged((user) => {
+            window.auth.onAuthStateChanged((user) => {
+                console.log('👤 INDEX: Auth state changed:', user ? user.email : 'no user');
                 indexCurrentUser = user;
                 updateUserInterface(user);
             });
-        });
+        }
+        
+        function hideLoadingShowContent() {
+            console.log('🎨 INDEX: Hiding loading, showing content...');
+            
+            const loadingState = document.getElementById('loading-state');
+            const mainContent = document.getElementById('main-content');
+            
+            if (loadingState) loadingState.style.display = 'none';
+            if (mainContent) mainContent.style.display = 'block';
+        }
         
         function updateUserInterface(user) {
             const userHeader = document.getElementById('user-header');
@@ -264,19 +368,47 @@
             const manageLoginInfo = document.getElementById('manage-login-info');
             
             if (user) {
+                console.log('👤 INDEX: Updating UI for logged in user');
                 // User is logged in - show user menu, hide login button
-                userHeader.style.display = 'flex';
-                hostLoginSection.style.display = 'none';
+                if (userHeader) userHeader.style.display = 'flex';
+                if (hostLoginSection) hostLoginSection.style.display = 'none';
                 
                 // Update user info
-                const userName = document.getElementById('user-name');
-                const userEmail = document.getElementById('user-email');
-                const userAvatar = document.getElementById('user-avatar');
+                updateUserDisplayInfo(user);
                 
-                userName.textContent = user.displayName || user.email.split('@')[0];
-                userEmail.textContent = user.email;
+                // Show host/manage buttons, hide login prompts
+                if (hostQuizBtn) hostQuizBtn.style.display = 'inline-block';
+                if (manageQuizBtn) manageQuizBtn.style.display = 'inline-block';
+                if (hostLoginInfo) hostLoginInfo.style.display = 'none';
+                if (manageLoginInfo) manageLoginInfo.style.display = 'none';
                 
-                // Set avatar
+                // Load user stats
+                loadUserStats(user.uid);
+                
+            } else {
+                console.log('👋 INDEX: Updating UI for guest user');
+                // User is not logged in - show login button, hide user menu
+                if (userHeader) userHeader.style.display = 'none';
+                if (hostLoginSection) hostLoginSection.style.display = 'block';
+                
+                // Hide host/manage buttons, show login prompts
+                if (hostQuizBtn) hostQuizBtn.style.display = 'none';
+                if (manageQuizBtn) manageQuizBtn.style.display = 'none';
+                if (hostLoginInfo) hostLoginInfo.style.display = 'block';
+                if (manageLoginInfo) manageLoginInfo.style.display = 'block';
+            }
+        }
+        
+        function updateUserDisplayInfo(user) {
+            const userName = document.getElementById('user-name');
+            const userEmail = document.getElementById('user-email');
+            const userAvatar = document.getElementById('user-avatar');
+            
+            if (userName) userName.textContent = user.displayName || user.email.split('@')[0];
+            if (userEmail) userEmail.textContent = user.email;
+            
+            // Set avatar
+            if (userAvatar) {
                 if (user.photoURL) {
                     userAvatar.innerHTML = `<img src="${user.photoURL}" alt="Avatar" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
                 } else {
@@ -288,44 +420,41 @@
                         .substring(0, 2);
                     userAvatar.textContent = initials;
                 }
-                
-                // Show host/manage buttons, hide login prompts
-                hostQuizBtn.style.display = 'inline-block';
-                manageQuizBtn.style.display = 'inline-block';
-                hostLoginInfo.style.display = 'none';
-                manageLoginInfo.style.display = 'none';
-                
-                // Load user stats
-                loadUserStats(user.uid);
-                
-            } else {
-                // User is not logged in - show login button, hide user menu
-                userHeader.style.display = 'none';
-                hostLoginSection.style.display = 'block';
-                
-                // Hide host/manage buttons, show login prompts
-                hostQuizBtn.style.display = 'none';
-                manageQuizBtn.style.display = 'none';
-                hostLoginInfo.style.display = 'block';
-                manageLoginInfo.style.display = 'block';
             }
         }
         
         async function loadUserStats(userId) {
             try {
-                const snapshot = await getUserStatsRef(userId).once('value');
+                if (!window.getUserStatsRef) {
+                    console.warn('⚠️ INDEX: getUserStatsRef not available');
+                    return;
+                }
+                
+                const statsRef = window.getUserStatsRef(userId);
+                if (!statsRef) {
+                    console.warn('⚠️ INDEX: Stats ref not available');
+                    return;
+                }
+                
+                const snapshot = await statsRef.once('value');
                 const stats = snapshot.val() || {};
                 
-                document.getElementById('quiz-count').textContent = stats.quizCount || 0;
-                document.getElementById('total-plays').textContent = stats.totalPlays || 0;
+                const quizCountEl = document.getElementById('quiz-count');
+                const totalPlaysEl = document.getElementById('total-plays');
+                
+                if (quizCountEl) quizCountEl.textContent = stats.quizCount || 0;
+                if (totalPlaysEl) totalPlaysEl.textContent = stats.totalPlays || 0;
+                
             } catch (error) {
-                console.error('Error loading user stats:', error);
+                console.error('💥 INDEX: Error loading user stats:', error);
             }
         }
         
         function toggleUserMenu() {
             const dropdown = document.getElementById('user-dropdown');
-            dropdown.classList.toggle('show');
+            if (dropdown) {
+                dropdown.classList.toggle('show');
+            }
         }
         
         // Close dropdown when clicking outside
@@ -333,7 +462,7 @@
             const userMenu = document.querySelector('.user-menu');
             const dropdown = document.getElementById('user-dropdown');
             
-            if (userMenu && !userMenu.contains(event.target)) {
+            if (userMenu && dropdown && !userMenu.contains(event.target)) {
                 dropdown.classList.remove('show');
             }
         });
@@ -344,13 +473,12 @@
         
         async function signOut() {
             try {
-                await auth.signOut();
-                showStatus('Signed out successfully', 'success');
-                setTimeout(() => {
-                    window.location.href = 'index.html';
-                }, 1500);
+                if (window.auth) {
+                    await window.auth.signOut();
+                    showStatus('Signed out successfully', 'success');
+                }
             } catch (error) {
-                console.error('Sign out error:', error);
+                console.error('💥 INDEX: Sign out error:', error);
                 showStatus('Error signing out', 'error');
             }
         }
@@ -378,8 +506,8 @@
         }
         
         function joinQuiz() {
-            const gamePin = document.getElementById('gamePin').value.trim();
-            const playerName = document.getElementById('playerName').value.trim();
+            const gamePin = document.getElementById('gamePin')?.value.trim();
+            const playerName = document.getElementById('playerName')?.value.trim();
             
             if (!gamePin || !playerName) {
                 showStatus('Please enter both Game PIN and your name', 'error');
@@ -404,13 +532,16 @@
         }
         
         function showStatus(message, type) {
+            console.log(`📢 INDEX (${type}):`, message);
             const statusEl = document.getElementById('status-message');
-            statusEl.textContent = message;
-            statusEl.className = `status-message ${type}`;
-            setTimeout(() => {
-                statusEl.textContent = '';
-                statusEl.className = 'status-message';
-            }, 3000);
+            if (statusEl) {
+                statusEl.textContent = message;
+                statusEl.className = `status-message ${type}`;
+                setTimeout(() => {
+                    statusEl.textContent = '';
+                    statusEl.className = 'status-message';
+                }, 3000);
+            }
         }
         
         // Make functions globally accessible
@@ -420,6 +551,8 @@
         window.viewProfile = viewProfile;
         window.signOut = signOut;
         window.joinQuiz = joinQuiz;
+        
+        console.log('🏠 INDEX: Index page script loaded successfully');
     </script>
 </body>
 </html>

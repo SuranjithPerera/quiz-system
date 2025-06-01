@@ -1,4 +1,4 @@
-// Enhanced Quiz System JavaScript with Time-Based Scoring
+// Enhanced Quiz System JavaScript with Time-Based Scoring - FIXED VERSION
 
 // Sample quiz data
 const sampleQuizzes = [
@@ -146,13 +146,13 @@ class QuizGame {
         }
         
         try {
-            console.log('Creating game with PIN:', this.gamePin);
-            console.log('Quiz data:', quiz);
+            console.log('🎮 GAME: Creating game with PIN:', this.gamePin);
+            console.log('🎮 GAME: Quiz data:', quiz);
             
-            // Ensure we have database reference
-            if (typeof database === 'undefined') {
-                console.error('Database not available');
-                return false;
+            // Wait for database to be available
+            const db = await this.waitForDatabase();
+            if (!db) {
+                throw new Error('Database not available');
             }
             
             const gameData = {
@@ -166,31 +166,31 @@ class QuizGame {
                 },
                 players: {},
                 createdAt: Date.now(),
-                hostId: generatePlayerId()
+                hostId: this.generatePlayerId()
             };
 
-            console.log('Writing game data to Firebase...');
-            const gameRef = database.ref(`games/${this.gamePin}`);
+            console.log('🎮 GAME: Writing game data to Firebase...');
+            const gameRef = db.ref(`games/${this.gamePin}`);
             await gameRef.set(gameData);
             
-            console.log('Game created successfully in Firebase');
+            console.log('✅ GAME: Game created successfully in Firebase');
             return true;
         } catch (error) {
-            console.error('Error creating game:', error);
+            console.error('💥 GAME: Error creating game:', error);
             return false;
         }
     }
 
     async joinGame(playerName) {
         try {
-            console.log('Joining game:', this.gamePin, 'as:', playerName);
+            console.log('👤 GAME: Joining game:', this.gamePin, 'as:', playerName);
             
-            if (typeof database === 'undefined') {
-                console.error('Database not available for joining');
-                return null;
+            const db = await this.waitForDatabase();
+            if (!db) {
+                throw new Error('Database not available');
             }
             
-            const playerId = generatePlayerId();
+            const playerId = this.generatePlayerId();
             const playerData = {
                 id: playerId,
                 name: playerName,
@@ -203,14 +203,14 @@ class QuizGame {
                 isCorrect: null
             };
 
-            console.log('Writing player data to Firebase:', playerData);
-            const playerRef = database.ref(`games/${this.gamePin}/players/${playerId}`);
+            console.log('👤 GAME: Writing player data to Firebase:', playerData);
+            const playerRef = db.ref(`games/${this.gamePin}/players/${playerId}`);
             await playerRef.set(playerData);
             
-            console.log('Player joined successfully with ID:', playerId);
+            console.log('✅ GAME: Player joined successfully with ID:', playerId);
             return playerId;
         } catch (error) {
-            console.error('Error joining game:', error);
+            console.error('💥 GAME: Error joining game:', error);
             return null;
         }
     }
@@ -219,17 +219,22 @@ class QuizGame {
         if (!this.isHost) return false;
         
         try {
-            console.log('Starting game...');
-            const gameStateRef = database.ref(`games/${this.gamePin}/gameState`);
+            console.log('🚀 GAME: Starting game...');
+            const db = await this.waitForDatabase();
+            if (!db) {
+                throw new Error('Database not available');
+            }
+            
+            const gameStateRef = db.ref(`games/${this.gamePin}/gameState`);
             await gameStateRef.update({
                 status: 'playing',
                 currentQuestion: 0,
                 questionStartTime: Date.now()
             });
-            console.log('Game started successfully');
+            console.log('✅ GAME: Game started successfully');
             return true;
         } catch (error) {
-            console.error('Error starting game:', error);
+            console.error('💥 GAME: Error starting game:', error);
             return false;
         }
     }
@@ -241,8 +246,13 @@ class QuizGame {
             const nextQuestionIndex = this.currentQuestion + 1;
             const startTime = Date.now();
             
-            console.log('Moving to next question:', nextQuestionIndex);
-            const gameStateRef = database.ref(`games/${this.gamePin}/gameState`);
+            console.log('⏭️ GAME: Moving to next question:', nextQuestionIndex);
+            const db = await this.waitForDatabase();
+            if (!db) {
+                throw new Error('Database not available');
+            }
+            
+            const gameStateRef = db.ref(`games/${this.gamePin}/gameState`);
             await gameStateRef.update({
                 currentQuestion: nextQuestionIndex,
                 timeLeft: 0,
@@ -254,15 +264,20 @@ class QuizGame {
             this.questionStartTime = startTime;
             return true;
         } catch (error) {
-            console.error('Error moving to next question:', error);
+            console.error('💥 GAME: Error moving to next question:', error);
             return false;
         }
     }
 
     async submitAnswer(playerId, answerIndex) {
         try {
-            console.log('Submitting answer for player:', playerId, 'answer:', answerIndex);
-            const playerRef = database.ref(`games/${this.gamePin}/players/${playerId}`);
+            console.log('📝 GAME: Submitting answer for player:', playerId, 'answer:', answerIndex);
+            const db = await this.waitForDatabase();
+            if (!db) {
+                throw new Error('Database not available');
+            }
+            
+            const playerRef = db.ref(`games/${this.gamePin}/players/${playerId}`);
             const submitTime = Date.now();
             const responseTime = this.questionStartTime ? 
                 (submitTime - this.questionStartTime) / 1000 : 0;
@@ -273,10 +288,10 @@ class QuizGame {
                 status: 'answered',
                 answerTime: submitTime
             });
-            console.log('Answer submitted successfully');
+            console.log('✅ GAME: Answer submitted successfully');
             return true;
         } catch (error) {
-            console.error('Error submitting answer:', error);
+            console.error('💥 GAME: Error submitting answer:', error);
             return false;
         }
     }
@@ -285,89 +300,132 @@ class QuizGame {
         if (!this.isHost) return false;
         
         try {
-            console.log('Ending game...');
-            const gameStateRef = database.ref(`games/${this.gamePin}/gameState`);
+            console.log('🏁 GAME: Ending game...');
+            const db = await this.waitForDatabase();
+            if (!db) {
+                throw new Error('Database not available');
+            }
+            
+            const gameStateRef = db.ref(`games/${this.gamePin}/gameState`);
             await gameStateRef.update({
                 status: 'finished'
             });
             return true;
         } catch (error) {
-            console.error('Error ending game:', error);
+            console.error('💥 GAME: Error ending game:', error);
             return false;
         }
     }
 
+    // Wait for database to be available
+    async waitForDatabase() {
+        return new Promise((resolve) => {
+            let attempts = 0;
+            const maxAttempts = 20;
+            
+            const checkDatabase = () => {
+                attempts++;
+                
+                if (window.database && typeof window.database.ref === 'function') {
+                    console.log('✅ GAME: Database is ready');
+                    resolve(window.database);
+                } else if (attempts >= maxAttempts) {
+                    console.error('💥 GAME: Database timeout after', maxAttempts, 'attempts');
+                    resolve(null);
+                } else {
+                    console.log(`⏳ GAME: Waiting for database... attempt ${attempts}/${maxAttempts}`);
+                    setTimeout(checkDatabase, 200);
+                }
+            };
+            
+            checkDatabase();
+        });
+    }
+
+    generatePlayerId() {
+        return Date.now().toString() + Math.floor(Math.random() * 1000).toString();
+    }
+
     // Real-time listeners with better error handling
     listenToGameState(callback) {
-        if (typeof database === 'undefined') {
-            console.error('Database not available for game state listener');
-            return;
-        }
-        
-        console.log('Setting up game state listener for:', this.gamePin);
-        const gameStateRef = database.ref(`games/${this.gamePin}/gameState`);
-        
-        gameStateRef.on('value', (snapshot) => {
-            const gameState = snapshot.val();
-            console.log('Game state update received:', gameState);
-            if (gameState) {
-                // Update local question start time
-                if (gameState.questionStartTime) {
-                    this.questionStartTime = gameState.questionStartTime;
-                }
-                callback(gameState);
+        this.waitForDatabase().then(db => {
+            if (!db) {
+                console.error('💥 GAME: Database not available for game state listener');
+                return;
             }
-        }, (error) => {
-            console.error('Game state listener error:', error);
+            
+            console.log('🎧 GAME: Setting up game state listener for:', this.gamePin);
+            const gameStateRef = db.ref(`games/${this.gamePin}/gameState`);
+            
+            gameStateRef.on('value', (snapshot) => {
+                const gameState = snapshot.val();
+                console.log('📡 GAME: Game state update received:', gameState);
+                if (gameState) {
+                    // Update local question start time
+                    if (gameState.questionStartTime) {
+                        this.questionStartTime = gameState.questionStartTime;
+                    }
+                    callback(gameState);
+                }
+            }, (error) => {
+                console.error('💥 GAME: Game state listener error:', error);
+            });
         });
     }
 
     listenToPlayers(callback) {
-        if (typeof database === 'undefined') {
-            console.error('Database not available for players listener');
-            return;
-        }
-        
-        console.log('Setting up players listener for:', this.gamePin);
-        const playersRef = database.ref(`games/${this.gamePin}/players`);
-        
-        playersRef.on('value', (snapshot) => {
-            const players = snapshot.val() || {};
-            console.log('Players update received:', Object.keys(players).length, 'players');
-            callback(players);
-        }, (error) => {
-            console.error('Players listener error:', error);
+        this.waitForDatabase().then(db => {
+            if (!db) {
+                console.error('💥 GAME: Database not available for players listener');
+                return;
+            }
+            
+            console.log('👥 GAME: Setting up players listener for:', this.gamePin);
+            const playersRef = db.ref(`games/${this.gamePin}/players`);
+            
+            playersRef.on('value', (snapshot) => {
+                const players = snapshot.val() || {};
+                console.log('👥 GAME: Players update received:', Object.keys(players).length, 'players');
+                callback(players);
+            }, (error) => {
+                console.error('💥 GAME: Players listener error:', error);
+            });
         });
     }
 
     listenToGame(callback) {
-        if (typeof database === 'undefined') {
-            console.error('Database not available for game listener');
-            return;
-        }
-        
-        console.log('Setting up game listener for:', this.gamePin);
-        const gameRef = database.ref(`games/${this.gamePin}`);
-        
-        gameRef.on('value', (snapshot) => {
-            const gameData = snapshot.val();
-            console.log('Game data update received');
-            if (gameData) {
-                callback(gameData);
+        this.waitForDatabase().then(db => {
+            if (!db) {
+                console.error('💥 GAME: Database not available for game listener');
+                return;
             }
-        }, (error) => {
-            console.error('Game listener error:', error);
+            
+            console.log('🎮 GAME: Setting up game listener for:', this.gamePin);
+            const gameRef = db.ref(`games/${this.gamePin}`);
+            
+            gameRef.on('value', (snapshot) => {
+                const gameData = snapshot.val();
+                console.log('🎮 GAME: Game data update received');
+                if (gameData) {
+                    callback(gameData);
+                }
+            }, (error) => {
+                console.error('💥 GAME: Game listener error:', error);
+            });
         });
     }
 
     // Clean up listeners
     cleanup() {
-        if (this.gamePin && typeof database !== 'undefined') {
-            console.log('Cleaning up listeners for game:', this.gamePin);
-            database.ref(`games/${this.gamePin}`).off();
-            database.ref(`games/${this.gamePin}/players`).off();
-            database.ref(`games/${this.gamePin}/gameState`).off();
-        }
+        this.waitForDatabase().then(db => {
+            if (this.gamePin && db) {
+                console.log('🧹 GAME: Cleaning up listeners for game:', this.gamePin);
+                db.ref(`games/${this.gamePin}`).off();
+                db.ref(`games/${this.gamePin}/players`).off();
+                db.ref(`games/${this.gamePin}/gameState`).off();
+            }
+        });
+        
         if (this.timer) {
             clearInterval(this.timer);
         }
@@ -376,35 +434,35 @@ class QuizGame {
 
 // Database reference helpers with error checking
 function getGameRef(pin) {
-    if (typeof database === 'undefined') {
-        console.error('Database not available');
-        return null;
+    if (window.database && typeof window.database.ref === 'function') {
+        return window.database.ref(`games/${pin}`);
     }
-    return database.ref(`games/${pin}`);
+    console.error('💥 Database not available');
+    return null;
 }
 
 function getPlayersRef(pin) {
-    if (typeof database === 'undefined') {
-        console.error('Database not available');
-        return null;
+    if (window.database && typeof window.database.ref === 'function') {
+        return window.database.ref(`games/${pin}/players`);
     }
-    return database.ref(`games/${pin}/players`);
+    console.error('💥 Database not available');
+    return null;
 }
 
 function getQuestionsRef(pin) {
-    if (typeof database === 'undefined') {
-        console.error('Database not available');
-        return null;
+    if (window.database && typeof window.database.ref === 'function') {
+        return window.database.ref(`games/${pin}/questions`);
     }
-    return database.ref(`games/${pin}/questions`);
+    console.error('💥 Database not available');
+    return null;
 }
 
 function getGameStateRef(pin) {
-    if (typeof database === 'undefined') {
-        console.error('Database not available');
-        return null;
+    if (window.database && typeof window.database.ref === 'function') {
+        return window.database.ref(`games/${pin}/gameState`);
     }
-    return database.ref(`games/${pin}/gameState`);
+    console.error('💥 Database not available');
+    return null;
 }
 
 // Utility functions
@@ -481,7 +539,7 @@ function saveToLocalStorage(key, data) {
     try {
         localStorage.setItem(key, JSON.stringify(data));
     } catch (error) {
-        console.error('Error saving to localStorage:', error);
+        console.error('💥 Error saving to localStorage:', error);
     }
 }
 
@@ -490,7 +548,7 @@ function getFromLocalStorage(key) {
         const data = localStorage.getItem(key);
         return data ? JSON.parse(data) : null;
     } catch (error) {
-        console.error('Error reading from localStorage:', error);
+        console.error('💥 Error reading from localStorage:', error);
         return null;
     }
 }
@@ -549,19 +607,26 @@ function calculateResponseStats(players) {
     return stats;
 }
 
-// Wait for Firebase to be ready
-function waitForFirebase(callback, maxRetries = 20) {
+// Wait for Firebase to be ready - IMPROVED VERSION
+function waitForFirebase(callback, maxRetries = 30) {
     let retries = 0;
     const checkFirebase = () => {
-        if (typeof database !== 'undefined' && database) {
-            console.log('Firebase database is ready');
+        retries++;
+        
+        // Check if we have both window.database and window.auth
+        const databaseReady = window.database && typeof window.database.ref === 'function';
+        const authReady = window.auth && typeof window.auth.onAuthStateChanged === 'function';
+        
+        if (databaseReady && authReady) {
+            console.log('✅ SCRIPT: Firebase database and auth are ready');
             callback();
         } else if (retries < maxRetries) {
-            retries++;
-            console.log(`Waiting for Firebase... attempt ${retries}/${maxRetries}`);
-            setTimeout(checkFirebase, 500);
+            console.log(`⏳ SCRIPT: Waiting for Firebase... attempt ${retries}/${maxRetries}`);
+            console.log('🔍 SCRIPT: Database ready:', databaseReady, 'Auth ready:', authReady);
+            setTimeout(checkFirebase, 200);
         } else {
-            console.error('Firebase failed to load after maximum retries');
+            console.error('💥 SCRIPT: Firebase failed to load after maximum retries');
+            console.log('🔍 SCRIPT: Final state - Database ready:', databaseReady, 'Auth ready:', authReady);
             // Still call callback to allow graceful degradation
             callback();
         }
@@ -571,11 +636,11 @@ function waitForFirebase(callback, maxRetries = 20) {
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Enhanced Quiz system initializing...');
+    console.log('🚀 SCRIPT: Enhanced Quiz system initializing...');
     
     // Wait for Firebase to be ready before initializing
     waitForFirebase(() => {
-        console.log('Quiz system ready with time-based scoring');
+        console.log('✅ SCRIPT: Quiz system ready with time-based scoring');
         
         // Make classes globally available
         window.ScoringSystem = ScoringSystem;
@@ -586,35 +651,35 @@ document.addEventListener('DOMContentLoaded', function() {
         const path = window.location.pathname;
         const page = path.substring(path.lastIndexOf('/') + 1);
         
-        console.log('Current page:', page);
+        console.log('📄 SCRIPT: Current page:', page);
         
         switch(page) {
             case 'host.html':
                 if (typeof initializeHost === 'function') {
-                    console.log('Initializing host page...');
+                    console.log('🎯 SCRIPT: Initializing host page...');
                     initializeHost();
                 } else {
-                    console.log('Host initialization function not found');
+                    console.log('⚠️ SCRIPT: Host initialization function not found');
                 }
                 break;
             case 'player.html':
                 if (typeof initializePlayer === 'function') {
-                    console.log('Initializing player page...');
+                    console.log('👤 SCRIPT: Initializing player page...');
                     initializePlayer();
                 } else {
-                    console.log('Player initialization function not found');
+                    console.log('⚠️ SCRIPT: Player initialization function not found');
                 }
                 break;
             case 'manage.html':
                 if (typeof initializeManage === 'function') {
-                    console.log('Initializing manage page...');
+                    console.log('📝 SCRIPT: Initializing manage page...');
                     initializeManage();
                 } else {
-                    console.log('Manage initialization function not found');
+                    console.log('⚠️ SCRIPT: Manage initialization function not found');
                 }
                 break;
             default:
-                console.log('No specific page initialization needed');
+                console.log('ℹ️ SCRIPT: No specific page initialization needed');
         }
     });
 });
@@ -632,3 +697,5 @@ if (typeof module !== 'undefined' && module.exports) {
         calculateResponseStats
     };
 }
+
+console.log('📜 SCRIPT: Enhanced script.js loaded successfully');
