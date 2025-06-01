@@ -968,7 +968,11 @@
 
         function onPlayersUpdate(players) {
             console.log('👥 HOST: Players updated:', Object.keys(players).length);
-            const previousPlayers = { ...hostPlayers };
+            
+            // Create a deep copy to avoid reference issues
+            const previousPlayers = JSON.parse(JSON.stringify(hostPlayers));
+            
+            // Update host players with new data
             hostPlayers = players;
             
             // Check for new answers and calculate scores in real-time (without stopping timer)
@@ -979,11 +983,14 @@
                 // If player just answered (status changed to 'answered')
                 if (currentPlayer.status === 'answered' && 
                     (!previousPlayer || previousPlayer.status !== 'answered')) {
-                    console.log('📝 HOST: Player just answered:', currentPlayer.name);
+                    console.log('📝 HOST: Player just answered:', currentPlayer.name, 'ID:', playerId);
                     
                     // Calculate score in real-time but don't end the timer
                     if (isQuestionActive) {
-                        calculatePlayerScoreRealTime(playerId);
+                        // Use setTimeout to avoid blocking the UI and ensure proper async handling
+                        setTimeout(() => {
+                            calculatePlayerScoreRealTime(playerId);
+                        }, 100);
                     }
                 }
             }
@@ -1295,12 +1302,20 @@
             try {
                 console.log('🏆 HOST: Calculating FINAL scores for question (timer ended)');
                 
-                for (const playerId in hostPlayers) {
-                    const player = hostPlayers[playerId];
+                // Get fresh player data from Firebase to ensure we have latest info
+                const playersSnapshot = await db.ref(`games/${hostGamePin}/players`).once('value');
+                const currentPlayers = playersSnapshot.val() || {};
+                
+                console.log('🔍 HOST: Players to process scores for:', Object.keys(currentPlayers));
+                
+                // Process each player individually
+                for (const playerId in currentPlayers) {
+                    const player = currentPlayers[playerId];
+                    console.log(`🔍 HOST: Processing player ${player.name} (ID: ${playerId})`);
                     
                     if (player.status === 'answered') {
                         // Use the temp score we calculated earlier, or calculate now if not done
-                        let questionScore = player.tempScore;
+                        let questionScore = player.tempScore || player.questionScore;
                         
                         if (typeof questionScore !== 'number') {
                             const isCorrect = player.currentAnswer === currentQuestion.correct;
@@ -1308,25 +1323,46 @@
                             const timeLimit = currentQuestion.timeLimit || 20;
                             const timeLeft = Math.max(0, timeLimit - responseTime);
                             questionScore = calculateScore(isCorrect, timeLeft, timeLimit);
+                            console.log(`🔢 HOST: Calculated score for ${player.name}: ${questionScore}`);
                         }
                         
-                        const newTotalScore = (player.score || 0) + questionScore;
+                        const currentScore = player.score || 0;
+                        const newTotalScore = currentScore + questionScore;
                         
-                        // NOW update the final total score
+                        console.log(`💰 HOST: Player ${player.name} - Current: ${currentScore}, Adding: ${questionScore}, New Total: ${newTotalScore}`);
+                        
+                        // NOW update the final total score for this specific player
                         await db.ref(`games/${hostGamePin}/players/${playerId}`).update({
                             score: newTotalScore,
-                            questionScore: questionScore
+                            questionScore: questionScore,
+                            isCorrect: player.currentAnswer === currentQuestion.correct
                         });
                         
-                        console.log(`🏆 HOST: Player ${player.name} FINAL score: +${questionScore} points (Total: ${newTotalScore})`);
+                        console.log(`✅ HOST: Updated Firebase for ${player.name} - FINAL score: +${questionScore} points (Total: ${newTotalScore})`);
+                        
+                        // Update local cache
+                        if (hostPlayers[playerId]) {
+                            hostPlayers[playerId].score = newTotalScore;
+                            hostPlayers[playerId].questionScore = questionScore;
+                        }
+                        
                     } else {
                         // Player didn't answer
+                        console.log(`❌ HOST: Player ${player.name} didn't answer`);
                         await db.ref(`games/${hostGamePin}/players/${playerId}`).update({
                             isCorrect: false,
                             questionScore: 0
                         });
+                        
+                        // Update local cache
+                        if (hostPlayers[playerId]) {
+                            hostPlayers[playerId].isCorrect = false;
+                            hostPlayers[playerId].questionScore = 0;
+                        }
                     }
                 }
+                
+                console.log('🎯 HOST: All player scores calculated and updated');
                 
                 // Refresh the responses display with final scores
                 setTimeout(() => {
@@ -1441,7 +1477,9 @@
             if (!db) return;
 
             try {
-                const player = hostPlayers[playerId];
+                // Get the most current player data from Firebase to avoid stale data
+                const playerSnapshot = await db.ref(`games/${hostGamePin}/players/${playerId}`).once('value');
+                const player = playerSnapshot.val();
                 
                 if (player && player.status === 'answered') {
                     const isCorrect = player.currentAnswer === currentQuestion.correct;
@@ -1460,14 +1498,21 @@
                         // Don't update main score until timer ends
                     });
                     
-                    console.log(`📊 HOST: Player ${player.name} answer processed - temp score: ${questionScore} points`);
+                    console.log(`📊 HOST: Player ${player.name} (ID: ${playerId}) answer processed - temp score: ${questionScore} points`);
+                    
+                    // Update local player data to reflect the changes
+                    if (hostPlayers[playerId]) {
+                        hostPlayers[playerId].isCorrect = isCorrect;
+                        hostPlayers[playerId].questionScore = questionScore;
+                        hostPlayers[playerId].tempScore = questionScore;
+                    }
                 }
                 
                 // Update responses display
                 updateResponsesDisplay();
                 
             } catch (error) {
-                console.error('💥 HOST: Error calculating real-time score:', error);
+                console.error('💥 HOST: Error calculating real-time score for player', playerId, ':', error);
             }
         }
 
