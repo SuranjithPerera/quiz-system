@@ -6,6 +6,34 @@
     <title>Host Quiz - QuizMaster</title>
     <link rel="stylesheet" href="styles.css">
     <style>
+        /* CRITICAL FIX: Ensure all buttons are clickable */
+        button, .btn {
+            pointer-events: auto !important;
+            user-select: auto !important;
+            cursor: pointer !important;
+            position: relative !important;
+            z-index: 10 !important;
+        }
+
+        button:disabled, .btn:disabled {
+            pointer-events: none !important;
+            opacity: 0.6 !important;
+            cursor: not-allowed !important;
+        }
+
+        /* CRITICAL FIX: Ensure quiz cards and their content are clickable */
+        .menu-card {
+            pointer-events: auto !important;
+            position: relative !important;
+            z-index: 1 !important;
+        }
+
+        .menu-card button {
+            pointer-events: auto !important;
+            z-index: 20 !important;
+            position: relative !important;
+        }
+
         /* Enhanced lobby layout for centered Game PIN */
         .lobby-container {
             display: grid;
@@ -162,6 +190,9 @@
             border: 4px solid rgba(255, 255, 255, 0.4);
             box-shadow: 0 10px 30px rgba(226, 27, 60, 0.4);
             min-width: 200px;
+            pointer-events: auto !important;
+            z-index: 10 !important;
+            position: relative !important;
         }
         
         .start-btn:hover:not(:disabled) {
@@ -626,7 +657,7 @@
                         <div class="user-name" style="font-weight: 800; margin-bottom: 2px; color: #ffffff;">${user.displayName || user.email.split('@')[0]}</div>
                         <div class="user-email" style="opacity: 0.9; font-size: 11px; color: #ffe6d1;">${user.email}</div>
                     </div>
-                    <button onclick="signOut()" style="background: linear-gradient(135deg, #46178f 0%, #7b2cbf 100%); border: none; color: white; padding: 8px 15px; border-radius: 20px; cursor: pointer; font-size: 12px; font-weight: 700; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(70, 23, 143, 0.3);">Sign Out</button>
+                    <button onclick="signOut()" style="background: linear-gradient(135deg, #46178f 0%, #7b2cbf 100%); border: none; color: white; padding: 8px 15px; border-radius: 20px; cursor: pointer; font-size: 12px; font-weight: 700; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(70, 23, 143, 0.3); pointer-events: auto !important; z-index: 1001 !important; position: relative !important;">Sign Out</button>
                 </div>
             `;
             
@@ -778,7 +809,7 @@
                             <div style="text-align: center; color: #666;">
                                 <h3>No Valid Quizzes Available</h3>
                                 <p>Create your first quiz to get started!</p>
-                                <button onclick="createCustomQuiz()" class="btn btn-tertiary">Create New Quiz</button>
+                                <button onclick="createCustomQuiz()" class="btn btn-tertiary" style="pointer-events: auto !important; z-index: 10 !important; position: relative !important;">Create New Quiz</button>
                             </div>
                         </div>
                     `;
@@ -793,7 +824,7 @@
                         <div style="text-align: center; color: #f44336;">
                             <h3>Error Loading Quizzes</h3>
                             <p>Please try refreshing the page</p>
-                            <button onclick="loadAvailableQuizzes()" class="btn btn-primary">Retry</button>
+                            <button onclick="loadAvailableQuizzes()" class="btn btn-primary" style="pointer-events: auto !important; z-index: 10 !important; position: relative !important;">Retry</button>
                         </div>
                     </div>
                 `;
@@ -803,6 +834,13 @@
         function addQuizToList(quiz, container, type) {
             const quizCard = document.createElement('div');
             quizCard.className = 'menu-card';
+            
+            // CRITICAL FIX: Ensure the card itself is clickable
+            quizCard.style.cssText = `
+                pointer-events: auto !important;
+                position: relative !important;
+                z-index: 1 !important;
+            `;
             
             const typeLabel = type === 'sample' ? '📚 Sample Quiz' : '💾 Your Quiz';
             const questionsCount = quiz.questions.length;
@@ -814,7 +852,7 @@
                     <p><small><strong>${typeLabel}</strong></small></p>
                     ${quiz.createdAt ? `<p><small>Created: ${new Date(quiz.createdAt).toLocaleDateString()}</small></p>` : ''}
                 </div>
-                <button onclick="selectQuiz('${quiz.id}', '${type}')" class="btn btn-primary">Select Quiz</button>
+                <button onclick="selectQuiz('${quiz.id}', '${type}')" class="btn btn-primary" style="pointer-events: auto !important; z-index: 20 !important; position: relative !important; cursor: pointer !important;">Select Quiz</button>
             `;
             
             container.appendChild(quizCard);
