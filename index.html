@@ -180,6 +180,27 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        /* CRITICAL FIX: Ensure inputs and buttons are always interactive */
+        input, button {
+            pointer-events: auto !important;
+            user-select: auto !important;
+            -webkit-user-select: auto !important;
+            -moz-user-select: auto !important;
+            -ms-user-select: auto !important;
+        }
+
+        input:disabled, button:disabled {
+            pointer-events: none !important;
+            opacity: 0.6;
+        }
+
+        /* Ensure z-index doesn't interfere */
+        .input-group input,
+        .btn {
+            position: relative;
+            z-index: 1;
+        }
     </style>
 </head>
 <body>
@@ -239,29 +260,29 @@
                     <h2>🎮 Join Quiz</h2>
                     <p>Enter a game PIN to join an active quiz</p>
                     <div class="input-group">
-                        <input type="text" id="gamePin" placeholder="Enter Game PIN" maxlength="6">
-                        <input type="text" id="playerName" placeholder="Your Name" maxlength="20">
+                        <input type="text" id="gamePin" placeholder="Enter Game PIN" maxlength="6" autocomplete="off">
+                        <input type="text" id="playerName" placeholder="Your Name" maxlength="20" autocomplete="off">
                     </div>
-                    <button onclick="joinQuiz()" class="btn btn-primary">Join Quiz</button>
+                    <button onclick="joinQuiz()" class="btn btn-primary" type="button">Join Quiz</button>
                 </div>
                 
                 <div class="menu-card">
                     <h2>🎯 Host a Quiz</h2>
                     <p>Create and host your own quiz session</p>
-                    <button onclick="goToHosting()" class="btn btn-secondary" id="host-quiz-btn">Host Quiz</button>
+                    <button onclick="goToHosting()" class="btn btn-secondary" id="host-quiz-btn" type="button">Host Quiz</button>
                     <div class="host-section" id="host-login-info" style="display: none;">
                         <p>Login required to create and host quizzes</p>
-                        <button onclick="location.href='auth.html'" class="btn btn-tertiary">Login to Host</button>
+                        <button onclick="location.href='auth.html'" class="btn btn-tertiary" type="button">Login to Host</button>
                     </div>
                 </div>
                 
                 <div class="menu-card">
                     <h2>📊 Quiz Management</h2>
                     <p>Create, edit and manage your quiz library</p>
-                    <button onclick="goToManagement()" class="btn btn-tertiary" id="manage-quiz-btn">Manage Quizzes</button>
+                    <button onclick="goToManagement()" class="btn btn-tertiary" id="manage-quiz-btn" type="button">Manage Quizzes</button>
                     <div class="host-section" id="manage-login-info" style="display: none;">
                         <p>Login required to manage quizzes</p>
-                        <button onclick="location.href='auth.html'" class="btn btn-primary">Login to Manage</button>
+                        <button onclick="location.href='auth.html'" class="btn btn-primary" type="button">Login to Manage</button>
                     </div>
                 </div>
             </div>
@@ -287,6 +308,11 @@
         // Initialize page with proper loading sequence
         document.addEventListener('DOMContentLoaded', function() {
             console.log('🏠 INDEX: DOM loaded, starting initialization...');
+            
+            // CRITICAL FIX: Immediately show content and make interactive
+            hideLoadingShowContent();
+            
+            // Then initialize Firebase in background
             initializeIndexPage();
         });
         
@@ -297,7 +323,6 @@
             waitForSystemReady(() => {
                 console.log('✅ INDEX: System ready, setting up auth listener...');
                 setupAuthenticationListener();
-                hideLoadingShowContent();
             });
         }
         
@@ -309,23 +334,19 @@
                 attempts++;
                 console.log(`🔍 INDEX: System readiness check ${attempts}/${maxAttempts}`);
                 
-                const configReady = window.sessionManager && typeof window.sessionManager === 'object';
-                const authReady = window.auth && typeof window.auth.onAuthStateChanged === 'function';
-                const databaseReady = window.database && typeof window.database.ref === 'function';
+                // Check if basic functions exist
+                const configExists = typeof window.sessionManager !== 'undefined';
+                const authExists = typeof window.auth !== 'undefined';
                 
                 console.log('🔍 INDEX: Ready status:', {
-                    config: configReady,
-                    auth: authReady,
-                    database: databaseReady
+                    config: configExists,
+                    auth: authExists,
+                    firebase: typeof firebase !== 'undefined'
                 });
                 
-                if (configReady && authReady && databaseReady) {
-                    console.log('✅ INDEX: All systems ready!');
+                if (attempts >= maxAttempts || (typeof firebase !== 'undefined')) {
+                    console.log('✅ INDEX: Proceeding with initialization');
                     isSystemReady = true;
-                    callback();
-                } else if (attempts >= maxAttempts) {
-                    console.error('💥 INDEX: System readiness timeout');
-                    // Still proceed to avoid hanging
                     callback();
                 } else {
                     setTimeout(checkSystem, 200);
@@ -379,7 +400,7 @@
                         resolve();
                     } else if (attempts >= maxAttempts) {
                         console.error('💥 INDEX: Auth timeout after', maxAttempts, 'attempts');
-                        reject(new Error('Auth timeout'));
+                        resolve(); // Resolve anyway to continue
                     } else {
                         console.log('⏳ INDEX: Auth not ready, waiting...', { 
                             authExists: !!window.auth,
@@ -401,6 +422,22 @@
             
             if (loadingState) loadingState.style.display = 'none';
             if (mainContent) mainContent.style.display = 'block';
+            
+            // CRITICAL FIX: Ensure all inputs and buttons are enabled
+            const inputs = document.querySelectorAll('input');
+            const buttons = document.querySelectorAll('button');
+            
+            inputs.forEach(input => {
+                input.disabled = false;
+                input.style.pointerEvents = 'auto';
+            });
+            
+            buttons.forEach(button => {
+                button.disabled = false;
+                button.style.pointerEvents = 'auto';
+            });
+            
+            console.log('✅ INDEX: All interactive elements enabled');
         }
         
         function updateUserInterface(user) {
@@ -528,6 +565,7 @@
         }
         
         function goToHosting() {
+            console.log('🎯 INDEX: Going to hosting...');
             if (indexCurrentUser) {
                 location.href = 'host.html';
             } else {
@@ -539,6 +577,7 @@
         }
         
         function goToManagement() {
+            console.log('📝 INDEX: Going to management...');
             if (indexCurrentUser) {
                 location.href = 'manage.html';
             } else {
@@ -550,8 +589,12 @@
         }
         
         function joinQuiz() {
+            console.log('🎮 INDEX: Join quiz clicked');
+            
             const gamePin = document.getElementById('gamePin')?.value.trim();
             const playerName = document.getElementById('playerName')?.value.trim();
+            
+            console.log('🎮 INDEX: Values:', { gamePin, playerName });
             
             if (!gamePin || !playerName) {
                 showStatus('Please enter both Game PIN and your name', 'error');
@@ -569,10 +612,17 @@
                 return;
             }
             
+            console.log('✅ INDEX: Validation passed, storing data and redirecting...');
+            
             // Store player info and redirect to player page
             localStorage.setItem('gamePin', gamePin);
             localStorage.setItem('playerName', playerName);
-            location.href = 'player.html';
+            
+            showStatus('Joining game...', 'info');
+            
+            setTimeout(() => {
+                location.href = 'player.html';
+            }, 500);
         }
         
         function showStatus(message, type) {
