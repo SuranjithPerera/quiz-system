@@ -1174,7 +1174,8 @@
             // Set initial time
             questionTimeLeft = duration;
             
-            const updateTimer = () => {
+            // Function to update the display
+            const updateDisplay = () => {
                 // Calculate minutes and seconds
                 const mins = Math.floor(questionTimeLeft / 60);
                 const secs = questionTimeLeft % 60;
@@ -1194,27 +1195,41 @@
                     }
                 }
                 
-                console.log('⏰ HOST: Timer update - Time left:', questionTimeLeft, 'seconds');
+                console.log('⏰ HOST: Timer display updated - Time left:', questionTimeLeft, 'seconds');
+            };
+            
+            // Function to handle the countdown
+            const countdown = () => {
+                console.log('⏰ HOST: Timer tick - Time left:', questionTimeLeft, 'seconds');
                 
-                // Check if time is up
+                // Check if time is up BEFORE updating display
                 if (questionTimeLeft <= 0) {
                     console.log('⏰ HOST: Timer reached zero - calling onQuestionTimeUp');
                     clearInterval(hostQuestionTimer);
                     hostQuestionTimer = null;
+                    
+                    // Update display to show 00:00
+                    if (timerEl) {
+                        timerEl.textContent = '00:00';
+                        timerEl.classList.add('urgent');
+                    }
+                    
                     onQuestionTimeUp();
                     return; // Exit early when time is up
                 }
+                
+                // Update the display with current time
+                updateDisplay();
                 
                 // Decrease time for next iteration
                 questionTimeLeft--;
             };
             
-            // Display initial time immediately
-            updateTimer();
+            // Display initial time immediately (don't decrease yet)
+            updateDisplay();
             
-            // Start the interval (but don't decrease on first call since we already called updateTimer)
-            questionTimeLeft++; // Add back the one we subtracted in the initial call
-            hostQuestionTimer = setInterval(updateTimer, 1000);
+            // Start the interval - this will run every second
+            hostQuestionTimer = setInterval(countdown, 1000);
             
             console.log('⏰ HOST: Timer started successfully for', duration, 'seconds');
         }
