@@ -968,7 +968,26 @@
 
         function onPlayersUpdate(players) {
             console.log('👥 HOST: Players updated:', Object.keys(players).length);
+            const previousPlayers = { ...hostPlayers };
             hostPlayers = players;
+            
+            // Check for new answers and calculate scores in real-time (without stopping timer)
+            for (const playerId in players) {
+                const currentPlayer = players[playerId];
+                const previousPlayer = previousPlayers[playerId];
+                
+                // If player just answered (status changed to 'answered')
+                if (currentPlayer.status === 'answered' && 
+                    (!previousPlayer || previousPlayer.status !== 'answered')) {
+                    console.log('📝 HOST: Player just answered:', currentPlayer.name);
+                    
+                    // Calculate score in real-time but don't end the timer
+                    if (isQuestionActive) {
+                        calculatePlayerScoreRealTime(playerId);
+                    }
+                }
+            }
+            
             updatePlayersDisplay(players);
         }
 
@@ -1091,14 +1110,28 @@
             
             console.log('📝 HOST: Displaying question:', hostCurrentQuestionIndex + 1, 'of', totalQuestions);
             
+            // Clear any existing timer first
+            if (hostQuestionTimer) {
+                clearInterval(hostQuestionTimer);
+                hostQuestionTimer = null;
+            }
+            
             // Reset question state
             isQuestionActive = true;
             hasCalculatedScores = false;
+            questionTimeLeft = 0; // Reset time left
             
             // Update question info
             document.getElementById('current-q-num').textContent = hostCurrentQuestionIndex + 1;
             document.getElementById('total-questions').textContent = totalQuestions;
             document.getElementById('host-question').textContent = question.question;
+            
+            // Reset timer display
+            const timerEl = document.getElementById('host-timer');
+            if (timerEl) {
+                timerEl.classList.remove('urgent', 'warning');
+                timerEl.textContent = '00:00'; // Will be updated by timer
+            }
             
             // Update answers - FIXED: Remove automatic correct answer highlighting
             const answersContainer = document.getElementById('host-answers');
@@ -1114,52 +1147,99 @@
                 answersContainer.appendChild(answerDiv);
             });
             
-            // Start timer
-            questionDuration = question.timeLimit || 20;
-            startQuestionTimer(questionDuration);
-            
             // Hide/show appropriate buttons
             hideElement('next-btn');
             hideElement('results-btn');
+            
+            // Start timer with a small delay to ensure UI is updated
+            questionDuration = question.timeLimit || 20;
+            console.log('⏰ HOST: About to start timer for', questionDuration, 'seconds');
+            
+            setTimeout(() => {
+                startQuestionTimer(questionDuration);
+            }, 100);
         }
 
         function startQuestionTimer(duration) {
             console.log('⏰ HOST: Starting timer for', duration, 'seconds');
             
             const timerEl = document.getElementById('host-timer');
+            
+            // Clear any existing timer first
+            if (hostQuestionTimer) {
+                clearInterval(hostQuestionTimer);
+                hostQuestionTimer = null;
+            }
+            
+            // Set initial time
             questionTimeLeft = duration;
             
             const updateTimer = () => {
+                // Calculate minutes and seconds
                 const mins = Math.floor(questionTimeLeft / 60);
                 const secs = questionTimeLeft % 60;
-                timerEl.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
                 
-                // Add visual urgency as time runs out
-                timerEl.classList.remove('urgent', 'warning');
-                if (questionTimeLeft <= 5) {
-                    timerEl.classList.add('urgent');
-                } else if (questionTimeLeft <= 10) {
-                    timerEl.classList.add('warning');
+                // Update display
+                if (timerEl) {
+                    timerEl.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+                    
+                    // Remove existing classes
+                    timerEl.classList.remove('urgent', 'warning');
+                    
+                    // Add visual urgency as time runs out
+                    if (questionTimeLeft <= 5) {
+                        timerEl.classList.add('urgent');
+                    } else if (questionTimeLeft <= 10) {
+                        timerEl.classList.add('warning');
+                    }
                 }
                 
+                console.log('⏰ HOST: Timer update - Time left:', questionTimeLeft, 'seconds');
+                
+                // Check if time is up
                 if (questionTimeLeft <= 0) {
+                    console.log('⏰ HOST: Timer reached zero - calling onQuestionTimeUp');
                     clearInterval(hostQuestionTimer);
+                    hostQuestionTimer = null;
                     onQuestionTimeUp();
-                } else {
-                    questionTimeLeft--;
+                    return; // Exit early when time is up
                 }
+                
+                // Decrease time for next iteration
+                questionTimeLeft--;
             };
             
+            // Display initial time immediately
             updateTimer();
+            
+            // Start the interval (but don't decrease on first call since we already called updateTimer)
+            questionTimeLeft++; // Add back the one we subtracted in the initial call
             hostQuestionTimer = setInterval(updateTimer, 1000);
+            
+            console.log('⏰ HOST: Timer started successfully for', duration, 'seconds');
         }
 
         function onQuestionTimeUp() {
             console.log('⏰ HOST: Question time is up');
-            isQuestionActive = false; // Stop accepting answers
             
-            // Calculate scores for all players using existing scoring system
-            calculatePlayerScores();
+            // Clear the timer immediately to prevent multiple calls
+            if (hostQuestionTimer) {
+                clearInterval(hostQuestionTimer);
+                hostQuestionTimer = null;
+            }
+            
+            // Set question as inactive
+            isQuestionActive = false;
+            
+            // Update timer display to show 00:00
+            const timerEl = document.getElementById('host-timer');
+            if (timerEl) {
+                timerEl.textContent = '00:00';
+                timerEl.classList.add('urgent');
+            }
+            
+            // NOW calculate final scores and update total scores for all players
+            calculateFinalScoresForQuestion();
             
             // Show correct/incorrect answers
             displayAnswerResults();
@@ -1184,6 +1264,63 @@
             }
             
             showStatus('Time\'s up! Review responses and continue.', 'info');
+        }
+
+        // NEW FUNCTION: Calculate final scores when timer actually ends
+        async function calculateFinalScoresForQuestion() {
+            if (hasCalculatedScores) {
+                return; // Already calculated
+            }
+
+            hasCalculatedScores = true;
+            const currentQuestion = hostCurrentQuiz.questions[hostCurrentQuestionIndex];
+            const db = await hostGameInstance.waitForDatabase();
+            if (!db) return;
+
+            try {
+                console.log('🏆 HOST: Calculating FINAL scores for question (timer ended)');
+                
+                for (const playerId in hostPlayers) {
+                    const player = hostPlayers[playerId];
+                    
+                    if (player.status === 'answered') {
+                        // Use the temp score we calculated earlier, or calculate now if not done
+                        let questionScore = player.tempScore;
+                        
+                        if (typeof questionScore !== 'number') {
+                            const isCorrect = player.currentAnswer === currentQuestion.correct;
+                            const responseTime = player.responseTime || 0;
+                            const timeLimit = currentQuestion.timeLimit || 20;
+                            const timeLeft = Math.max(0, timeLimit - responseTime);
+                            questionScore = calculateScore(isCorrect, timeLeft, timeLimit);
+                        }
+                        
+                        const newTotalScore = (player.score || 0) + questionScore;
+                        
+                        // NOW update the final total score
+                        await db.ref(`games/${hostGamePin}/players/${playerId}`).update({
+                            score: newTotalScore,
+                            questionScore: questionScore
+                        });
+                        
+                        console.log(`🏆 HOST: Player ${player.name} FINAL score: +${questionScore} points (Total: ${newTotalScore})`);
+                    } else {
+                        // Player didn't answer
+                        await db.ref(`games/${hostGamePin}/players/${playerId}`).update({
+                            isCorrect: false,
+                            questionScore: 0
+                        });
+                    }
+                }
+                
+                // Refresh the responses display with final scores
+                setTimeout(() => {
+                    updateResponsesDisplay();
+                }, 1000);
+                
+            } catch (error) {
+                console.error('💥 HOST: Error calculating final scores:', error);
+            }
         }
 
         function displayAnswerResults() {
@@ -1278,6 +1415,47 @@
             }
         }
 
+        // NEW FUNCTION: Calculate scores in real-time for individual players (without ending timer)
+        async function calculatePlayerScoreRealTime(playerId) {
+            if (!hostCurrentQuiz || !hostCurrentQuiz.questions[hostCurrentQuestionIndex]) {
+                return;
+            }
+
+            const currentQuestion = hostCurrentQuiz.questions[hostCurrentQuestionIndex];
+            const db = await hostGameInstance.waitForDatabase();
+            if (!db) return;
+
+            try {
+                const player = hostPlayers[playerId];
+                
+                if (player && player.status === 'answered') {
+                    const isCorrect = player.currentAnswer === currentQuestion.correct;
+                    const responseTime = player.responseTime || 0;
+                    const timeLimit = currentQuestion.timeLimit || 20;
+                    
+                    // Calculate score but don't update total score yet (wait for timer to end)
+                    const timeLeft = Math.max(0, timeLimit - responseTime);
+                    const questionScore = calculateScore(isCorrect, timeLeft, timeLimit);
+                    
+                    // Just update the response status for display (don't change total score yet)
+                    await db.ref(`games/${hostGamePin}/players/${playerId}`).update({
+                        isCorrect: isCorrect,
+                        questionScore: questionScore,
+                        tempScore: questionScore // Store temporarily
+                        // Don't update main score until timer ends
+                    });
+                    
+                    console.log(`📊 HOST: Player ${player.name} answer processed - temp score: ${questionScore} points`);
+                }
+                
+                // Update responses display
+                updateResponsesDisplay();
+                
+            } catch (error) {
+                console.error('💥 HOST: Error calculating real-time score:', error);
+            }
+        }
+
         function updateResponsesDisplay() {
             const responsesContainer = document.getElementById('responses-container');
             if (!responsesContainer) return;
@@ -1310,9 +1488,10 @@
                             statusClass += ' correct';
                             statusText += ` - ${answerLetter} ✓`;
                             
-                            // Show score if available
-                            if (typeof player.questionScore === 'number') {
-                                scoreInfo = `<div class="score-info">+${player.questionScore} pts</div>`;
+                            // Show score if available (use tempScore if timer still running, questionScore if ended)
+                            const scoreToShow = hasCalculatedScores ? player.questionScore : (player.tempScore || player.questionScore);
+                            if (typeof scoreToShow === 'number') {
+                                scoreInfo = `<div class="score-info">+${scoreToShow} pts</div>`;
                             }
                         } else {
                             statusClass += ' incorrect';
@@ -1339,8 +1518,10 @@
         async function nextQuestion() {
             console.log('➡️ HOST: Moving to next question');
             
+            // Clear timer immediately when moving to next question
             if (hostQuestionTimer) {
                 clearInterval(hostQuestionTimer);
+                hostQuestionTimer = null;
             }
             
             if (hostCurrentQuestionIndex >= hostCurrentQuiz.questions.length - 1) {
