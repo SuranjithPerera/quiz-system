@@ -261,7 +261,8 @@ function parseAikenQuestion(block, questionNumber) {
     // Extract answer options (between question and ANSWER line)
     const answerLines = lines.slice(1, answerLineIndex);
     const answers = [];
-    const answerPattern = /^([A-Z])\)\s*(.+)$/;
+    // CRITICAL FIX: Support both A) and A. formats
+    const answerPattern = /^([A-Z])[\)\.]\s*(.+)$/;
     
     console.log(`📝 QUESTION: Processing ${answerLines.length} answer lines:`, answerLines);
     
