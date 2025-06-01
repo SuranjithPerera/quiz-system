@@ -1,4 +1,4 @@
-// Simplified Firebase Configuration - No Conflicts with Auth Page
+// Enhanced Firebase Configuration - FINAL FIXED VERSION
 const firebaseConfig = {
     apiKey: "AIzaSyDdVOTMNZfO-Pky1KWNcA0O1UKYBXDPlU8",
     authDomain: "quiz-system-1b9cc.firebaseapp.com",
@@ -10,32 +10,50 @@ const firebaseConfig = {
     measurementId: "G-Z4G7TDL4XK"
 };
 
-// Initialize Firebase only if not already initialized (avoid conflicts)
+// Initialize Firebase and global variables
 let database = null;
 let auth = null;
+let isFirebaseInitialized = false;
+let initializationPromise = null;
 
+// Initialize Firebase - Returns a Promise
 function initializeFirebaseIfNeeded() {
-    try {
-        // Check if Firebase is already initialized
-        if (typeof firebase !== 'undefined') {
+    // Return existing promise if already initializing
+    if (initializationPromise) {
+        return initializationPromise;
+    }
+    
+    initializationPromise = new Promise(async (resolve, reject) => {
+        try {
+            console.log('🔥 CONFIG: Starting Firebase initialization...');
+            
+            // Check if Firebase is available
+            if (typeof firebase === 'undefined') {
+                throw new Error('Firebase SDK not loaded');
+            }
+            
             // Check if already initialized
+            let app;
             try {
-                firebase.app(); // This will throw if not initialized
+                app = firebase.app(); // This will throw if not initialized
                 console.log('✅ CONFIG: Firebase already initialized');
             } catch (error) {
                 // Not initialized, so initialize it
                 console.log('🔥 CONFIG: Initializing Firebase...');
-                firebase.initializeApp(firebaseConfig);
+                app = firebase.initializeApp(firebaseConfig);
                 console.log('✅ CONFIG: Firebase initialized successfully');
             }
             
             // Initialize services
-            database = firebase.database();
+            console.log('🔥 CONFIG: Initializing Auth and Database services...');
             auth = firebase.auth();
+            database = firebase.database();
             
-            // Make globally available
-            window.database = database;
+            // Make globally available IMMEDIATELY
             window.auth = auth;
+            window.database = database;
+            
+            console.log('✅ CONFIG: Auth and Database services initialized');
             
             // Test database connection
             database.ref('.info/connected').on('value', function(snapshot) {
@@ -46,21 +64,40 @@ function initializeFirebaseIfNeeded() {
                 }
             });
             
-        } else {
-            console.warn('⚠️ CONFIG: Firebase SDK not loaded');
+            isFirebaseInitialized = true;
+            console.log('🎉 CONFIG: Firebase initialization complete');
+            resolve({ auth, database });
+            
+        } catch (error) {
+            console.error('💥 CONFIG: Firebase initialization error:', error);
+            createMockServices();
+            reject(error);
         }
-    } catch (error) {
-        console.error('💥 CONFIG: Firebase initialization error:', error);
-        createMockDatabase();
-    }
+    });
+    
+    return initializationPromise;
 }
 
-function createMockDatabase() {
-    console.warn('🔧 CONFIG: Creating mock database for offline testing');
+function createMockServices() {
+    console.warn('🔧 CONFIG: Creating mock services for offline testing');
     
-    window.database = {
+    // Create mock auth
+    const mockAuth = {
+        onAuthStateChanged: function(callback) {
+            console.warn('🔧 CONFIG: Mock auth - calling callback with null user');
+            setTimeout(() => callback(null), 100);
+            return () => {}; // Return unsubscribe function
+        },
+        signOut: function() {
+            return Promise.resolve();
+        },
+        currentUser: null
+    };
+    
+    // Create mock database
+    const mockDatabase = {
         ref: function(path) {
-            console.warn('Using mock database - Firebase not available');
+            console.warn('🔧 CONFIG: Mock database ref for:', path);
             return {
                 set: function(data) {
                     return Promise.reject(new Error('Firebase not available'));
@@ -70,12 +107,13 @@ function createMockDatabase() {
                 },
                 once: function(event, callback, errorCallback) {
                     if (errorCallback) {
-                        errorCallback(new Error('Firebase not available'));
+                        setTimeout(() => errorCallback(new Error('Firebase not available')), 100);
                     }
+                    return Promise.reject(new Error('Firebase not available'));
                 },
                 on: function(event, callback, errorCallback) {
                     if (errorCallback) {
-                        errorCallback(new Error('Firebase not available'));
+                        setTimeout(() => errorCallback(new Error('Firebase not available')), 100);
                     }
                 },
                 off: function() {
@@ -85,15 +123,13 @@ function createMockDatabase() {
         }
     };
     
-    window.auth = {
-        onAuthStateChanged: function(callback) {
-            // Call with null user for offline mode
-            callback(null);
-        },
-        signOut: function() {
-            return Promise.resolve();
-        }
-    };
+    // Set global variables
+    auth = mockAuth;
+    database = mockDatabase;
+    window.auth = mockAuth;
+    window.database = mockDatabase;
+    
+    console.log('🔧 CONFIG: Mock services created and assigned');
 }
 
 // Global variables for the quiz system
@@ -260,7 +296,7 @@ class SessionManager {
         this.saveSession();
         
         // If user is logged in and Firebase is available, also save to Firebase
-        if (currentUser && !sessionData.isGuest && database) {
+        if (currentUser && !sessionData.isGuest && database && database.ref) {
             this.saveQuizToFirebase(currentUser.uid, quiz).catch(console.error);
         }
     }
@@ -268,7 +304,7 @@ class SessionManager {
     // Save quiz to Firebase
     async saveQuizToFirebase(userId, quiz, retryCount = 0) {
         try {
-            if (!database) {
+            if (!database || !database.ref) {
                 throw new Error('Firebase not available');
             }
             
@@ -299,7 +335,7 @@ class SessionManager {
         console.log('📚 CONFIG: Loading user data from Firebase for:', user.email);
         
         try {
-            if (!database) {
+            if (!database || !database.ref) {
                 throw new Error('Firebase not available');
             }
 
@@ -358,7 +394,7 @@ class SessionManager {
     // Get user data from Firebase
     async getFirebaseUserData(userId) {
         try {
-            if (!database) {
+            if (!database || !database.ref) {
                 throw new Error('Firebase not available');
             }
             const snapshot = await database.ref(`users/${userId}`).once('value');
@@ -372,7 +408,7 @@ class SessionManager {
     // Get user quizzes from Firebase
     async getFirebaseQuizzes(userId) {
         try {
-            if (!database) {
+            if (!database || !database.ref) {
                 throw new Error('Firebase not available');
             }
             const snapshot = await database.ref(`users/${userId}/quizzes`).once('value');
@@ -395,46 +431,84 @@ class SessionManager {
 // Initialize session manager
 const sessionManager = new SessionManager();
 
-// Authentication state management (only if auth is available)
-function setupAuthStateListener() {
-    if (auth) {
-        auth.onAuthStateChanged(async (user) => {
-            const wasGuest = sessionData.isGuest;
-            currentUser = user;
+// Authentication state management with proper null checking
+async function setupAuthStateListener() {
+    try {
+        // Wait for auth to be available
+        await waitForAuth();
+        
+        if (auth && typeof auth.onAuthStateChanged === 'function') {
+            console.log('🔐 CONFIG: Setting up auth state listener...');
             
-            if (user) {
-                console.log('👤 CONFIG: User signed in:', user.email);
+            auth.onAuthStateChanged(async (user) => {
+                const wasGuest = sessionData.isGuest;
+                currentUser = user;
                 
-                // Store user info for easy access
-                localStorage.setItem('userEmail', user.email);
-                localStorage.setItem('userName', user.displayName || user.email);
-                localStorage.setItem('userId', user.uid);
-                
-                // Load existing user data from Firebase
-                const loadResult = await sessionManager.loadUserDataFromFirebase(user);
-                if (loadResult.success) {
-                    // Trigger refresh of any open quiz management pages
-                    window.dispatchEvent(new CustomEvent('userDataUpdated', { 
-                        detail: { quizzes: loadResult.quizzes, userData: loadResult.userData }
-                    }));
+                if (user) {
+                    console.log('👤 CONFIG: User signed in:', user.email);
+                    
+                    // Store user info for easy access
+                    localStorage.setItem('userEmail', user.email);
+                    localStorage.setItem('userName', user.displayName || user.email);
+                    localStorage.setItem('userId', user.uid);
+                    
+                    // Load existing user data from Firebase
+                    const loadResult = await sessionManager.loadUserDataFromFirebase(user);
+                    if (loadResult.success) {
+                        // Trigger refresh of any open quiz management pages
+                        window.dispatchEvent(new CustomEvent('userDataUpdated', { 
+                            detail: { quizzes: loadResult.quizzes, userData: loadResult.userData }
+                        }));
+                    }
+                    
+                } else {
+                    console.log('👋 CONFIG: User signed out');
+                    
+                    // Clear user info but keep session data
+                    localStorage.removeItem('userEmail');
+                    localStorage.removeItem('userName');
+                    localStorage.removeItem('userId');
+                    
+                    // Reset session to guest mode
+                    sessionData.isGuest = true;
+                    sessionData.userId = null;
+                    sessionData.userEmail = null;
+                    sessionManager.saveSession();
                 }
-                
-            } else {
-                console.log('👋 CONFIG: User signed out');
-                
-                // Clear user info but keep session data
-                localStorage.removeItem('userEmail');
-                localStorage.removeItem('userName');
-                localStorage.removeItem('userId');
-                
-                // Reset session to guest mode
-                sessionData.isGuest = true;
-                sessionData.userId = null;
-                sessionData.userEmail = null;
-                sessionManager.saveSession();
-            }
-        });
+            });
+            
+            console.log('✅ CONFIG: Auth state listener set up successfully');
+        } else {
+            console.error('💥 CONFIG: Auth not available for state listener');
+        }
+    } catch (error) {
+        console.error('💥 CONFIG: Error setting up auth state listener:', error);
     }
+}
+
+// Wait for auth to be available
+function waitForAuth() {
+    return new Promise((resolve) => {
+        let attempts = 0;
+        const maxAttempts = 20;
+        
+        const checkAuth = () => {
+            attempts++;
+            
+            if (window.auth && typeof window.auth.onAuthStateChanged === 'function') {
+                console.log('✅ CONFIG: Auth is ready');
+                resolve();
+            } else if (attempts >= maxAttempts) {
+                console.error('💥 CONFIG: Auth timeout after', maxAttempts, 'attempts');
+                resolve(); // Resolve anyway to prevent hanging
+            } else {
+                console.log(`⏳ CONFIG: Waiting for auth... attempt ${attempts}/${maxAttempts}`);
+                setTimeout(checkAuth, 100);
+            }
+        };
+        
+        checkAuth();
+    });
 }
 
 // Utility functions
@@ -446,53 +520,53 @@ function generatePlayerId() {
     return Date.now().toString() + Math.floor(Math.random() * 1000).toString();
 }
 
-// Database reference helpers
+// Database reference helpers with better error checking
 function getGameRef(pin) {
-    if (database) {
+    if (database && typeof database.ref === 'function') {
         return database.ref(`games/${pin}`);
     }
-    console.warn('⚠️ CONFIG: Database not available');
+    console.warn('⚠️ CONFIG: Database not available for getGameRef');
     return null;
 }
 
 function getPlayersRef(pin) {
-    if (database) {
+    if (database && typeof database.ref === 'function') {
         return database.ref(`games/${pin}/players`);
     }
-    console.warn('⚠️ CONFIG: Database not available');
+    console.warn('⚠️ CONFIG: Database not available for getPlayersRef');
     return null;
 }
 
 function getGameStateRef(pin) {
-    if (database) {
+    if (database && typeof database.ref === 'function') {
         return database.ref(`games/${pin}/gameState`);
     }
-    console.warn('⚠️ CONFIG: Database not available');
+    console.warn('⚠️ CONFIG: Database not available for getGameStateRef');
     return null;
 }
 
 // User-specific database references
 function getUserQuizzesRef(userId) {
-    if (database) {
+    if (database && typeof database.ref === 'function') {
         return database.ref(`users/${userId}/quizzes`);
     }
-    console.warn('⚠️ CONFIG: Database not available');
+    console.warn('⚠️ CONFIG: Database not available for getUserQuizzesRef');
     return null;
 }
 
 function getUserDataRef(userId) {
-    if (database) {
+    if (database && typeof database.ref === 'function') {
         return database.ref(`users/${userId}`);
     }
-    console.warn('⚠️ CONFIG: Database not available');
+    console.warn('⚠️ CONFIG: Database not available for getUserDataRef');
     return null;
 }
 
 function getUserStatsRef(userId) {
-    if (database) {
+    if (database && typeof database.ref === 'function') {
         return database.ref(`users/${userId}/stats`);
     }
-    console.warn('⚠️ CONFIG: Database not available');
+    console.warn('⚠️ CONFIG: Database not available for getUserStatsRef');
     return null;
 }
 
@@ -504,7 +578,7 @@ async function saveQuizToSystem(quizData) {
     sessionManager.addQuizToSession(quizData);
     
     // If user is logged in, also save to Firebase
-    if (currentUser && database) {
+    if (currentUser && database && database.ref) {
         try {
             await sessionManager.saveQuizToFirebase(currentUser.uid, quizData);
             console.log('✅ CONFIG: Quiz saved to Firebase successfully');
@@ -522,7 +596,7 @@ async function saveQuizToSystem(quizData) {
 async function loadAllQuizzes() {
     console.log('📚 CONFIG: Loading all quizzes...');
     
-    if (currentUser && database) {
+    if (currentUser && database && database.ref) {
         // Load from Firebase for logged-in users
         const result = await sessionManager.loadUserDataFromFirebase(currentUser);
         if (result.success) {
@@ -542,7 +616,7 @@ async function deleteQuizFromSystem(quizId) {
     sessionManager.saveSession();
     
     // If user is logged in, also delete from Firebase
-    if (currentUser && database) {
+    if (currentUser && database && database.ref) {
         try {
             await database.ref(`users/${currentUser.uid}/quizzes/${quizId}`).remove();
             console.log('✅ CONFIG: Quiz deleted from Firebase');
@@ -559,7 +633,7 @@ async function signOut() {
     try {
         sessionManager.saveRecoveryCheckpoint();
         
-        if (auth) {
+        if (auth && typeof auth.signOut === 'function') {
             await auth.signOut();
         }
     } catch (error) {
@@ -587,17 +661,22 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize session first
     sessionManager.initializeSession();
     
-    // Initialize Firebase after a short delay to avoid conflicts
-    setTimeout(() => {
-        initializeFirebaseIfNeeded();
-        setupAuthStateListener();
-    }, 100);
+    // Initialize Firebase and set up auth listener
+    initializeFirebaseIfNeeded()
+        .then(() => {
+            console.log('🎉 CONFIG: Firebase initialization completed');
+            return setupAuthStateListener();
+        })
+        .then(() => {
+            console.log('✅ CONFIG: Configuration system fully initialized');
+        })
+        .catch(error => {
+            console.error('💥 CONFIG: Configuration system initialization failed:', error);
+        });
 });
 
-// Export session manager for use in other files
+// Export session manager and make functions globally available
 window.sessionManager = sessionManager;
-
-// Make functions globally available
 window.saveQuizToSystem = saveQuizToSystem;
 window.loadAllQuizzes = loadAllQuizzes;
 window.deleteQuizFromSystem = deleteQuizFromSystem;

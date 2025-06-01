@@ -336,16 +336,60 @@
         }
         
         function setupAuthenticationListener() {
-            if (!window.auth) {
-                console.error('💥 INDEX: Auth not available');
-                return;
-            }
+            console.log('🔐 INDEX: Setting up authentication listener...');
             
-            // Check authentication status but don't redirect
-            window.auth.onAuthStateChanged((user) => {
-                console.log('👤 INDEX: Auth state changed:', user ? user.email : 'no user');
-                indexCurrentUser = user;
-                updateUserInterface(user);
+            // Wait for auth to be available with better error handling
+            waitForAuth()
+                .then(() => {
+                    if (window.auth && typeof window.auth.onAuthStateChanged === 'function') {
+                        console.log('✅ INDEX: Auth is ready, setting up listener');
+                        
+                        window.auth.onAuthStateChanged((user) => {
+                            console.log('👤 INDEX: Auth state changed:', user ? user.email : 'no user');
+                            indexCurrentUser = user;
+                            updateUserInterface(user);
+                        });
+                    } else {
+                        console.error('💥 INDEX: Auth still not available after waiting');
+                        // Still update UI for guest mode
+                        updateUserInterface(null);
+                    }
+                })
+                .catch(error => {
+                    console.error('💥 INDEX: Error setting up auth listener:', error);
+                    // Update UI for guest mode as fallback
+                    updateUserInterface(null);
+                });
+        }
+        
+        // Enhanced auth waiting function
+        function waitForAuth() {
+            return new Promise((resolve, reject) => {
+                let attempts = 0;
+                const maxAttempts = 30;
+                
+                const checkAuth = () => {
+                    attempts++;
+                    console.log(`🔍 INDEX: Auth check ${attempts}/${maxAttempts}`);
+                    
+                    const authReady = window.auth && typeof window.auth.onAuthStateChanged === 'function';
+                    
+                    if (authReady) {
+                        console.log('✅ INDEX: Auth is ready!');
+                        resolve();
+                    } else if (attempts >= maxAttempts) {
+                        console.error('💥 INDEX: Auth timeout after', maxAttempts, 'attempts');
+                        reject(new Error('Auth timeout'));
+                    } else {
+                        console.log('⏳ INDEX: Auth not ready, waiting...', { 
+                            authExists: !!window.auth,
+                            hasFunction: window.auth && typeof window.auth.onAuthStateChanged === 'function'
+                        });
+                        setTimeout(checkAuth, 200);
+                    }
+                };
+                
+                checkAuth();
             });
         }
         
