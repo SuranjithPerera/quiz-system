@@ -1311,79 +1311,70 @@
                 // Process each player individually
                 for (const playerId in currentPlayers) {
                     const player = currentPlayers[playerId];
-                    console.log(`🔍 HOST: Processing player ${player.name} (ID: ${playerId}) - Status: ${player.status}`);
+                    console.log(`🔍 HOST: Processing player ${player.name} (ID: ${playerId})`);
+                    console.log(`📊 HOST: Player ${player.name} - Status: "${player.status}", CurrentAnswer: ${player.currentAnswer}, ResponseTime: ${player.responseTime}`);
                     
-                    // CRITICAL FIX: Only give points if player actually answered
-                    if (player.status === 'answered' && typeof player.currentAnswer === 'number') {
+                    let questionScore = 0; // Default: NO POINTS
+                    let isCorrect = false; // Default: NOT CORRECT
+                    
+                    // CRITICAL FIX: Only give points if ALL conditions are met:
+                    // 1. Player status is 'answered'
+                    // 2. Player has a valid currentAnswer (number)
+                    // 3. Answer is within valid range
+                    // 4. Answer is actually correct
+                    
+                    if (player.status === 'answered' && 
+                        typeof player.currentAnswer === 'number' && 
+                        player.currentAnswer >= 0 && 
+                        player.currentAnswer < currentQuestion.answers.length &&
+                        player.currentAnswer === currentQuestion.correct) {
                         
-                        // Verify the answer is valid (within range of available answers)
-                        if (player.currentAnswer >= 0 && player.currentAnswer < currentQuestion.answers.length) {
-                            
-                            const isCorrect = player.currentAnswer === currentQuestion.correct;
-                            console.log(`🎯 HOST: Player ${player.name} answered ${player.currentAnswer}, correct is ${currentQuestion.correct}, isCorrect: ${isCorrect}`);
-                            
-                            let questionScore = 0; // Default to 0
-                            
-                            // ONLY calculate score if answer is correct
-                            if (isCorrect) {
-                                const responseTime = player.responseTime || 0;
-                                const timeLimit = currentQuestion.timeLimit || 20;
-                                const timeLeft = Math.max(0, timeLimit - responseTime);
-                                questionScore = calculateScore(true, timeLeft, timeLimit);
-                                console.log(`🔢 HOST: Player ${player.name} got CORRECT answer - score: ${questionScore}`);
-                            } else {
-                                questionScore = 0; // Wrong answer = 0 points
-                                console.log(`❌ HOST: Player ${player.name} got WRONG answer - score: 0`);
-                            }
-                            
-                            const currentScore = player.score || 0;
-                            const newTotalScore = currentScore + questionScore;
-                            
-                            console.log(`💰 HOST: Player ${player.name} - Current: ${currentScore}, Adding: ${questionScore}, New Total: ${newTotalScore}`);
-                            
-                            // Update the final total score for this specific player
-                            await db.ref(`games/${hostGamePin}/players/${playerId}`).update({
-                                score: newTotalScore,
-                                questionScore: questionScore,
-                                isCorrect: isCorrect
-                            });
-                            
-                            console.log(`✅ HOST: Updated Firebase for ${player.name} - FINAL score: +${questionScore} points (Total: ${newTotalScore})`);
-                            
-                        } else {
-                            // Invalid answer index
-                            console.log(`⚠️ HOST: Player ${player.name} has invalid answer index: ${player.currentAnswer}`);
-                            await db.ref(`games/${hostGamePin}/players/${playerId}`).update({
-                                isCorrect: false,
-                                questionScore: 0
-                            });
-                        }
+                        // ALL CONDITIONS MET - Player answered correctly
+                        isCorrect = true;
+                        const responseTime = player.responseTime || 0;
+                        const timeLimit = currentQuestion.timeLimit || 20;
+                        const timeLeft = Math.max(0, timeLimit - responseTime);
+                        questionScore = calculateScore(true, timeLeft, timeLimit);
+                        
+                        console.log(`✅ HOST: Player ${player.name} CORRECTLY answered ${player.currentAnswer} - AWARDING ${questionScore} points`);
                         
                     } else {
-                        // Player didn't answer OR has no currentAnswer
-                        console.log(`❌ HOST: Player ${player.name} didn't answer (status: ${player.status}, currentAnswer: ${player.currentAnswer})`);
+                        // ANY condition failed - NO POINTS
+                        questionScore = 0;
+                        isCorrect = false;
                         
-                        // CRITICAL FIX: Explicitly set score to 0 for non-answering players
-                        await db.ref(`games/${hostGamePin}/players/${playerId}`).update({
-                            isCorrect: false,
-                            questionScore: 0,
-                            // DON'T touch the total score - it should remain unchanged
-                        });
+                        if (player.status !== 'answered') {
+                            console.log(`❌ HOST: Player ${player.name} didn't answer (status: ${player.status}) - 0 points`);
+                        } else if (typeof player.currentAnswer !== 'number') {
+                            console.log(`❌ HOST: Player ${player.name} has invalid answer type: ${typeof player.currentAnswer} - 0 points`);
+                        } else if (player.currentAnswer !== currentQuestion.correct) {
+                            console.log(`❌ HOST: Player ${player.name} answered WRONG (${player.currentAnswer} vs correct ${currentQuestion.correct}) - 0 points`);
+                        }
                     }
+                    
+                    // Update Firebase with the CALCULATED scores (not adding to existing)
+                    const currentTotalScore = player.score || 0;
+                    const newTotalScore = currentTotalScore + questionScore;
+                    
+                    console.log(`💰 HOST: Player ${player.name} - Previous Total: ${currentTotalScore}, Adding: ${questionScore}, New Total: ${newTotalScore}`);
+                    
+                    await db.ref(`games/${hostGamePin}/players/${playerId}`).update({
+                        score: newTotalScore,
+                        questionScore: questionScore,
+                        isCorrect: isCorrect
+                    });
+                    
+                    console.log(`🔥 HOST: FINAL UPDATE - ${player.name}: ${questionScore} points added (Total: ${newTotalScore})`);
                     
                     // Update local cache
                     if (hostPlayers[playerId]) {
-                        const playerRef = hostPlayers[playerId];
-                        if (player.status === 'answered' && typeof player.currentAnswer === 'number' && player.currentAnswer === currentQuestion.correct) {
-                            // Only update if they actually answered correctly
-                            playerRef.score = (playerRef.score || 0) + (player.questionScore || 0);
-                        }
-                        playerRef.isCorrect = player.isCorrect || false;
-                        playerRef.questionScore = player.questionScore || 0;
+                        hostPlayers[playerId].score = newTotalScore;
+                        hostPlayers[playerId].questionScore = questionScore;
+                        hostPlayers[playerId].isCorrect = isCorrect;
                     }
                 }
                 
-                console.log('🎯 HOST: All player scores calculated and updated');
+                console.log('🎯 HOST: All player scores calculated and updated - SCORING COMPLETE');
                 
                 // Refresh the responses display with final scores
                 setTimeout(() => {
@@ -1502,56 +1493,59 @@
                 const playerSnapshot = await db.ref(`games/${hostGamePin}/players/${playerId}`).once('value');
                 const player = playerSnapshot.val();
                 
-                if (player && player.status === 'answered' && typeof player.currentAnswer === 'number') {
+                console.log(`🔍 REALTIME: Player ${player?.name} (${playerId}) - Status: ${player?.status}, Answer: ${player?.currentAnswer}`);
+                
+                let questionScore = 0; // Default: NO POINTS
+                let isCorrect = false; // Default: NOT CORRECT
+                
+                // CRITICAL FIX: Same strict validation as final scoring
+                if (player && 
+                    player.status === 'answered' && 
+                    typeof player.currentAnswer === 'number' && 
+                    player.currentAnswer >= 0 && 
+                    player.currentAnswer < currentQuestion.answers.length &&
+                    player.currentAnswer === currentQuestion.correct) {
                     
-                    // Verify the answer is valid
-                    if (player.currentAnswer >= 0 && player.currentAnswer < currentQuestion.answers.length) {
-                        
-                        const isCorrect = player.currentAnswer === currentQuestion.correct;
-                        
-                        let questionScore = 0; // Default to 0
-                        
-                        // CRITICAL FIX: Only calculate non-zero score if answer is correct
-                        if (isCorrect) {
-                            const responseTime = player.responseTime || 0;
-                            const timeLimit = currentQuestion.timeLimit || 20;
-                            const timeLeft = Math.max(0, timeLimit - responseTime);
-                            questionScore = calculateScore(true, timeLeft, timeLimit);
-                        } else {
-                            questionScore = 0; // Wrong answer = 0 points
-                        }
-                        
-                        console.log(`📊 HOST: Player ${player.name} (ID: ${playerId}) - Answer: ${player.currentAnswer}, Correct: ${currentQuestion.correct}, IsCorrect: ${isCorrect}, Score: ${questionScore}`);
-                        
-                        // Just update the response status for display (don't change total score yet)
-                        await db.ref(`games/${hostGamePin}/players/${playerId}`).update({
-                            isCorrect: isCorrect,
-                            questionScore: questionScore,
-                            tempScore: questionScore // Store temporarily
-                            // Don't update main score until timer ends
-                        });
-                        
-                        console.log(`📊 HOST: Player ${player.name} (ID: ${playerId}) real-time update - temp score: ${questionScore} points`);
-                        
-                        // Update local player data to reflect the changes
-                        if (hostPlayers[playerId]) {
-                            hostPlayers[playerId].isCorrect = isCorrect;
-                            hostPlayers[playerId].questionScore = questionScore;
-                            hostPlayers[playerId].tempScore = questionScore;
-                        }
-                        
-                    } else {
-                        console.warn(`⚠️ HOST: Player ${player.name} has invalid answer: ${player.currentAnswer}`);
-                        
-                        // Invalid answer
-                        await db.ref(`games/${hostGamePin}/players/${playerId}`).update({
-                            isCorrect: false,
-                            questionScore: 0,
-                            tempScore: 0
-                        });
-                    }
+                    // ALL CONDITIONS MET - Calculate score for correct answer
+                    isCorrect = true;
+                    const responseTime = player.responseTime || 0;
+                    const timeLimit = currentQuestion.timeLimit || 20;
+                    const timeLeft = Math.max(0, timeLimit - responseTime);
+                    questionScore = calculateScore(true, timeLeft, timeLimit);
+                    
+                    console.log(`✅ REALTIME: Player ${player.name} CORRECT answer - temp score: ${questionScore}`);
+                    
                 } else {
-                    console.warn(`⚠️ HOST: Player data invalid for ${playerId}:`, player);
+                    // ANY condition failed - NO POINTS
+                    questionScore = 0;
+                    isCorrect = false;
+                    
+                    if (!player) {
+                        console.log(`❌ REALTIME: No player data for ${playerId}`);
+                    } else if (player.status !== 'answered') {
+                        console.log(`❌ REALTIME: Player ${player.name} status not 'answered': ${player.status}`);
+                    } else if (typeof player.currentAnswer !== 'number') {
+                        console.log(`❌ REALTIME: Player ${player.name} invalid answer type: ${typeof player.currentAnswer}`);
+                    } else if (player.currentAnswer !== currentQuestion.correct) {
+                        console.log(`❌ REALTIME: Player ${player.name} WRONG answer (${player.currentAnswer} vs ${currentQuestion.correct})`);
+                    }
+                }
+                
+                // Update Firebase with real-time status (but don't change total score yet)
+                await db.ref(`games/${hostGamePin}/players/${playerId}`).update({
+                    isCorrect: isCorrect,
+                    questionScore: questionScore,
+                    tempScore: questionScore // Store temporarily
+                    // Don't update main score until timer ends
+                });
+                
+                console.log(`📊 REALTIME: Player ${player?.name} (${playerId}) temp update - ${questionScore} points`);
+                
+                // Update local player data to reflect the changes
+                if (hostPlayers[playerId]) {
+                    hostPlayers[playerId].isCorrect = isCorrect;
+                    hostPlayers[playerId].questionScore = questionScore;
+                    hostPlayers[playerId].tempScore = questionScore;
                 }
                 
                 // Update responses display
