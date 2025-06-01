@@ -192,15 +192,24 @@ function checkForStateRecovery() {
     const savedGamePin = localStorage.getItem(PLAYER_STATE_KEYS.GAME_PIN);
     const savedPlayerId = localStorage.getItem(PLAYER_STATE_KEYS.PLAYER_ID);
     const savedPlayerName = localStorage.getItem(PLAYER_STATE_KEYS.PLAYER_NAME);
+    const savedGameState = localStorage.getItem(PLAYER_STATE_KEYS.GAME_STATE);
     
     console.log('🔍 PLAYER: Checking recovery state:', {
         isActive: !!isActive,
         hasGamePin: !!savedGamePin,
         hasPlayerId: !!savedPlayerId,
-        hasPlayerName: !!savedPlayerName
+        hasPlayerName: !!savedPlayerName,
+        gameState: savedGameState
     });
     
-    return isActive && savedGamePin && savedPlayerId && savedPlayerName;
+    // Don't recover if game is finished
+    if (savedGameState === 'finished') {
+        console.log('🏁 PLAYER: Game was finished, clearing state instead of recovering');
+        clearPlayerState();
+        return false;
+    }
+    
+    return isActive && savedGamePin && savedPlayerId && savedPlayerName && savedGameState !== 'finished';
 }
 
 async function recoverPlayerState() {
@@ -359,6 +368,16 @@ function clearPlayerState() {
     // Also clear the original localStorage items
     localStorage.removeItem('gamePin');
     localStorage.removeItem('playerName');
+    
+    // Reset all global variables
+    currentGamePin = null;
+    playerId = null;
+    playerName = null;
+    playerScore = 0;
+    hasAnswered = false;
+    isQuestionActive = true;
+    
+    console.log('✅ PLAYER: All state cleared');
 }
 
 function waitForFirebaseReady(callback) {
@@ -561,8 +580,8 @@ function onGameStateChange(gameState) {
             break;
         case 'finished':
             console.log('🏁 PLAYER: Game finished - showing results');
+            clearPlayerState(); // Clear state immediately when game finishes
             showFinalResults();
-            savePlayerState('finished');
             break;
         default:
             console.log('❓ PLAYER: Unknown game status:', gameState.status);
@@ -840,10 +859,12 @@ function showFinalResults() {
     showElement('final-results');
     updateScoreDisplay();
     
-    // Clear state since game is finished
-    setTimeout(() => {
-        clearPlayerState();
-    }, 5000); // Clear after 5 seconds to allow viewing results
+    // Clear state immediately when game is finished
+    clearPlayerState();
+    
+    // Also disable state recovery to prevent auto-redirect
+    localStorage.removeItem('gamePin');
+    localStorage.removeItem('playerName');
 }
 
 function hideAllScreens() {
@@ -894,6 +915,16 @@ document.addEventListener('visibilitychange', () => {
         savePlayerState();
     }
 });
+
+// Handle Play Again button
+function playAgain() {
+    console.log('🔄 PLAYER: Play again clicked - clearing all state');
+    clearPlayerState();
+    window.location.href = 'index.html';
+}
+
+// Make play again function globally available
+window.playAgain = playAgain;
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', initializePlayer);
