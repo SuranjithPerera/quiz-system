@@ -1,4 +1,4 @@
-// Player.js - Enhanced with State Recovery
+// Player.js - Enhanced with State Recovery and Better Timer Management
 let playerGameInstance = null;
 let playerId = null;
 let playerName = null;
@@ -9,6 +9,7 @@ let questionStartTime = null;
 let currentTimerInterval = null;
 let currentQuestionData = null;
 let isRecoveringState = false;
+let isQuestionActive = true; // Track if question is still accepting answers
 
 // State persistence keys for player
 const PLAYER_STATE_KEYS = {
@@ -545,11 +546,18 @@ function onGameStateChange(gameState) {
         case 'playing':
             console.log('🎯 PLAYER: Game playing - showing question');
             hasAnswered = false;
+            isQuestionActive = true; // Reset question active state
             if (answerManager) {
                 answerManager.startQuestion(gameState.questionStartTime);
             }
             showActiveQuestion(gameState);
             savePlayerState('playing');
+            break;
+        case 'question_ended':
+            console.log('⏰ PLAYER: Question ended - showing waiting screen');
+            isQuestionActive = false; // Question no longer accepts answers
+            showWaitingNext();
+            savePlayerState('waiting-next');
             break;
         case 'finished':
             console.log('🏁 PLAYER: Game finished - showing results');
@@ -571,7 +579,14 @@ function onPlayersUpdate(players) {
     
     // Update player score
     if (players[playerId]) {
+        const oldScore = playerScore;
         playerScore = players[playerId].score || 0;
+        
+        // Log score changes
+        if (oldScore !== playerScore) {
+            console.log('🏆 PLAYER: Score updated from', oldScore, 'to', playerScore);
+        }
+        
         updateScoreDisplay();
         savePlayerState(); // Save updated score
     }
@@ -625,6 +640,7 @@ function displayQuestion(question, questionNumber) {
     const grid = document.getElementById('answers-grid');
     grid.innerHTML = '';
     hasAnswered = false;
+    isQuestionActive = true; // Question is active when first displayed
     
     question.answers.forEach((answer, index) => {
         const btn = document.createElement('button');
@@ -648,6 +664,15 @@ function startTimer(duration) {
         const secs = timeLeft % 60;
         display.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
         
+        // Visual urgency indicators
+        if (timeLeft <= 5) {
+            display.style.background = 'linear-gradient(135deg, #e21b3c 0%, #ff4757 100%)';
+            display.style.animation = 'pulse 0.5s infinite';
+        } else if (timeLeft <= 10) {
+            display.style.background = 'linear-gradient(135deg, #ff6900 0%, #ff8c00 100%)';
+            display.style.animation = 'none';
+        }
+        
         if (timeLeft <= 0) {
             clearInterval(currentTimerInterval);
             onTimeout();
@@ -661,8 +686,12 @@ function startTimer(duration) {
 }
 
 async function selectAnswer(answerIndex) {
-    if (hasAnswered) {
-        console.log('⚠️ PLAYER: Already answered, ignoring click');
+    // Check if question is still active and player hasn't answered
+    if (hasAnswered || !isQuestionActive) {
+        console.log('⚠️ PLAYER: Cannot answer - already answered or question inactive:', {
+            hasAnswered,
+            isQuestionActive
+        });
         return;
     }
     
@@ -701,32 +730,45 @@ async function selectAnswer(answerIndex) {
         
         console.log('📤 PLAYER: Answer submitted successfully');
         showFeedback(`Answer submitted! (${responseTime.toFixed(1)}s)`);
-        setTimeout(showWaitingNext, 1500);
+        
+        // Don't automatically transition to waiting screen
+        // Let the host control when to show results
         
     } catch (error) {
         console.error('💥 PLAYER: Submit failed:', error);
         showStatus('Failed to submit answer', 'error');
         
-        // Reset answer state so they can try again
-        hasAnswered = false;
-        if (answerManager) {
-            answerManager = new SimpleAnswerManager();
+        // Reset answer state so they can try again if question is still active
+        if (isQuestionActive) {
+            hasAnswered = false;
+            if (answerManager) {
+                answerManager = new SimpleAnswerManager();
+            }
+            
+            buttons.forEach(btn => {
+                btn.disabled = false;
+                btn.style.transform = '';
+                btn.style.border = '';
+            });
         }
-        
-        buttons.forEach(btn => {
-            btn.disabled = false;
-            btn.style.transform = '';
-            btn.style.border = '';
-        });
     }
 }
 
 function onTimeout() {
     console.log('⏰ PLAYER: Question timeout');
+    isQuestionActive = false; // Question is no longer active
+    
     if (!hasAnswered) {
         hasAnswered = true;
+        
+        // Disable all buttons
+        const buttons = document.querySelectorAll('.answer-btn');
+        buttons.forEach(btn => {
+            btn.disabled = true;
+            btn.style.opacity = '0.6';
+        });
+        
         showFeedback('Time\'s up!');
-        setTimeout(showWaitingNext, 1500);
     }
 }
 

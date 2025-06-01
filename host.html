@@ -201,6 +201,7 @@
             box-shadow: 0 15px 35px rgba(255, 105, 0, 0.3);
         }
 
+        /* Enhanced answer option styles for host view */
         .answer-option {
             padding: 15px 20px;
             margin: 10px 0;
@@ -212,13 +213,23 @@
             gap: 15px;
             transition: all 0.3s ease;
             color: #333;
+            position: relative;
+            overflow: hidden;
         }
 
-        .answer-option.correct {
+        /* FIXED: Remove automatic green highlighting for correct answers */
+        .answer-option.show-correct {
             background: linear-gradient(135deg, #26d0ce 0%, #1dd1a1 100%);
             color: white;
             border-color: #ffffff;
             box-shadow: 0 8px 25px rgba(38, 208, 206, 0.3);
+        }
+
+        .answer-option.show-incorrect {
+            background: linear-gradient(135deg, #f44336 0%, #ef5350 100%);
+            color: white;
+            border-color: #ffffff;
+            box-shadow: 0 8px 25px rgba(244, 67, 54, 0.3);
         }
 
         .answer-letter {
@@ -234,9 +245,14 @@
             font-size: 1.2rem;
         }
 
-        .answer-option.correct .answer-letter {
+        .answer-option.show-correct .answer-letter {
             background: #ffffff;
             color: #26d0ce;
+        }
+
+        .answer-option.show-incorrect .answer-letter {
+            background: #ffffff;
+            color: #f44336;
         }
 
         .answer-text {
@@ -248,6 +264,15 @@
         .correct-indicator {
             background: #ffffff;
             color: #26d0ce;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-weight: 800;
+            font-size: 0.9rem;
+        }
+
+        .incorrect-indicator {
+            background: #ffffff;
+            color: #f44336;
             padding: 5px 12px;
             border-radius: 15px;
             font-weight: 800;
@@ -342,48 +367,17 @@
             transition: all 0.3s ease;
         }
 
-        /* Answer option enhancements for host view */
-        .answer-option {
-            position: relative;
-            overflow: hidden;
+        .timer.urgent {
+            background: linear-gradient(135deg, #e21b3c 0%, #ff4757 100%) !important;
+            animation: pulse 0.5s infinite;
+            transform: scale(1.1);
         }
 
-        .answer-option.correct::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(135deg, rgba(76, 175, 80, 0.2) 0%, rgba(102, 187, 106, 0.2) 100%);
-            border-radius: 15px;
-            animation: correctPulse 2s ease-in-out infinite;
+        .timer.warning {
+            background: linear-gradient(135deg, #ff6900 0%, #ff8c00 100%) !important;
+            transform: scale(1.05);
         }
 
-        @keyframes correctPulse {
-            0%, 100% { opacity: 0.2; }
-            50% { opacity: 0.4; }
-        }
-
-        .correct-indicator {
-            background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
-            color: white;
-            padding: 8px 15px;
-            border-radius: 20px;
-            font-weight: 800;
-            font-size: 1rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
-            animation: bounce 0.5s ease-out;
-        }
-
-        @keyframes bounce {
-            0% { transform: scale(0.8); opacity: 0; }
-            50% { transform: scale(1.1); opacity: 1; }
-            100% { transform: scale(1); opacity: 1; }
-        }
-        
         /* Mobile responsive */
         @media (max-width: 768px) {
             .lobby-container {
@@ -579,11 +573,15 @@
         let hostCurrentQuiz = null;
         let hostGameInstance = null;
         let hostPlayers = {};
-        let hostCurrentQuestionIndex = 0; // Changed to avoid conflict
-        let hostQuestionTimer = null; // Changed to avoid conflict
-        let hostGamePin = null; // Changed to avoid conflict
-        let isHostGameActive = false; // Changed to avoid conflict
-        let hostCurrentGameState = 'waiting'; // Changed to avoid conflict
+        let hostCurrentQuestionIndex = 0;
+        let hostQuestionTimer = null;
+        let hostGamePin = null;
+        let isHostGameActive = false;
+        let hostCurrentGameState = 'waiting';
+        let questionTimeLeft = 0;
+        let questionDuration = 20;
+        let isQuestionActive = true;
+        let hasCalculatedScores = false;
 
         // Initialize host page
         function initializeHost() {
@@ -1055,28 +1053,32 @@
             
             console.log('📝 HOST: Displaying question:', hostCurrentQuestionIndex + 1, 'of', totalQuestions);
             
+            // Reset question state
+            isQuestionActive = true;
+            hasCalculatedScores = false;
+            
             // Update question info
             document.getElementById('current-q-num').textContent = hostCurrentQuestionIndex + 1;
             document.getElementById('total-questions').textContent = totalQuestions;
             document.getElementById('host-question').textContent = question.question;
             
-            // Update answers
+            // Update answers - FIXED: Remove automatic correct answer highlighting
             const answersContainer = document.getElementById('host-answers');
             answersContainer.innerHTML = '';
             
             question.answers.forEach((answer, index) => {
                 const answerDiv = document.createElement('div');
-                answerDiv.className = `answer-option ${index === question.correct ? 'correct' : ''}`;
+                answerDiv.className = 'answer-option'; // Remove automatic correct class
                 answerDiv.innerHTML = `
                     <span class="answer-letter">${String.fromCharCode(65 + index)}</span>
                     <span class="answer-text">${answer}</span>
-                    ${index === question.correct ? '<span class="correct-indicator">✓</span>' : ''}
                 `;
                 answersContainer.appendChild(answerDiv);
             });
             
             // Start timer
-            startQuestionTimer(question.timeLimit || 20);
+            questionDuration = question.timeLimit || 20;
+            startQuestionTimer(questionDuration);
             
             // Hide/show appropriate buttons
             hideElement('next-btn');
@@ -1087,33 +1089,26 @@
             console.log('⏰ HOST: Starting timer for', duration, 'seconds');
             
             const timerEl = document.getElementById('host-timer');
-            let timeLeft = duration;
+            questionTimeLeft = duration;
             
             const updateTimer = () => {
-                const mins = Math.floor(timeLeft / 60);
-                const secs = timeLeft % 60;
+                const mins = Math.floor(questionTimeLeft / 60);
+                const secs = questionTimeLeft % 60;
                 timerEl.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
                 
                 // Add visual urgency as time runs out
-                if (timeLeft <= 5) {
-                    timerEl.style.background = 'linear-gradient(135deg, #e21b3c 0%, #ff4757 100%)';
-                    timerEl.style.animation = 'pulse 0.5s infinite';
-                    timerEl.style.transform = 'scale(1.1)';
-                } else if (timeLeft <= 10) {
-                    timerEl.style.background = 'linear-gradient(135deg, #ff6900 0%, #ff8c00 100%)';
-                    timerEl.style.animation = 'none';
-                    timerEl.style.transform = 'scale(1.05)';
-                } else {
-                    timerEl.style.background = 'linear-gradient(135deg, #e21b3c 0%, #ff4757 100%)';
-                    timerEl.style.animation = 'none';
-                    timerEl.style.transform = 'scale(1)';
+                timerEl.classList.remove('urgent', 'warning');
+                if (questionTimeLeft <= 5) {
+                    timerEl.classList.add('urgent');
+                } else if (questionTimeLeft <= 10) {
+                    timerEl.classList.add('warning');
                 }
                 
-                if (timeLeft <= 0) {
+                if (questionTimeLeft <= 0) {
                     clearInterval(hostQuestionTimer);
                     onQuestionTimeUp();
                 } else {
-                    timeLeft--;
+                    questionTimeLeft--;
                 }
             };
             
@@ -1123,9 +1118,26 @@
 
         function onQuestionTimeUp() {
             console.log('⏰ HOST: Question time is up');
+            isQuestionActive = false; // Stop accepting answers
             
             // Calculate scores for all players using existing scoring system
             calculatePlayerScores();
+            
+            // Show correct/incorrect answers
+            displayAnswerResults();
+            
+            // Update game state to question_ended
+            if (hostGameInstance) {
+                // Update Firebase to let players know question ended
+                const db = hostGameInstance.waitForDatabase();
+                db.then(database => {
+                    if (database) {
+                        database.ref(`games/${hostGamePin}/gameState`).update({
+                            status: 'question_ended'
+                        });
+                    }
+                });
+            }
             
             showElement('next-btn');
             
@@ -1136,12 +1148,51 @@
             showStatus('Time\'s up! Review responses and continue.', 'info');
         }
 
-        // Calculate scores for players using the existing scoring system
-        async function calculatePlayerScores() {
+        function displayAnswerResults() {
+            console.log('📊 HOST: Displaying answer results');
+            
             if (!hostCurrentQuiz || !hostCurrentQuiz.questions[hostCurrentQuestionIndex]) {
                 return;
             }
 
+            const currentQuestion = hostCurrentQuiz.questions[hostCurrentQuestionIndex];
+            const answersContainer = document.getElementById('host-answers');
+            const answerDivs = answersContainer.querySelectorAll('.answer-option');
+            
+            answerDivs.forEach((answerDiv, index) => {
+                // Remove any existing result classes
+                answerDiv.classList.remove('show-correct', 'show-incorrect');
+                
+                // Add appropriate class based on correctness
+                if (index === currentQuestion.correct) {
+                    answerDiv.classList.add('show-correct');
+                    // Add correct indicator if not already present
+                    if (!answerDiv.querySelector('.correct-indicator')) {
+                        const indicator = document.createElement('span');
+                        indicator.className = 'correct-indicator';
+                        indicator.textContent = '✓ CORRECT';
+                        answerDiv.appendChild(indicator);
+                    }
+                } else {
+                    answerDiv.classList.add('show-incorrect');
+                    // Add incorrect indicator if not already present
+                    if (!answerDiv.querySelector('.incorrect-indicator')) {
+                        const indicator = document.createElement('span');
+                        indicator.className = 'incorrect-indicator';
+                        indicator.textContent = '✗ INCORRECT';
+                        answerDiv.appendChild(indicator);
+                    }
+                }
+            });
+        }
+
+        // Calculate scores for players using the existing scoring system
+        async function calculatePlayerScores() {
+            if (!hostCurrentQuiz || !hostCurrentQuiz.questions[hostCurrentQuestionIndex] || hasCalculatedScores) {
+                return;
+            }
+
+            hasCalculatedScores = true;
             const currentQuestion = hostCurrentQuiz.questions[hostCurrentQuestionIndex];
             const db = await hostGameInstance.waitForDatabase();
             if (!db) return;
@@ -1356,6 +1407,8 @@
             hostGamePin = null;
             isHostGameActive = false;
             hostCurrentGameState = 'waiting';
+            isQuestionActive = true;
+            hasCalculatedScores = false;
             
             // Reset UI
             hideElement('game-lobby');

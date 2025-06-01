@@ -346,6 +346,17 @@ header p {
     letter-spacing: 2px;
 }
 
+.timer.urgent {
+    background: linear-gradient(135deg, #e21b3c 0%, #ff4757 100%) !important;
+    animation: pulse 0.5s infinite;
+    transform: scale(1.1);
+}
+
+.timer.warning {
+    background: linear-gradient(135deg, #ff6900 0%, #ff8c00 100%) !important;
+    transform: scale(1.05);
+}
+
 .question-text {
     font-size: clamp(1.8rem, 5vw, 2.8rem);
     margin-bottom: 40px;
@@ -363,7 +374,7 @@ header p {
 }
 
 /* ========================================
-   ANSWERS GRID - AUTHENTIC KAHOOT! COLORS
+   ANSWERS GRID - ENHANCED FOR HOST AND PLAYER VIEWS
    ======================================== */
 
 .answers-grid {
@@ -375,6 +386,7 @@ header p {
     padding: 0 20px;
 }
 
+/* Player Answer Buttons - Authentic Kahoot! Colors */
 .answer-btn {
     padding: 25px 20px;
     border: none;
@@ -429,6 +441,107 @@ header p {
     opacity: 0.8;
     cursor: not-allowed;
     transform: none;
+}
+
+/* Host Answer Options - Different styling for host view */
+.answer-option {
+    padding: 15px 20px;
+    margin: 10px 0;
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    border-radius: 15px;
+    border: 3px solid #e9ecef;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    transition: all 0.3s ease;
+    color: #333;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Host view - Show correct answers after time ends */
+.answer-option.show-correct {
+    background: linear-gradient(135deg, #26d0ce 0%, #1dd1a1 100%);
+    color: white;
+    border-color: #ffffff;
+    box-shadow: 0 8px 25px rgba(38, 208, 206, 0.3);
+    animation: correctPulse 2s ease-in-out infinite;
+}
+
+.answer-option.show-incorrect {
+    background: linear-gradient(135deg, #f44336 0%, #ef5350 100%);
+    color: white;
+    border-color: #ffffff;
+    box-shadow: 0 8px 25px rgba(244, 67, 54, 0.3);
+}
+
+@keyframes correctPulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.9; transform: scale(1.02); }
+}
+
+.answer-letter {
+    background: #46178f;
+    color: white;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 900;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+}
+
+.answer-option.show-correct .answer-letter {
+    background: #ffffff;
+    color: #26d0ce;
+    box-shadow: 0 4px 15px rgba(255, 255, 255, 0.3);
+}
+
+.answer-option.show-incorrect .answer-letter {
+    background: #ffffff;
+    color: #f44336;
+    box-shadow: 0 4px 15px rgba(255, 255, 255, 0.3);
+}
+
+.answer-text {
+    flex: 1;
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.correct-indicator {
+    background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
+    color: white;
+    padding: 8px 15px;
+    border-radius: 20px;
+    font-weight: 800;
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
+    animation: bounce 0.5s ease-out;
+}
+
+.incorrect-indicator {
+    background: linear-gradient(135deg, #f44336 0%, #ef5350 100%);
+    color: white;
+    padding: 8px 15px;
+    border-radius: 20px;
+    font-weight: 800;
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    box-shadow: 0 4px 15px rgba(244, 67, 54, 0.4);
+    animation: bounce 0.5s ease-out;
+}
+
+@keyframes bounce {
+    0% { transform: scale(0.8); opacity: 0; }
+    50% { transform: scale(1.1); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
 }
 
 /* ========================================
@@ -529,6 +642,84 @@ header p {
     border-radius: 15px;
     background: rgba(255, 255, 255, 0.2);
     border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Enhanced Player Response Styles */
+.player-response {
+    display: flex;
+    flex-direction: column;
+    padding: 15px 20px;
+    margin: 8px 0;
+    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+    border-radius: 15px;
+    border: 2px solid #2196f3;
+    transition: all 0.3s ease;
+}
+
+.player-response-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.player-name {
+    font-weight: 700;
+    color: #1976d2;
+    font-size: 1.1rem;
+}
+
+.player-total-score {
+    background: linear-gradient(135deg, #ff6900 0%, #ff8c00 100%);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.response-status.answered {
+    background: linear-gradient(135deg, #26d0ce 0%, #1dd1a1 100%);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    align-self: flex-start;
+}
+
+.response-status.answered.correct {
+    background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
+    border: 2px solid #ffffff;
+    box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+}
+
+.response-status.answered.incorrect {
+    background: linear-gradient(135deg, #f44336 0%, #ef5350 100%);
+    border: 2px solid #ffffff;
+    box-shadow: 0 4px 15px rgba(244, 67, 54, 0.3);
+}
+
+.response-status.waiting {
+    background: linear-gradient(135deg, #ffc048 0%, #ffb400 100%);
+    color: #333;
+    padding: 6px 12px;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    align-self: flex-start;
+}
+
+.score-info {
+    margin-top: 5px;
+    font-weight: 800;
+    color: #4caf50;
+    font-size: 0.9rem;
+    text-align: center;
+    background: rgba(76, 175, 80, 0.1);
+    padding: 4px 8px;
+    border-radius: 8px;
+    border: 1px solid rgba(76, 175, 80, 0.3);
 }
 
 /* ========================================
@@ -694,612 +885,5 @@ header p {
     .menu-card {
         padding: 25px;
         margin: 0 5px;
-    }
-    
-    .question-card {
-        margin: 15px 5px;
-        padding: 25px 15px;
-        min-height: 400px;
-    }
-    
-    .question-header {
-        flex-direction: column;
-        text-align: center;
-        gap: 15px;
-        margin-bottom: 30px;
-    }
-    
-    .question-text {
-        font-size: clamp(1.4rem, 6vw, 2rem);
-        margin-bottom: 30px;
-        padding: 0 10px;
-    }
-    
-    .answers-grid {
-        grid-template-columns: 1fr;
-        gap: 15px;
-        margin: 30px auto;
-        max-width: 100%;
-        padding: 0 10px;
-    }
-    
-    .answer-btn {
-        min-height: 70px;
-        padding: 18px 15px;
-        font-size: clamp(1rem, 4vw, 1.3rem);
-        border-radius: 20px;
-    }
-    
-    .user-header {
-        position: fixed;
-        top: 10px;
-        right: 10px;
-        left: 10px;
-        justify-content: space-between;
-        padding: 12px 18px;
-        max-width: none;
-    }
-    
-    .user-info {
-        flex: 1;
-        min-width: 0;
-    }
-    
-    .user-name, .user-email {
-        max-width: 150px;
-    }
-    
-    .game-controls {
-        flex-direction: column;
-        gap: 15px;
-        margin-top: 20px;
-    }
-    
-    .game-controls .btn {
-        min-width: 220px;
-        width: 100%;
-        max-width: 320px;
-    }
-    
-    .player-item {
-        flex-direction: column;
-        text-align: center;
-        padding: 18px;
-    }
-    
-    .player-details {
-        text-align: center;
-        width: 100%;
-    }
-    
-    .host-dashboard {
-        gap: 20px;
-    }
-    
-    .players-list {
-        max-height: 300px;
-        padding: 20px;
-    }
-    
-    .leaderboard {
-        padding: 25px 20px;
-        margin: 15px 10px;
-    }
-    
-    .player-score {
-        flex-direction: column;
-        text-align: center;
-        padding: 15px;
-        gap: 8px;
-    }
-    
-    .player-score .player-name {
-        text-align: center;
-        margin-bottom: 5px;
-    }
- .space-between{
-        padding: 12px 18px;
-        max-width: none;
-    }
-    
-    .user-info {
-        flex: 1;
-        min-width: 0;
-    }
-    
-    .user-name, .user-email {
-        max-width: 150px;
-    }
-    
-    .game-controls {
-        flex-direction: column;
-        gap: 15px;
-    }
-    
-    .game-controls .btn {
-        min-width: 220px;
-        width: 100%;
-        max-width: 320px;
-    }
-    
-    .player-item {
-        flex-direction: column;
-        text-align: center;
-        padding: 18px;
-    }
-    
-    .player-details {
-        text-align: center;
-        width: 100%;
-    }
-    
-    .host-dashboard {
-        gap: 20px;
-    }
-    
-    .players-list {
-        max-height: 300px;
-        padding: 20px;
-    }
-}
-
-/* ========================================
-   TABLET SPECIFIC STYLES (768px - 1024px)
-   ======================================== */
-
-@media (min-width: 768px) and (max-width: 1024px) {
-    .container {
-        padding: 20px 15px;
-    }
-    
-    .main-menu {
-        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-        gap: 25px;
-    }
-    
-    .answers-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 20px;
-    }
-    
-    .host-dashboard {
-        grid-template-columns: 2fr 1fr;
-        gap: 25px;
-    }
-    
-    .user-header {
-        right: 20px;
-        top: 20px;
-    }
-}
-
-/* ========================================
-   LARGE SCREEN STYLES (1024px+)
-   ======================================== */
-
-@media (min-width: 1024px) {
-    .main-menu {
-        grid-template-columns: repeat(3, 1fr);
-        gap: 30px;
-    }
-    
-    .answers-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 25px;
-    }
-    
-    .host-dashboard {
-        grid-template-columns: 2fr 1fr;
-        gap: 30px;
-    }
-    
-    .question-card {
-        padding: 50px;
-    }
-    
-    .menu-card:hover {
-        transform: translateY(-10px) scale(1.03);
-    }
-    
-    .answer-btn:hover {
-        transform: scale(1.12) translateY(-8px);
-    }
-}
-
-/* ========================================
-   EXTRA LARGE SCREEN STYLES (1440px+)
-   ======================================== */
-
-@media (min-width: 1440px) {
-    .container {
-        max-width: 1400px;
-        padding: 30px;
-    }
-    
-    .main-menu {
-        gap: 35px;
-    }
-    
-    .question-card {
-        max-width: 1000px;
-        padding: 60px;
-    }
-    
-    .answers-grid {
-        gap: 30px;
-    }
-    
-    .answer-btn {
-        min-height: 100px;
-        padding: 25px;
-    }
-}
-
-/* ========================================
-   ANIMATIONS AND EFFECTS
-   ======================================== */
-
-@keyframes shimmer {
-    0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); opacity: 0; }
-    50% { opacity: 1; }
-    100% { transform: translateX(100%) translateY(100%) rotate(45deg); opacity: 0; }
-}
-
-@keyframes slideInUp {
-    from {
-        opacity: 0;
-        transform: translateY(40px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-    }
-    to {
-        opacity: 1;
-    }
-}
-
-@keyframes pulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.05); }
-}
-
-.quiz-container,
-.question-card,
-.menu-card {
-    animation: slideInUp 0.6s ease-out;
-}
-
-.status-message {
-    animation: fadeIn 0.4s ease-out;
-}
-
-.timer {
-    animation: pulse 2s infinite;
-}
-
-/* ========================================
-   UTILITY CLASSES
-   ======================================== */
-
-.hidden {
-    display: none !important;
-}
-
-.text-center {
-    text-align: center !important;
-}
-
-.full-width {
-    width: 100% !important;
-}
-
-/* ========================================
-   HIGH DPI DISPLAY SUPPORT
-   ======================================== */
-
-@media only screen and (-webkit-min-device-pixel-ratio: 2),
-       only screen and (min-device-pixel-ratio: 2),
-       only screen and (min-resolution: 192dpi),
-       only screen and (min-resolution: 2dppx) {
-    
-    .user-header {
-        backdrop-filter: blur(25px);
-    }
-    
-    .menu-card,
-    .question-card {
-        backdrop-filter: blur(20px);
-    }
-}
-
-/* ========================================
-   ACCESSIBILITY IMPROVEMENTS
-   ======================================== */
-
-@media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
-    }
-}
-
-/* Focus styles for keyboard navigation */
-.btn:focus,
-.answer-btn:focus,
-input:focus {
-    outline: 4px solid rgba(255, 255, 255, 0.8);
-    outline-offset: 3px;
-}
-
-/* High contrast mode support */
-@media (prefers-contrast: high) {
-    .menu-card,
-    .question-card {
-        border: 4px solid rgba(255, 255, 255, 0.9);
-    }
-    
-    .answer-btn {
-        border: 4px solid rgba(255, 255, 255, 0.8);
-    }
-}
-
-/* ========================================
-   SPECIAL EFFECTS AND POLISH
-   ======================================== */
-
-/* Gradient text effect for headings */
-.gradient-text {
-    background: linear-gradient(135deg, #ff6900 0%, #e21b3c 50%, #9c4dff 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    font-weight: 800;
-}
-
-/* Floating animation for important elements */
-@keyframes float {
-    0%, 100% { transform: translateY(0px); }
-    50% { transform: translateY(-10px); }
-}
-
-.floating {
-    animation: float 3s ease-in-out infinite;
-}
-
-/* Quiz creation and management specific styles */
-.quiz-form {
-    background: linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%);
-    padding: 30px;
-    border-radius: 20px;
-    border: 3px solid #9c4dff;
-    box-shadow: 0 15px 35px rgba(156, 77, 255, 0.2);
-    margin: 20px 0;
-}
-
-.quiz-form label {
-    color: #46178f;
-    font-weight: 700;
-    margin-bottom: 8px;
-    display: block;
-    font-size: 1.1rem;
-}
-
-.quiz-form input[type="text"],
-.quiz-form input[type="number"],
-.quiz-form textarea {
-    width: 100%;
-    padding: 12px 18px;
-    border: 3px solid #ff6900;
-    border-radius: 12px;
-    font-size: 1rem;
-    color: #46178f;
-    background: #ffffff;
-    transition: all 0.3s ease;
-    font-weight: 600;
-}
-
-.quiz-form input[type="text"]:focus,
-.quiz-form input[type="number"]:focus,
-.quiz-form textarea:focus {
-    outline: none;
-    border-color: #9c4dff;
-    box-shadow: 0 0 0 3px rgba(156, 77, 255, 0.3);
-}
-
-/* Question editor specific styles */
-.question-editor {
-    background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
-    border: 3px solid #26d0ce;
-    border-radius: 20px;
-    padding: 25px;
-    margin: 20px 0;
-    box-shadow: 0 10px 30px rgba(38, 208, 206, 0.2);
-}
-
-.question-editor h4 {
-    color: #46178f;
-    font-weight: 800;
-    margin-bottom: 15px;
-    font-size: 1.3rem;
-}
-
-.answer-input-group {
-    background: linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%);
-    border: 2px solid #e5e7eb;
-    border-radius: 12px;
-    padding: 12px;
-    margin: 10px 0;
-    transition: all 0.3s ease;
-}
-
-.answer-input-group.correct-answer {
-    background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
-    border-color: #26d0ce;
-    box-shadow: 0 4px 15px rgba(38, 208, 206, 0.2);
-}
-
-.answer-input-group input[type="radio"] {
-    width: 20px;
-    height: 20px;
-    margin-right: 12px;
-    accent-color: #26d0ce;
-}
-
-.answer-input {
-    flex: 1;
-    border: 2px solid #e5e7eb;
-    border-radius: 8px;
-    padding: 10px 15px;
-    font-size: 1rem;
-    color: #46178f;
-    font-weight: 600;
-}
-
-.answer-input:focus {
-    outline: none;
-    border-color: #9c4dff;
-    box-shadow: 0 0 0 2px rgba(156, 77, 255, 0.3);
-}
-
-.correct-indicator {
-    background: linear-gradient(135deg, #26d0ce 0%, #1dd1a1 100%);
-    color: white;
-    padding: 4px 12px;
-    border-radius: 15px;
-    font-size: 0.8rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-/* Loading states */
-.loading-spinner {
-    width: 40px;
-    height: 40px;
-    border: 4px solid rgba(156, 77, 255, 0.3);
-    border-left: 4px solid #9c4dff;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin: 20px auto;
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-/* Empty state styling */
-.empty-state {
-    text-align: center;
-    padding: 40px 20px;
-    color: #46178f;
-}
-
-.empty-state h3 {
-    font-size: 1.5rem;
-    font-weight: 800;
-    margin-bottom: 15px;
-    color: #46178f;
-}
-
-.empty-state p {
-    font-size: 1.1rem;
-    margin-bottom: 25px;
-    opacity: 0.8;
-}
-
-/* Success/Error state colors */
-.success-state {
-    background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
-    color: #059669;
-    border: 3px solid #26d0ce;
-}
-
-.error-state {
-    background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
-    color: #dc2626;
-    border: 3px solid #e21b3c;
-}
-
-.warning-state {
-    background: linear-gradient(135deg, #fffbeb 0%, #fed7aa 100%);
-    color: #d97706;
-    border: 3px solid #ff6900;
-}
-
-/* Quiz actions button group */
-.quiz-actions {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    margin-top: 15px;
-}
-
-.quiz-actions .btn {
-    min-width: 100px;
-    padding: 8px 16px;
-    font-size: 0.9rem;
-}
-
-/* Responsive quiz management */
-@media (max-width: 768px) {
-    .quiz-actions {
-        justify-content: center;
-        flex-direction: column;
-    }
-    
-    .quiz-actions .btn {
-        width: 100%;
-        margin: 5px 0;
-    }
-    
-    .question-editor {
-        padding: 20px;
-        margin: 15px 0;
-    }
-    
-    .answer-input-group {
-        flex-direction: column;
-        gap: 10px;
-    }
-    
-    .answer-input-group input[type="radio"] {
-        margin-bottom: 8px;
-    }
-}
-
-/* Final polish touches */
-* {
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-}
-
-body {
-    font-feature-settings: 'kern' 1;
-    text-rendering: optimizeLegibility;
-}
-
-/* Print styles (hidden by default) */
-@media print {
-    body {
-        background: white !important;
-        color: #333 !important;
-    }
-    
-    .user-header,
-    .btn,
-    .game-controls {
-        display: none !important;
     }
 }
