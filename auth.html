@@ -175,6 +175,23 @@
             border-color: #4285f4;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
+
+        .firebase-loading {
+            text-align: center;
+            padding: 20px;
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .firebase-error {
+            text-align: center;
+            padding: 20px;
+            background: rgba(244, 67, 54, 0.1);
+            border-radius: 8px;
+            margin-bottom: 20px;
+            color: #d32f2f;
+        }
     </style>
 </head>
 <body>
@@ -184,9 +201,23 @@
             <h2 id="auth-title">Welcome to QuizMaster</h2>
             <p id="auth-subtitle">Sign in to create and manage your quizzes</p>
             
+            <!-- Firebase Loading State -->
+            <div id="firebase-loading" class="firebase-loading">
+                <div class="loading"></div>
+                Initializing authentication system...
+            </div>
+            
+            <!-- Firebase Error State -->
+            <div id="firebase-error" class="firebase-error" style="display: none;">
+                <h3>Authentication System Error</h3>
+                <p>Unable to connect to authentication service. Please refresh the page.</p>
+                <button onclick="window.location.reload()" class="auth-btn">Refresh Page</button>
+            </div>
+            
             <div id="message-container"></div>
             
-            <form id="auth-form" class="auth-form">
+            <!-- Auth Form (Hidden until Firebase is ready) -->
+            <form id="auth-form" class="auth-form" style="display: none;">
                 <div id="name-group" class="form-group" style="display: none;">
                     <label for="fullName">Full Name</label>
                     <input type="text" id="fullName" placeholder="Enter your full name" maxlength="50">
@@ -230,7 +261,7 @@
                 </div>
             </form>
             
-            <div class="auth-toggle">
+            <div class="auth-toggle" id="auth-toggle-section" style="display: none;">
                 <span id="toggle-text">Don't have an account?</span>
                 <button type="button" id="toggle-auth">Sign Up</button>
             </div>
@@ -241,57 +272,128 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-    <script src="config.js"></script>
     
     <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDdVOTMNZfO-Pky1KWNcA0O1UKYBXDPlU8",
+            authDomain: "quiz-system-1b9cc.firebaseapp.com",
+            databaseURL: "https://quiz-system-1b9cc-default-rtdb.firebaseio.com",
+            projectId: "quiz-system-1b9cc",
+            storageBucket: "quiz-system-1b9cc.firebasestorage.app",
+            messagingSenderId: "769000169705",
+            appId: "1:769000169705:web:2cf26d22b03839459a9078",
+            measurementId: "G-Z4G7TDL4XK"
+        };
+
         // Global variables - use different names to avoid conflicts
-        let firebaseAuth;
-        let firebaseDatabase;
+        let firebaseAuth = null;
+        let firebaseDatabase = null;
         let isSignUpMode = false;
+        let isFirebaseReady = false;
         
         // Initialize Firebase when page loads
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOM loaded, initializing Firebase...');
-            
-            // Check if Firebase is loaded
-            if (typeof firebase === 'undefined') {
-                console.error('Firebase not loaded!');
-                showMessage('Firebase failed to load. Please check your internet connection.', 'error');
-                return;
-            }
-            
+            console.log('🔥 AUTH: DOM loaded, initializing Firebase...');
+            initializeFirebaseAuth();
+        });
+
+        async function initializeFirebaseAuth() {
             try {
-                // Firebase should already be initialized in config.js
+                console.log('🔥 AUTH: Starting Firebase initialization...');
+                
+                // Check if Firebase is loaded
+                if (typeof firebase === 'undefined') {
+                    throw new Error('Firebase SDK not loaded');
+                }
+                
+                // Initialize Firebase App
+                console.log('🔥 AUTH: Initializing Firebase App...');
+                firebase.initializeApp(firebaseConfig);
+                
+                // Initialize services
+                console.log('🔥 AUTH: Initializing Auth and Database...');
                 firebaseAuth = firebase.auth();
                 firebaseDatabase = firebase.database();
-                console.log('Firebase Auth and Database initialized');
                 
-                // Check if user is already logged in
+                // Test the connection
+                console.log('🔥 AUTH: Testing Firebase connection...');
+                await testFirebaseConnection();
+                
+                console.log('✅ AUTH: Firebase initialized successfully');
+                isFirebaseReady = true;
+                
+                // Hide loading, show form
+                hideElement('firebase-loading');
+                showElement('auth-form');
+                showElement('auth-toggle-section');
+                
+                // Set up auth state listener
                 firebaseAuth.onAuthStateChanged((user) => {
                     if (user) {
-                        console.log('User is signed in:', user.email);
-                        window.location.href = 'index.html';
+                        console.log('✅ AUTH: User is signed in:', user.email);
+                        showMessage('Redirecting to dashboard...', 'success');
+                        setTimeout(() => {
+                            window.location.href = 'index.html';
+                        }, 1500);
                     } else {
-                        console.log('User is signed out');
+                        console.log('ℹ️ AUTH: User is signed out');
                     }
                 });
                 
+                // Initialize form handlers
                 initializeAuthForm();
+                
             } catch (error) {
-                console.error('Firebase initialization error:', error);
-                showMessage('Firebase configuration error. Please check your setup.', 'error');
+                console.error('💥 AUTH: Firebase initialization error:', error);
+                showFirebaseError(error);
             }
-        });
+        }
+
+        async function testFirebaseConnection() {
+            return new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => {
+                    reject(new Error('Connection timeout'));
+                }, 10000);
+                
+                // Test database connectivity
+                firebaseDatabase.ref('.info/connected').once('value', (snapshot) => {
+                    clearTimeout(timeout);
+                    const connected = snapshot.val();
+                    console.log('🔥 AUTH: Database connection test:', connected ? 'Connected' : 'Disconnected');
+                    resolve(connected);
+                }, (error) => {
+                    clearTimeout(timeout);
+                    reject(error);
+                });
+            });
+        }
+
+        function showFirebaseError(error) {
+            console.error('💥 AUTH: Showing Firebase error:', error.message);
+            hideElement('firebase-loading');
+            hideElement('auth-form');
+            hideElement('auth-toggle-section');
+            
+            const errorDiv = document.getElementById('firebase-error');
+            errorDiv.style.display = 'block';
+            errorDiv.innerHTML = `
+                <h3>Authentication System Error</h3>
+                <p><strong>Error:</strong> ${error.message}</p>
+                <p>Please refresh the page and try again. If the problem persists, check your internet connection.</p>
+                <button onclick="window.location.reload()" class="auth-btn">Refresh Page</button>
+            `;
+        }
         
         function initializeAuthForm() {
-            console.log('Initializing auth form...');
+            console.log('📝 AUTH: Initializing auth form...');
             
             const form = document.getElementById('auth-form');
             const toggleBtn = document.getElementById('toggle-auth');
             const googleBtn = document.getElementById('google-sign-in');
             
             if (!form || !toggleBtn || !googleBtn) {
-                console.error('Required elements not found');
+                console.error('❌ AUTH: Required elements not found');
                 return;
             }
             
@@ -319,12 +421,18 @@
             if (passwordInput) passwordInput.addEventListener('input', validatePassword);
             if (confirmPasswordInput) confirmPasswordInput.addEventListener('input', validateConfirmPassword);
             
-            console.log('Auth form initialized successfully');
+            console.log('✅ AUTH: Auth form initialized successfully');
         }
         
         function handleFormSubmit(e) {
             e.preventDefault();
-            console.log('Form submitted, signup mode:', isSignUpMode);
+            
+            if (!isFirebaseReady) {
+                showMessage('Authentication system not ready. Please wait...', 'error');
+                return;
+            }
+            
+            console.log('📤 AUTH: Form submitted, signup mode:', isSignUpMode);
             
             const email = document.getElementById('email').value.trim();
             const password = document.getElementById('password').value;
@@ -337,10 +445,10 @@
             }
             
             if (isSignUpMode) {
-                console.log('Attempting signup...');
+                console.log('🔐 AUTH: Attempting signup...');
                 signUp(email, password, fullName);
             } else {
-                console.log('Attempting signin...');
+                console.log('🔐 AUTH: Attempting signin...');
                 signIn(email, password);
             }
         }
@@ -379,7 +487,7 @@
         }
         
         async function signUp(email, password, fullName) {
-            console.log('Starting signup process for:', email);
+            console.log('🆕 AUTH: Starting signup process for:', email);
             const submitBtn = document.getElementById('auth-submit-btn');
             setLoading(submitBtn, true);
             
@@ -388,27 +496,29 @@
                     throw new Error('Firebase Auth not initialized');
                 }
                 
-                console.log('Creating user account...');
+                console.log('🔐 AUTH: Creating user account...');
                 const userCredential = await firebaseAuth.createUserWithEmailAndPassword(email, password);
                 const user = userCredential.user;
-                console.log('User created:', user.uid);
+                console.log('✅ AUTH: User created:', user.uid);
                 
                 // Update user profile with display name
-                console.log('Updating user profile...');
+                console.log('👤 AUTH: Updating user profile...');
                 await user.updateProfile({
                     displayName: fullName
                 });
                 
                 // Save additional user data to Firebase Database
-                console.log('Saving user data to database...');
-                await saveUserData(user.uid, {
-                    email: email,
-                    displayName: fullName,
-                    createdAt: Date.now(),
-                    lastLogin: Date.now(),
-                    quizCount: 0,
-                    totalPlays: 0
-                });
+                console.log('💾 AUTH: Saving user data to database...');
+                if (firebaseDatabase) {
+                    await firebaseDatabase.ref(`users/${user.uid}`).set({
+                        email: email,
+                        displayName: fullName,
+                        createdAt: Date.now(),
+                        lastLogin: Date.now(),
+                        quizCount: 0,
+                        totalPlays: 0
+                    });
+                }
                 
                 showMessage('Account created successfully! Redirecting...', 'success');
                 
@@ -418,7 +528,7 @@
                 }, 2000);
                 
             } catch (error) {
-                console.error('Sign up error:', error);
+                console.error('💥 AUTH: Sign up error:', error);
                 showMessage(getErrorMessage(error.code), 'error');
             } finally {
                 setLoading(submitBtn, false);
@@ -426,7 +536,7 @@
         }
         
         async function signIn(email, password) {
-            console.log('Starting signin process for:', email);
+            console.log('🔐 AUTH: Starting signin process for:', email);
             const submitBtn = document.getElementById('auth-submit-btn');
             setLoading(submitBtn, true);
             
@@ -435,15 +545,17 @@
                     throw new Error('Firebase Auth not initialized');
                 }
                 
-                console.log('Signing in user...');
+                console.log('🔐 AUTH: Signing in user...');
                 const userCredential = await firebaseAuth.signInWithEmailAndPassword(email, password);
                 const user = userCredential.user;
-                console.log('User signed in:', user.uid);
+                console.log('✅ AUTH: User signed in:', user.uid);
                 
                 // Update last login time
-                await updateUserData(user.uid, {
-                    lastLogin: Date.now()
-                });
+                if (firebaseDatabase) {
+                    await firebaseDatabase.ref(`users/${user.uid}`).update({
+                        lastLogin: Date.now()
+                    });
+                }
                 
                 showMessage('Signed in successfully! Redirecting...', 'success');
                 
@@ -453,7 +565,7 @@
                 }, 1500);
                 
             } catch (error) {
-                console.error('Sign in error:', error);
+                console.error('💥 AUTH: Sign in error:', error);
                 showMessage(getErrorMessage(error.code), 'error');
             } finally {
                 setLoading(submitBtn, false);
@@ -461,7 +573,7 @@
         }
         
         async function signInWithGoogle() {
-            console.log('Starting Google sign-in...');
+            console.log('🔍 AUTH: Starting Google sign-in...');
             const googleBtn = document.getElementById('google-sign-in');
             setLoading(googleBtn, true);
             
@@ -470,23 +582,23 @@
                     throw new Error('Firebase Auth not initialized');
                 }
                 
-                console.log('Creating Google provider...');
+                console.log('🔍 AUTH: Creating Google provider...');
                 const provider = new firebase.auth.GoogleAuthProvider();
                 provider.addScope('email');
                 provider.addScope('profile');
                 
-                console.log('Opening Google popup...');
+                console.log('🔍 AUTH: Opening Google popup...');
                 const result = await firebaseAuth.signInWithPopup(provider);
                 const user = result.user;
-                console.log('Google sign-in successful:', user.uid);
+                console.log('✅ AUTH: Google sign-in successful:', user.uid);
                 
                 // Check if this is a new user
                 const isNewUser = result.additionalUserInfo?.isNewUser;
                 
-                if (isNewUser) {
-                    console.log('New user, saving data...');
+                if (isNewUser && firebaseDatabase) {
+                    console.log('🆕 AUTH: New user, saving data...');
                     // Save new user data
-                    await saveUserData(user.uid, {
+                    await firebaseDatabase.ref(`users/${user.uid}`).set({
                         email: user.email,
                         displayName: user.displayName,
                         photoURL: user.photoURL,
@@ -496,10 +608,10 @@
                         totalPlays: 0,
                         provider: 'google'
                     });
-                } else {
-                    console.log('Existing user, updating login time...');
+                } else if (firebaseDatabase) {
+                    console.log('🔄 AUTH: Existing user, updating login time...');
                     // Update existing user's last login
-                    await updateUserData(user.uid, {
+                    await firebaseDatabase.ref(`users/${user.uid}`).update({
                         lastLogin: Date.now()
                     });
                 }
@@ -511,7 +623,7 @@
                 }, 1500);
                 
             } catch (error) {
-                console.error('Google sign in error:', error);
+                console.error('💥 AUTH: Google sign in error:', error);
                 if (error.code !== 'auth/popup-closed-by-user') {
                     showMessage('Failed to sign in with Google: ' + error.message, 'error');
                 }
@@ -521,7 +633,7 @@
         }
         
         function toggleAuthMode() {
-            console.log('Toggling auth mode. Current mode:', isSignUpMode);
+            console.log('🔄 AUTH: Toggling auth mode. Current mode:', isSignUpMode);
             
             isSignUpMode = !isSignUpMode;
             
@@ -543,7 +655,7 @@
                 nameGroup.style.display = 'block';
                 confirmPasswordGroup.style.display = 'block';
                 forgotPassword.style.display = 'none';
-                console.log('Switched to signup mode');
+                console.log('➡️ AUTH: Switched to signup mode');
             } else {
                 title.textContent = 'Welcome Back';
                 subtitle.textContent = 'Sign in to continue to QuizMaster';
@@ -553,28 +665,41 @@
                 nameGroup.style.display = 'none';
                 confirmPasswordGroup.style.display = 'none';
                 forgotPassword.style.display = 'block';
-                console.log('Switched to signin mode');
+                console.log('➡️ AUTH: Switched to signin mode');
             }
             
             clearMessages();
             clearForm();
         }
         
+        async function resetPassword() {
+            const email = document.getElementById('email').value.trim();
+            
+            if (!email) {
+                showMessage('Please enter your email address first', 'error');
+                return;
+            }
+            
+            if (!validateEmailFormat(email)) {
+                showMessage('Please enter a valid email address', 'error');
+                return;
+            }
+            
+            if (!firebaseAuth) {
+                showMessage('Authentication system not ready', 'error');
+                return;
+            }
+            
+            try {
+                await firebaseAuth.sendPasswordResetEmail(email);
+                showMessage('Password reset email sent! Check your inbox.', 'success');
+            } catch (error) {
+                console.error('💥 AUTH: Password reset error:', error);
+                showMessage(getErrorMessage(error.code), 'error');
+            }
+        }
+        
         // Helper functions
-        async function saveUserData(uid, userData) {
-            if (firebaseDatabase) {
-                return firebaseDatabase.ref(`users/${uid}`).set(userData);
-            }
-            console.warn('Database not available');
-        }
-        
-        async function updateUserData(uid, updates) {
-            if (firebaseDatabase) {
-                return firebaseDatabase.ref(`users/${uid}`).update(updates);
-            }
-            console.warn('Database not available');
-        }
-        
         function validateEmail() {
             const email = document.getElementById('email').value.trim();
             const emailInput = document.getElementById('email');
@@ -678,32 +803,22 @@
                     return 'An error occurred: ' + (errorCode || 'Unknown error');
             }
         }
-        
-        async function resetPassword() {
-            const email = document.getElementById('email').value.trim();
-            
-            if (!email) {
-                showMessage('Please enter your email address first', 'error');
-                return;
-            }
-            
-            if (!validateEmailFormat(email)) {
-                showMessage('Please enter a valid email address', 'error');
-                return;
-            }
-            
-            try {
-                await firebaseAuth.sendPasswordResetEmail(email);
-                showMessage('Password reset email sent! Check your inbox.', 'success');
-            } catch (error) {
-                console.error('Password reset error:', error);
-                showMessage(getErrorMessage(error.code), 'error');
-            }
+
+        function hideElement(elementId) {
+            const element = document.getElementById(elementId);
+            if (element) element.style.display = 'none';
+        }
+
+        function showElement(elementId) {
+            const element = document.getElementById(elementId);
+            if (element) element.style.display = 'block';
         }
         
         // Make functions globally accessible
         window.toggleAuthMode = toggleAuthMode;
         window.resetPassword = resetPassword;
+        
+        console.log('🔥 AUTH: Authentication system script loaded');
     </script>
 </body>
 </html>
