@@ -6,6 +6,108 @@
     <title>Manage Quizzes - QuizMaster</title>
     <link rel="stylesheet" href="styles.css">
     <style>
+        /* CRITICAL FIX: Ensure all buttons and interactive elements are clickable */
+        button, .btn, .menu-card button {
+            pointer-events: auto !important;
+            user-select: auto !important;
+            cursor: pointer !important;
+            position: relative !important;
+            z-index: 100 !important;
+            background: initial !important;
+            border: initial !important;
+        }
+
+        button:disabled, .btn:disabled {
+            pointer-events: none !important;
+            opacity: 0.6 !important;
+            cursor: not-allowed !important;
+        }
+
+        /* CRITICAL FIX: Quiz cards and their buttons */
+        .menu-card {
+            pointer-events: auto !important;
+            position: relative !important;
+            z-index: 1 !important;
+            background: rgba(255, 255, 255, 0.1) !important;
+            backdrop-filter: blur(10px) !important;
+            border-radius: 20px !important;
+            padding: 25px !important;
+            margin: 15px 0 !important;
+            border: 2px solid rgba(255, 255, 255, 0.2) !important;
+            transition: all 0.3s ease !important;
+        }
+
+        .menu-card:hover {
+            transform: translateY(-5px) !important;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2) !important;
+            background: rgba(255, 255, 255, 0.15) !important;
+        }
+
+        /* CRITICAL FIX: Quiz actions container */
+        .quiz-actions {
+            display: flex !important;
+            flex-wrap: wrap !important;
+            gap: 10px !important;
+            margin-top: 15px !important;
+            justify-content: flex-start !important;
+            align-items: center !important;
+            pointer-events: auto !important;
+            z-index: 200 !important;
+            position: relative !important;
+        }
+
+        /* CRITICAL FIX: Individual action buttons */
+        .quiz-actions button,
+        .quiz-actions .btn {
+            pointer-events: auto !important;
+            cursor: pointer !important;
+            z-index: 300 !important;
+            position: relative !important;
+            padding: 8px 16px !important;
+            margin: 2px !important;
+            border-radius: 8px !important;
+            font-size: 14px !important;
+            font-weight: 600 !important;
+            border: none !important;
+            color: white !important;
+            text-decoration: none !important;
+            display: inline-block !important;
+            text-align: center !important;
+            min-height: 36px !important;
+            min-width: 70px !important;
+            line-height: 1.2 !important;
+            box-sizing: border-box !important;
+            transition: all 0.2s ease !important;
+            outline: none !important;
+        }
+
+        /* Specific button colors */
+        .quiz-actions .btn-secondary {
+            background: linear-gradient(135deg, #1368ce 0%, #46178f 100%) !important;
+        }
+
+        .quiz-actions .btn-tertiary {
+            background: linear-gradient(135deg, #9c4dff 0%, #7b2cbf 100%) !important;
+        }
+
+        .quiz-actions button[style*="background: #26d0ce"],
+        .quiz-actions button[onclick*="exportQuiz"] {
+            background: linear-gradient(135deg, #26d0ce 0%, #1dd1a1 100%) !important;
+        }
+
+        .quiz-actions button[style*="background: #f44336"],
+        .quiz-actions button[onclick*="deleteQuiz"] {
+            background: linear-gradient(135deg, #e21b3c 0%, #ff4757 100%) !important;
+        }
+
+        /* Hover effects */
+        .quiz-actions button:hover,
+        .quiz-actions .btn:hover {
+            transform: translateY(-2px) !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+            opacity: 0.9 !important;
+        }
+
         /* FORCE VISIBILITY FIX for questions */
         #questions-container {
             display: block !important;
@@ -371,6 +473,55 @@
 
         .tab-content.active {
             display: block;
+        }
+
+        /* CRITICAL FIX: Empty state styling */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #666;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            margin: 20px 0;
+        }
+
+        .empty-state button {
+            margin-top: 15px;
+            pointer-events: auto !important;
+            cursor: pointer !important;
+            z-index: 100 !important;
+        }
+
+        /* Override any conflicting styles */
+        * {
+            box-sizing: border-box;
+        }
+
+        /* Ensure no overlapping elements */
+        .quiz-container {
+            position: relative;
+            z-index: 1;
+        }
+
+        .question-card {
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Mobile responsiveness for buttons */
+        @media (max-width: 768px) {
+            .quiz-actions {
+                flex-direction: column !important;
+                align-items: stretch !important;
+            }
+
+            .quiz-actions button,
+            .quiz-actions .btn {
+                width: 100% !important;
+                margin: 5px 0 !important;
+                min-height: 44px !important;
+                font-size: 16px !important;
+            }
         }
     </style>
 </head>
