@@ -523,7 +523,7 @@ function parseAikenQuestion(block, questionNumber) {
     };
 }
 
-// Enhanced Import Preview with Validation Status and Time Limit Configuration
+// Enhanced Import Preview with Validation Status
 function showImportPreview(questions, source, errors = []) {
     console.log('Showing import preview for', questions.length, 'questions from', source);
     
@@ -565,80 +565,28 @@ function showImportPreview(questions, source, errors = []) {
         errorsDiv.style.display = 'none';
     }
     
-    // Generate preview HTML with time limit controls
-    const previewHTML = `
-        <div style="background: #e8f5e8; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 2px solid #4caf50;">
-            <h4 style="color: #2e7d32; margin-bottom: 15px;">⏰ Set Time Limits for Imported Questions</h4>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; align-items: center;">
-                <div>
-                    <label style="display: block; font-weight: bold; color: #2e7d32; margin-bottom: 5px;">Default Time Limit:</label>
-                    <select id="default-time-limit" style="width: 100%; padding: 8px; border: 2px solid #4caf50; border-radius: 5px; font-size: 14px;">
-                        <option value="10">10 seconds</option>
-                        <option value="15">15 seconds</option>
-                        <option value="20" selected>20 seconds</option>
-                        <option value="30">30 seconds</option>
-                        <option value="45">45 seconds</option>
-                        <option value="60">60 seconds</option>
-                        <option value="90">90 seconds</option>
-                        <option value="120">120 seconds</option>
-                    </select>
+    // Generate preview HTML
+    const previewHTML = validQuestions.map((question, index) => `
+        <div class="preview-question">
+            <div class="question-text">Q${index + 1}: ${question.question}</div>
+            ${question.answers.map((answer, answerIndex) => `
+                <div class="answer-option ${answerIndex === question.correct ? 'correct' : 'incorrect'}">
+                    ${String.fromCharCode(65 + answerIndex)}) ${answer}
+                    ${answerIndex === question.correct ? ' ✓' : ''}
                 </div>
-                <div>
-                    <label style="display: block; font-weight: bold; color: #2e7d32; margin-bottom: 5px;">Apply to:</label>
-                    <button onclick="applyTimeToAll()" style="background: #4caf50; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; width: 100%;">Apply to All Questions</button>
-                </div>
-                <div>
-                    <label style="display: block; font-weight: bold; color: #2e7d32; margin-bottom: 5px;">Quick Settings:</label>
-                    <div style="display: flex; gap: 5px;">
-                        <button onclick="setQuickTime(15)" style="background: #ff9800; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 12px;">Quick (15s)</button>
-                        <button onclick="setQuickTime(30)" style="background: #2196f3; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 12px;">Medium (30s)</button>
-                        <button onclick="setQuickTime(60)" style="background: #9c27b0; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 12px;">Long (60s)</button>
-                    </div>
-                </div>
+            `).join('')}
+            <div style="margin-top: 10px; font-size: 0.9rem; color: #666;">
+                Time Limit: ${question.timeLimit} seconds
             </div>
-            <p style="margin-top: 10px; font-size: 0.9rem; color: #666; font-style: italic;">
-                💡 Tip: You can adjust individual question times below, or set them all at once using the controls above.
-            </p>
         </div>
-        
-        ${validQuestions.map((question, index) => `
-            <div class="preview-question" style="border-left: 4px solid #4caf50; padding-left: 15px;">
-                <div class="question-text" style="font-weight: bold; color: #333; margin-bottom: 10px;">
-                    Q${index + 1}: ${question.question}
-                </div>
-                ${question.answers.map((answer, answerIndex) => `
-                    <div class="answer-option ${answerIndex === question.correct ? 'correct' : 'incorrect'}" style="padding: 5px 10px; margin: 3px 0; border-radius: 5px; ${answerIndex === question.correct ? 'background: #d4edda; border: 1px solid #c3e6cb; color: #155724; font-weight: bold;' : 'background: #f8f9fa; border: 1px solid #e9ecef; color: #6c757d;'}">
-                        ${String.fromCharCode(65 + answerIndex)}) ${answer}
-                        ${answerIndex === question.correct ? ' ✓' : ''}
-                    </div>
-                `).join('')}
-                <div style="margin-top: 15px; display: flex; align-items: center; gap: 10px; background: #f8f9fa; padding: 10px; border-radius: 8px; border: 1px solid #dee2e6;">
-                    <label style="font-weight: bold; color: #495057; white-space: nowrap;">⏰ Time Limit:</label>
-                    <select class="question-time-limit" data-question-index="${index}" onchange="updateQuestionTimeLimit(${index}, this.value)" style="padding: 5px 8px; border: 1px solid #ced4da; border-radius: 4px; font-size: 14px; min-width: 120px;">
-                        <option value="5" ${question.timeLimit === 5 ? 'selected' : ''}>5 seconds</option>
-                        <option value="10" ${question.timeLimit === 10 ? 'selected' : ''}>10 seconds</option>
-                        <option value="15" ${question.timeLimit === 15 ? 'selected' : ''}>15 seconds</option>
-                        <option value="20" ${question.timeLimit === 20 ? 'selected' : ''}>20 seconds</option>
-                        <option value="30" ${question.timeLimit === 30 ? 'selected' : ''}>30 seconds</option>
-                        <option value="45" ${question.timeLimit === 45 ? 'selected' : ''}>45 seconds</option>
-                        <option value="60" ${question.timeLimit === 60 ? 'selected' : ''}>60 seconds</option>
-                        <option value="90" ${question.timeLimit === 90 ? 'selected' : ''}>90 seconds</option>
-                        <option value="120" ${question.timeLimit === 120 ? 'selected' : ''}>120 seconds</option>
-                    </select>
-                    <span style="font-size: 0.85rem; color: #6c757d; font-style: italic;">
-                        ${question.timeLimit <= 15 ? '⚡ Quick' : question.timeLimit <= 30 ? '🔥 Normal' : question.timeLimit <= 60 ? '🕐 Extended' : '🐌 Slow'}
-                    </span>
-                </div>
-            </div>
-        `).join('')}
-    `;
+    `).join('');
     
     questionsDiv.innerHTML = previewHTML;
     
     // Enable/disable import button based on validation
     if (validQuestions.length > 0 && !hasValidationErrors) {
         importBtn.disabled = false;
-        importBtn.textContent = `Import ${validQuestions.length} Question${validQuestions.length !== 1 ? 's' : ''} with Time Settings`;
+        importBtn.textContent = `Import ${validQuestions.length} Question${validQuestions.length !== 1 ? 's' : ''}`;
         console.log('Import button enabled for', validQuestions.length, 'questions');
     } else {
         importBtn.disabled = true;
@@ -655,58 +603,6 @@ function showImportPreview(questions, source, errors = []) {
     }, 100);
 }
 
-// Time Limit Management Functions for Import
-function applyTimeToAll() {
-    const defaultTime = parseInt(document.getElementById('default-time-limit').value);
-    console.log('Applying time limit to all questions:', defaultTime);
-    
-    // Update all time limit dropdowns
-    const timeSelects = document.querySelectorAll('.question-time-limit');
-    timeSelects.forEach(select => {
-        select.value = defaultTime;
-        const questionIndex = parseInt(select.getAttribute('data-question-index'));
-        updateQuestionTimeLimit(questionIndex, defaultTime);
-    });
-    
-    showStatus(`Applied ${defaultTime} seconds to all questions!`, 'success');
-}
-
-function setQuickTime(seconds) {
-    document.getElementById('default-time-limit').value = seconds;
-    applyTimeToAll();
-}
-
-function updateQuestionTimeLimit(questionIndex, timeLimit) {
-    const time = parseInt(timeLimit);
-    console.log(`Updating question ${questionIndex + 1} time limit to ${time} seconds`);
-    
-    // Update the imported question data
-    if (importedQuestions[questionIndex]) {
-        importedQuestions[questionIndex].timeLimit = time;
-    }
-    
-    // Update the visual indicator
-    const select = document.querySelector(`.question-time-limit[data-question-index="${questionIndex}"]`);
-    if (select) {
-        const indicator = select.parentElement.querySelector('span');
-        if (indicator) {
-            let indicatorText = '';
-            if (time <= 15) {
-                indicatorText = '⚡ Quick';
-            } else if (time <= 30) {
-                indicatorText = '🔥 Normal';
-            } else if (time <= 60) {
-                indicatorText = '🕐 Extended';
-            } else {
-                indicatorText = '🐌 Slow';
-            }
-            indicator.textContent = indicatorText;
-        }
-    }
-    
-    console.log(`Question ${questionIndex + 1} time limit updated to ${time} seconds`);
-}
-
 function showImportErrors(errors) {
     const errorDetailsDiv = document.getElementById('error-details');
     
@@ -718,9 +614,9 @@ function showImportErrors(errors) {
     `).join('');
 }
 
-// Enhanced Confirm Import with Time Limit Application
+// Enhanced Confirm Import with Final Validation
 function confirmImport() {
-    console.log('Starting import confirmation with time settings...');
+    console.log('Starting import confirmation...');
     
     // Final validation check
     if (hasValidationErrors) {
@@ -740,23 +636,19 @@ function confirmImport() {
         return;
     }
     
-    console.log('Final validation passed - importing', validQuestions.length, 'questions with time settings');
+    console.log('Final validation passed - importing', validQuestions.length, 'questions');
     
-    // Add imported questions to current questions array with time limits
-    validQuestions.forEach((question, index) => {
-        // Get the time limit from the dropdown or use the question's current time limit
-        const timeSelect = document.querySelector(`.question-time-limit[data-question-index="${index}"]`);
-        const timeLimit = timeSelect ? parseInt(timeSelect.value) : question.timeLimit || 20;
-        
+    // Add imported questions to current questions array
+    validQuestions.forEach(question => {
         const questionToAdd = {
             question: question.question,
             answers: [...question.answers],
             correct: question.correct,
-            timeLimit: timeLimit, // Use the configured time limit
+            timeLimit: question.timeLimit || 20,
             source: question.source || 'aiken_import'
         };
         
-        console.log('Adding question with time limit:', questionToAdd.question.substring(0, 50) + '...', `(${timeLimit}s)`);
+        console.log('Adding question:', questionToAdd.question.substring(0, 50) + '...');
         currentQuestions.push(questionToAdd);
     });
     
@@ -767,7 +659,7 @@ function confirmImport() {
     loadQuestionsIntoEditor();
     resetImportState();
     
-    showStatus(`Successfully imported ${validQuestions.length} question${validQuestions.length !== 1 ? 's' : ''} with custom time settings!`, 'success');
+    showStatus(`Successfully imported ${validQuestions.length} question${validQuestions.length !== 1 ? 's' : ''}!`, 'success');
     
     // Scroll to questions container
     const questionsContainer = document.getElementById('questions-container');
@@ -1537,11 +1429,6 @@ window.parseTextImport = parseTextImport;
 window.clearTextImport = clearTextImport;
 window.confirmImport = confirmImport;
 window.cancelImport = cancelImport;
-
-// Time limit management functions
-window.applyTimeToAll = applyTimeToAll;
-window.setQuickTime = setQuickTime;
-window.updateQuestionTimeLimit = updateQuestionTimeLimit;
 
 // Auto-initialize when page loads
 document.addEventListener('DOMContentLoaded', initializeManage);
