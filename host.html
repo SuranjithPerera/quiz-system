@@ -254,8 +254,148 @@
             font-size: 0.9rem;
         }
 
-        /* QUIZ CONTAINER - FULL HEIGHT UTILIZATION */
-        .quiz-container {
+        /* QUIZ SELECTION SCREEN - PROPER LAYOUT */
+        #quiz-selection {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: auto; /* Allow scrolling for quiz selection */
+            padding: 20px;
+        }
+
+        #quiz-selection .question-card {
+            background: linear-gradient(135deg, #46178f 0%, #7b2cbf 50%, #9c4dff 100%);
+            color: #ffffff;
+            padding: 30px;
+            border-radius: 25px;
+            margin: 0 auto;
+            max-width: 1000px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(70, 23, 143, 0.4);
+            position: relative;
+            overflow: visible;
+            border: 5px solid #ffffff;
+            min-height: auto;
+            height: auto;
+            display: block;
+        }
+
+        #quiz-selection .question-card h2 {
+            font-size: clamp(1.8rem, 4vw, 2.5rem);
+            margin-bottom: 30px;
+            text-align: center;
+            color: #ffffff;
+            font-weight: 900;
+            text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        /* QUIZ LIST CONTAINER - SCROLLABLE */
+        #quiz-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+            max-height: 60vh;
+            overflow-y: auto;
+            padding: 10px;
+            border-radius: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+        }
+
+        /* QUIZ CARDS IN SELECTION */
+        #quiz-list .menu-card {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.08) 100%);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 25px;
+            text-align: left;
+            border: 3px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.4s ease;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(70, 23, 143, 0.2);
+            pointer-events: auto !important;
+            z-index: 1 !important;
+        }
+
+        #quiz-list .menu-card:hover {
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 20px 40px rgba(70, 23, 143, 0.3);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.15) 100%);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        #quiz-list .menu-card h3 {
+            font-size: 1.4rem;
+            margin-bottom: 15px;
+            color: #ffffff;
+            font-weight: 800;
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.3);
+        }
+
+        #quiz-list .menu-card p {
+            margin-bottom: 10px;
+            opacity: 0.95;
+            line-height: 1.5;
+            font-size: 1rem;
+            color: #f5f5f5;
+            font-weight: 500;
+        }
+
+        #quiz-list .menu-card button {
+            background: linear-gradient(135deg, #e21b3c 0%, #ff6900 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 25px;
+            font-size: 1rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 6px 20px rgba(226, 27, 60, 0.3);
+            pointer-events: auto !important;
+            z-index: 20 !important;
+            position: relative !important;
+            margin-top: 15px;
+            width: 100%;
+        }
+
+        #quiz-list .menu-card button:hover {
+            background: linear-gradient(135deg, #ff6900 0%, #e21b3c 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(226, 27, 60, 0.4);
+        }
+
+        /* CREATE NEW QUIZ BUTTON */
+        #quiz-selection .btn-tertiary {
+            background: linear-gradient(135deg, #9c4dff 0%, #7b2cbf 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 1.1rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 8px 25px rgba(156, 77, 255, 0.3);
+            margin: 0 auto;
+            display: block;
+            max-width: 250px;
+        }
+
+        #quiz-selection .btn-tertiary:hover {
+            background: linear-gradient(135deg, #7b2cbf 0%, #9c4dff 100%);
+            transform: translateY(-3px);
+            box-shadow: 0 12px 35px rgba(156, 77, 255, 0.4);
+        }
+
+        /* LOBBY SCREEN - KEEP ORIGINAL LAYOUT */
+        #game-lobby {
             flex: 1;
             display: flex;
             flex-direction: column;
@@ -263,19 +403,98 @@
             padding: 0;
         }
 
-        .question-card {
-            background: linear-gradient(135deg, #46178f 0%, #7b2cbf 50%, #9c4dff 100%);
-            color: #ffffff;
-            padding: 15px;
-            border-radius: 20px;
-            margin: 0;
-            box-shadow: 0 15px 40px rgba(70, 23, 143, 0.4);
-            position: relative;
-            overflow: hidden;
-            border: 3px solid #ffffff;
+        #game-lobby .quiz-container {
             height: 100%;
+            overflow: hidden;
+        }
+
+        /* ACTIVE GAME SCREEN - KEEP COMPACT LAYOUT */
+        #active-game {
+            flex: 1;
             display: flex;
             flex-direction: column;
+            overflow: hidden;
+            padding: 0;
+        }
+
+        #active-game .quiz-container {
+            height: 100%;
+            overflow: hidden;
+        }
+
+        /* RESULTS SCREEN - ALLOW SCROLLING */
+        #results-screen {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: auto;
+            padding: 20px;
+        }
+
+        #results-screen .question-card {
+            background: linear-gradient(135deg, #46178f 0%, #7b2cbf 50%, #9c4dff 100%);
+            color: #ffffff;
+            padding: 30px;
+            border-radius: 25px;
+            margin: 0 auto;
+            max-width: 800px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(70, 23, 143, 0.4);
+            position: relative;
+            overflow: visible;
+            border: 5px solid #ffffff;
+            min-height: auto;
+            height: auto;
+            display: block;
+        }
+
+        /* CUSTOM SCROLLBAR FOR QUIZ LIST */
+        #quiz-list::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #quiz-list::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        #quiz-list::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+        }
+
+        #quiz-list::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        /* MOBILE RESPONSIVE FOR QUIZ SELECTION */
+        @media (max-width: 768px) {
+            #quiz-selection {
+                padding: 15px;
+            }
+            
+            #quiz-selection .question-card {
+                padding: 20px;
+            }
+            
+            #quiz-list {
+                grid-template-columns: 1fr;
+                max-height: 50vh;
+                gap: 15px;
+            }
+            
+            #quiz-list .menu-card {
+                padding: 20px;
+            }
+            
+            #quiz-list .menu-card h3 {
+                font-size: 1.2rem;
+            }
+            
+            #quiz-list .menu-card button {
+                padding: 10px 20px;
+                font-size: 0.9rem;
+            }
         }
 
         /* HOST DASHBOARD - ULTRA COMPACT */
