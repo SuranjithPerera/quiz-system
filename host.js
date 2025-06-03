@@ -1,4 +1,4 @@
-// Enhanced Host Management JavaScript - FIXED TIMER AND AUTO-CLEANUP VERSION
+// Enhanced Host Management JavaScript - COMPLETELY FIXED VERSION
 let hostCurrentQuiz = null;
 let hostGameInstance = null;
 let hostPlayers = {};
@@ -235,11 +235,6 @@ function validateAndRepairQuestion(question, questionNumber) {
 
 function addQuizToList(quiz, container, type) {
     const quizCard = document.createElement('div');
-    quizCard.className = 'menu-card';
-    
-    const typeLabel = type === 'sample' ? '📚 Sample Quiz' : '💾 Your Quiz';
-    const questionsCount = quiz.questions.length;
-    
     quizCard.innerHTML = `
         <div style="text-align: left;">
             <h3>${quiz.title}</h3>
@@ -509,7 +504,7 @@ function showActiveGame() {
     updateResponsesDisplay();
 }
 
-// FIXED: Display current question without showing correct answer immediately
+// COMPLETELY FIXED: Display current question without showing correct answer initially
 function displayCurrentQuestion() {
     if (!hostCurrentQuiz || !hostCurrentQuiz.questions || currentQuestionIndex >= hostCurrentQuiz.questions.length) {
         console.error('❌ HOST: Invalid question index or quiz data');
@@ -521,37 +516,43 @@ function displayCurrentQuestion() {
     
     console.log('📝 HOST: Displaying question:', currentQuestionIndex + 1, 'of', totalQuestions);
     
-    // Reset question state
+    // CRITICAL: Reset question state properly
     isQuestionTimeUp = false;
+    questionTimeLeft = question.timeLimit || 20;
     
     // Update question info
     document.getElementById('current-q-num').textContent = currentQuestionIndex + 1;
     document.getElementById('total-questions').textContent = totalQuestions;
     document.getElementById('host-question').textContent = question.question;
     
-    // Update answers WITHOUT showing correct answer initially
+    // COMPLETELY FIXED: Create answers WITHOUT any correct/incorrect classes initially
     const answersContainer = document.getElementById('host-answers');
     answersContainer.innerHTML = '';
     
     question.answers.forEach((answer, index) => {
         const answerDiv = document.createElement('div');
-        answerDiv.className = 'answer-option'; // Don't add 'correct' class initially
+        // CRITICAL FIX: Only add basic answer-option class - NO correct indicators
+        answerDiv.className = 'answer-option';
         answerDiv.innerHTML = `
             <span class="answer-letter">${String.fromCharCode(65 + index)}</span>
             <span class="answer-text">${answer}</span>
         `;
+        // DO NOT add correct-indicator here - it will be added later
         answersContainer.appendChild(answerDiv);
     });
     
-    // Start timer
+    // Start timer BEFORE showing control buttons
     startQuestionTimer(question.timeLimit || 20);
     
     // Hide control buttons initially
     hideElement('next-btn');
     hideElement('results-btn');
+    
+    // Clear previous responses display
+    updateResponsesDisplay();
 }
 
-// FIXED: Start question timer and handle time up correctly
+// COMPLETELY FIXED: Timer function with proper 1-second intervals
 function startQuestionTimer(duration) {
     console.log('⏰ HOST: Starting timer for', duration, 'seconds');
     
@@ -559,6 +560,13 @@ function startQuestionTimer(duration) {
     questionTimeLeft = duration;
     isQuestionTimeUp = false;
     
+    // Clear any existing timer first
+    if (questionTimer) {
+        clearInterval(questionTimer);
+        questionTimer = null;
+    }
+    
+    // COMPLETELY FIXED: Proper timer implementation
     const updateTimer = () => {
         const mins = Math.floor(questionTimeLeft / 60);
         const secs = questionTimeLeft % 60;
@@ -567,50 +575,36 @@ function startQuestionTimer(duration) {
         // Visual urgency indicators
         if (questionTimeLeft <= 5) {
             timerEl.style.background = 'linear-gradient(135deg, #e21b3c 0%, #ff4757 100%)';
-            timerEl.style.animation = 'pulse 0.5s infinite';
+            timerEl.classList.add('urgent');
         } else if (questionTimeLeft <= 10) {
             timerEl.style.background = 'linear-gradient(135deg, #ff6900 0%, #ff8c00 100%)';
-            timerEl.style.animation = 'none';
+            timerEl.classList.add('warning');
+            timerEl.classList.remove('urgent');
+        } else {
+            timerEl.style.background = 'linear-gradient(135deg, #26d0ce 0%, #1dd1a1 100%)';
+            timerEl.classList.remove('urgent', 'warning');
         }
         
         if (questionTimeLeft <= 0) {
             clearInterval(questionTimer);
+            questionTimer = null;
             onQuestionTimeUp();
         } else {
             questionTimeLeft--;
         }
     };
     
+    // Update immediately, then every second
     updateTimer();
-    questionTimer = setInterval(updateTimer, 1000);
+    questionTimer = setInterval(updateTimer, 1000); // COMPLETELY FIXED: Exactly 1000ms intervals
 }
 
-// FIXED: Handle when question time is up - show correct answers and delay next question
+// COMPLETELY FIXED: Only show correct answers AFTER time is up
 function onQuestionTimeUp() {
-    console.log('⏰ HOST: Question time is up - showing correct answers');
+    console.log('⏰ HOST: Question time is up - NOW showing correct answers');
     isQuestionTimeUp = true;
     
-    // Now show the correct answers
-    const question = hostCurrentQuiz.questions[currentQuestionIndex];
-    const answersContainer = document.getElementById('host-answers');
-    const answerDivs = answersContainer.querySelectorAll('.answer-option');
-    
-    answerDivs.forEach((answerDiv, index) => {
-        if (index === question.correct) {
-            answerDiv.classList.add('show-correct');
-            // Add correct indicator if it doesn't exist
-            if (!answerDiv.querySelector('.correct-indicator')) {
-                const correctIndicator = document.createElement('span');
-                correctIndicator.className = 'correct-indicator';
-                correctIndicator.textContent = '✓ CORRECT';
-                answerDiv.appendChild(correctIndicator);
-            }
-        } else {
-            answerDiv.classList.add('show-incorrect');
-        }
-    });
-    
-    // Update game state to indicate question has ended
+    // Update game state to question_ended
     if (hostGameInstance && database) {
         database.ref(`games/${gamePin}/gameState`).update({
             status: 'question_ended',
@@ -618,7 +612,30 @@ function onQuestionTimeUp() {
         }).catch(console.error);
     }
     
-    // Show control buttons after a delay to let players see the correct answer
+    // NOW reveal the correct answers with animation
+    const question = hostCurrentQuiz.questions[currentQuestionIndex];
+    const answersContainer = document.getElementById('host-answers');
+    const answerDivs = answersContainer.querySelectorAll('.answer-option');
+    
+    answerDivs.forEach((answerDiv, index) => {
+        if (index === question.correct) {
+            // Show as correct
+            answerDiv.classList.add('show-correct');
+            // Add the correct indicator NOW
+            const correctIndicator = document.createElement('span');
+            correctIndicator.className = 'correct-indicator';
+            correctIndicator.textContent = '✓ CORRECT';
+            answerDiv.appendChild(correctIndicator);
+        } else {
+            // Show as incorrect
+            answerDiv.classList.add('show-incorrect');
+        }
+    });
+    
+    // Calculate and update player scores
+    calculateAndUpdatePlayerScores();
+    
+    // Show control buttons after a delay to let everyone see the answers
     setTimeout(() => {
         showElement('next-btn');
         
@@ -626,54 +643,142 @@ function onQuestionTimeUp() {
             showElement('results-btn');
         }
         
-        showStatus('Question ended! Review answers and continue.', 'info');
-    }, QUESTION_RESULT_DELAY);
+        showStatus('Time\'s up! Correct answer revealed. Click Next to continue.', 'info');
+    }, QUESTION_RESULT_DELAY); // 3 second delay
 }
 
+// COMPLETELY NEW: Enhanced scoring system that actually works
+function calculateAndUpdatePlayerScores() {
+    console.log('🏆 HOST: Calculating scores for all players');
+    
+    const question = hostCurrentQuiz.questions[currentQuestionIndex];
+    const correctAnswerIndex = question.correct;
+    const questionTimeLimit = question.timeLimit || 20;
+    
+    // Process each player's answer
+    Object.keys(hostPlayers).forEach(async (playerId) => {
+        const player = hostPlayers[playerId];
+        
+        if (player.status === 'answered' && typeof player.currentAnswer === 'number') {
+            const isCorrect = player.currentAnswer === correctAnswerIndex;
+            const responseTime = player.responseTime || questionTimeLimit;
+            
+            // Calculate score using time-based formula
+            let questionScore = 0;
+            if (isCorrect) {
+                // Base score for correct answer
+                const baseScore = 1000;
+                
+                // Time bonus (faster response = higher bonus)
+                const timePercentage = Math.max(0, (questionTimeLimit - responseTime) / questionTimeLimit);
+                const timeBonus = Math.floor(500 * timePercentage);
+                
+                questionScore = baseScore + timeBonus;
+            }
+            
+            // Update player's total score
+            const newTotalScore = (player.score || 0) + questionScore;
+            
+            console.log(`🎯 HOST: Player ${player.name}: ${isCorrect ? 'Correct' : 'Incorrect'}, +${questionScore} points (Total: ${newTotalScore})`);
+            
+            // Update in Firebase
+            try {
+                await database.ref(`games/${gamePin}/players/${playerId}`).update({
+                    score: newTotalScore,
+                    lastQuestionScore: questionScore,
+                    lastQuestionCorrect: isCorrect,
+                    scoredAt: Date.now()
+                });
+                
+                // Update local copy
+                hostPlayers[playerId].score = newTotalScore;
+                hostPlayers[playerId].lastQuestionScore = questionScore;
+                hostPlayers[playerId].lastQuestionCorrect = isCorrect;
+                
+            } catch (error) {
+                console.error('💥 HOST: Error updating player score:', error);
+            }
+        } else {
+            // Player didn't answer or answered incorrectly
+            console.log(`❌ HOST: Player ${player.name}: No answer submitted`);
+            
+            try {
+                await database.ref(`games/${gamePin}/players/${playerId}`).update({
+                    lastQuestionScore: 0,
+                    lastQuestionCorrect: false,
+                    scoredAt: Date.now()
+                });
+                
+                hostPlayers[playerId].lastQuestionScore = 0;
+                hostPlayers[playerId].lastQuestionCorrect = false;
+                
+            } catch (error) {
+                console.error('💥 HOST: Error updating player score:', error);
+            }
+        }
+    });
+    
+    // Update the responses display to show scores
+    setTimeout(() => {
+        updateResponsesDisplay();
+    }, 1000);
+}
+
+// ENHANCED: Update responses display with scoring information
 function updateResponsesDisplay() {
     const responsesContainer = document.getElementById('responses-container');
     if (!responsesContainer) return;
     
     responsesContainer.innerHTML = '';
     
-    Object.values(hostPlayers).forEach(player => {
+    // Sort players by total score for better display
+    const sortedPlayers = Object.values(hostPlayers).sort((a, b) => (b.score || 0) - (a.score || 0));
+    
+    sortedPlayers.forEach(player => {
         const responseDiv = document.createElement('div');
         responseDiv.className = 'player-response';
         
         let statusText = 'Not answered';
         let statusClass = 'waiting';
+        let scoreInfo = '';
         
         if (player.status === 'answered') {
-            statusText = `Answered in ${(player.responseTime || 0).toFixed(1)}s`;
+            const responseTime = (player.responseTime || 0).toFixed(1);
+            statusText = `Answered in ${responseTime}s`;
             statusClass = 'answered';
             
-            // Show if answer was correct only after time is up
-            if (isQuestionTimeUp && typeof player.currentAnswer === 'number') {
-                const question = hostCurrentQuiz.questions[currentQuestionIndex];
-                const isCorrect = player.currentAnswer === question.correct;
+            // Show if answer was correct/incorrect after time is up
+            if (isQuestionTimeUp) {
+                const isCorrect = player.lastQuestionCorrect;
+                const questionScore = player.lastQuestionScore || 0;
+                
                 statusClass += isCorrect ? ' correct' : ' incorrect';
                 statusText += isCorrect ? ' ✓' : ' ✗';
+                scoreInfo = `<div class="score-info">+${questionScore} pts this question</div>`;
             }
         }
         
         responseDiv.innerHTML = `
             <div class="player-response-header">
                 <span class="player-name">${player.name}</span>
-                <span class="player-total-score">${player.score || 0} pts</span>
+                <span class="player-total-score">${player.score || 0} pts total</span>
             </div>
             <span class="response-status ${statusClass}">${statusText}</span>
+            ${scoreInfo}
         `;
         
         responsesContainer.appendChild(responseDiv);
     });
 }
 
-// Next question
+// ENHANCED: Next question function with proper cleanup
 async function nextQuestion() {
     console.log('➡️ HOST: Moving to next question');
     
+    // Clear timer
     if (questionTimer) {
         clearInterval(questionTimer);
+        questionTimer = null;
     }
     
     if (currentQuestionIndex >= hostCurrentQuiz.questions.length - 1) {
@@ -684,15 +789,28 @@ async function nextQuestion() {
     
     try {
         currentQuestionIndex++;
-        const success = await hostGameInstance.nextQuestion();
         
-        if (success) {
-            console.log('✅ HOST: Moved to question', currentQuestionIndex + 1);
-            displayCurrentQuestion();
-            updateResponsesDisplay();
-        } else {
-            throw new Error('Failed to move to next question');
-        }
+        // Reset player statuses for next question
+        const playerUpdates = {};
+        Object.keys(hostPlayers).forEach(playerId => {
+            playerUpdates[`players/${playerId}/status`] = 'waiting';
+            playerUpdates[`players/${playerId}/currentAnswer`] = null;
+            playerUpdates[`players/${playerId}/responseTime`] = null;
+            playerUpdates[`players/${playerId}/answerTime`] = null;
+        });
+        
+        // Update game state and player statuses
+        playerUpdates['gameState/status'] = 'playing';
+        playerUpdates['gameState/currentQuestion'] = currentQuestionIndex;
+        playerUpdates['gameState/questionStartTime'] = Date.now();
+        
+        await database.ref(`games/${gamePin}`).update(playerUpdates);
+        
+        console.log('✅ HOST: Moved to question', currentQuestionIndex + 1);
+        
+        // Display the new question
+        displayCurrentQuestion();
+        
     } catch (error) {
         console.error('💥 HOST: Error moving to next question:', error);
         showStatus('Error moving to next question', 'error');
@@ -915,11 +1033,84 @@ window.endQuiz = endQuiz;
 window.resetGame = resetGame;
 window.createCustomQuiz = createCustomQuiz;
 
-console.log('🎯 HOST: Enhanced host.js with timer fix and auto-cleanup loaded successfully');
+// Add CSS fixes for scoring display
+const hostCSS = `
+<style id="host-scoring-fixes">
+/* CRITICAL: Ensure correct answers are hidden initially */
+.answer-option {
+    transition: all 0.5s ease !important;
+}
+
+.answer-option .correct-indicator {
+    display: none !important;
+}
+
+.answer-option.show-correct .correct-indicator {
+    display: inline-block !important;
+    animation: bounceIn 0.8s ease-out !important;
+}
+
+/* Enhanced timer urgency states */
+.timer.urgent {
+    animation: urgentPulse 0.5s infinite !important;
+}
+
+.timer.warning {
+    animation: warningPulse 1s infinite !important;
+}
+
+@keyframes urgentPulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.8; transform: scale(1.05); }
+}
+
+@keyframes warningPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.9; }
+}
+
+/* Better score display */
+.score-info {
+    background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%) !important;
+    color: white !important;
+    padding: 4px 8px !important;
+    border-radius: 12px !important;
+    font-size: 0.8rem !important;
+    font-weight: bold !important;
+    margin-top: 5px !important;
+    text-align: center !important;
+    box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3) !important;
+}
+
+.player-response-header .player-total-score {
+    background: linear-gradient(135deg, #ff6900 0%, #ff8c00 100%) !important;
+    color: white !important;
+    padding: 4px 10px !important;
+    border-radius: 12px !important;
+    font-size: 0.9rem !important;
+    font-weight: 800 !important;
+    box-shadow: 0 2px 8px rgba(255, 105, 0, 0.3) !important;
+}
+</style>
+`;
+
+// Inject the CSS if it doesn't exist
+if (!document.getElementById('host-scoring-fixes')) {
+    const styleElement = document.createElement('div');
+    styleElement.innerHTML = hostCSS;
+    document.head.appendChild(styleElement.firstElementChild);
+}
+
+console.log('🎯 HOST: Enhanced host.js with comprehensive timer and scoring fixes loaded successfully');
 
 // Auto-initialize if DOM is already loaded
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initializeHost);
 } else {
     initializeHost();
-}
+}d.className = 'menu-card';
+    
+    const typeLabel = type === 'sample' ? '📚 Sample Quiz' : '💾 Your Quiz';
+    const questionsCount = quiz.questions.length;
+    
+    quizCar 

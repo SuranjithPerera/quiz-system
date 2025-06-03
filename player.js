@@ -1,6 +1,6 @@
-// Player.js - Enhanced with State Recovery and Better Timer Management - SYNTAX FIXED VERSION
+// Player.js - Enhanced with Proper Scoring and Timer Fixes - COMPLETE VERSION
 let playerGameInstance = null;
-let playerGamePlayerId = null; // Renamed to avoid conflicts
+let playerGamePlayerId = null;
 let playerGamePlayerName = null;
 let currentGamePin = null;
 let playerScore = 0;
@@ -9,8 +9,9 @@ let questionStartTime = null;
 let currentTimerInterval = null;
 let currentQuestionData = null;
 let isRecoveringState = false;
-let isQuestionActive = true; // Track if question is still accepting answers
-let questionEndTime = null; // Track when question officially ends
+let isQuestionActive = true;
+let questionEndTime = null;
+let previousScore = 0; // Track previous score for animations
 
 // State persistence keys for player
 const PLAYER_STATE_KEYS = {
@@ -187,7 +188,7 @@ function initializePlayer() {
     }
 }
 
-// State Recovery Functions
+// State Recovery Functions (keeping existing logic)
 function checkForStateRecovery() {
     const isActive = localStorage.getItem(PLAYER_STATE_KEYS.IS_ACTIVE);
     const savedGamePin = localStorage.getItem(PLAYER_STATE_KEYS.GAME_PIN);
@@ -227,6 +228,7 @@ async function recoverPlayerState() {
         
         if (savedScore) {
             playerScore = parseInt(savedScore) || 0;
+            previousScore = playerScore;
         }
         
         console.log('📝 PLAYER: Recovered state:', {
@@ -379,6 +381,7 @@ function clearPlayerState() {
     playerGamePlayerId = null;
     playerGamePlayerName = null;
     playerScore = 0;
+    previousScore = 0;
     hasAnswered = false;
     isQuestionActive = true;
     questionEndTime = null;
@@ -423,7 +426,6 @@ async function joinGame() {
     showStatus('Checking game...', 'info');
     
     try {
-        // SKIP DATABASE CONNECTION TEST - Go directly to game check
         console.log('⚡ PLAYER: Skipping database connection test, proceeding directly...');
         
         // Step 1: Check if game exists with detailed logging
@@ -490,7 +492,6 @@ function checkGameExistsDetailed() {
             const gameData = snapshot.val();
             
             console.log('📦 PLAYER: Game data received:', !!gameData);
-            console.log('📊 PLAYER: Raw game data:', gameData);
             
             if (!gameData) {
                 console.log('❌ PLAYER: No game data found');
@@ -501,15 +502,6 @@ function checkGameExistsDetailed() {
                 });
                 return;
             }
-            
-            console.log('📋 PLAYER: Game details:', {
-                hasQuiz: !!gameData.quiz,
-                hasGameState: !!gameData.gameState,
-                status: gameData.gameState?.status,
-                quizTitle: gameData.quiz?.title,
-                questionCount: gameData.quiz?.questions?.length,
-                playerCount: Object.keys(gameData.players || {}).length
-            });
             
             // Check if game has required data
             if (!gameData.quiz || !gameData.quiz.questions || gameData.quiz.questions.length === 0) {
@@ -544,7 +536,6 @@ function checkGameExistsDetailed() {
         }, (error) => {
             clearTimeout(timeout);
             console.error('💥 PLAYER: Database error during game check:', error);
-            console.error('💥 PLAYER: Error details:', error.message, error.code);
             resolve({
                 exists: false,
                 reason: 'database_error',
@@ -554,7 +545,7 @@ function checkGameExistsDetailed() {
     });
 }
 
-// ENHANCED: Handle game state changes with new timer behavior
+// ENHANCED: Handle game state changes with proper scoring updates
 function onGameStateChange(gameState) {
     console.log('🎮 PLAYER: Game state changed:', gameState?.status);
     
@@ -572,8 +563,8 @@ function onGameStateChange(gameState) {
         case 'playing':
             console.log('🎯 PLAYER: Game playing - showing question');
             hasAnswered = false;
-            isQuestionActive = true; // Reset question active state
-            questionEndTime = null; // Reset question end time
+            isQuestionActive = true;
+            questionEndTime = null;
             if (answerManager) {
                 answerManager.startQuestion(gameState.questionStartTime);
             }
@@ -582,7 +573,7 @@ function onGameStateChange(gameState) {
             break;
         case 'question_ended':
             console.log('⏰ PLAYER: Question ended - disabling answers and showing waiting screen');
-            isQuestionActive = false; // Question no longer accepts answers
+            isQuestionActive = false;
             questionEndTime = gameState.questionEndTime || Date.now();
             
             // Clear timer if still running
@@ -622,7 +613,7 @@ function onGameStateChange(gameState) {
             break;
         case 'finished':
             console.log('🏁 PLAYER: Game finished - showing results');
-            clearPlayerState(); // Clear state immediately when game finishes
+            clearPlayerState();
             showFinalResults();
             break;
         case 'abandoned':
@@ -637,6 +628,7 @@ function onGameStateChange(gameState) {
     }
 }
 
+// ENHANCED: Players update with proper scoring handling
 function onPlayersUpdate(players) {
     const playerCount = Object.keys(players).length;
     console.log('👥 PLAYER: Players update - count:', playerCount);
@@ -645,14 +637,23 @@ function onPlayersUpdate(players) {
     const countEl = document.getElementById('lobby-player-count');
     if (countEl) countEl.textContent = playerCount;
     
-    // Update player score
+    // ENHANCED: Update player score with animations
     if (players[playerGamePlayerId]) {
         const oldScore = playerScore;
-        playerScore = players[playerGamePlayerId].score || 0;
+        const newScore = players[playerGamePlayerId].score || 0;
         
-        // Log score changes
-        if (oldScore !== playerScore) {
-            console.log('🏆 PLAYER: Score updated from', oldScore, 'to', playerScore);
+        // Log score changes and show animations
+        if (oldScore !== newScore) {
+            console.log('🏆 PLAYER: Score updated from', oldScore, 'to', newScore);
+            
+            // Show score increase animation if score went up
+            if (newScore > oldScore) {
+                const increase = newScore - oldScore;
+                showScoreIncrease(increase);
+            }
+            
+            previousScore = oldScore;
+            playerScore = newScore;
         }
         
         updateScoreDisplay();
@@ -660,6 +661,47 @@ function onPlayersUpdate(players) {
     }
     
     updateLeaderboards(players);
+}
+
+// NEW: Score increase animation
+function showScoreIncrease(points) {
+    // Create floating score animation
+    const scoreFloat = document.createElement('div');
+    scoreFloat.textContent = `+${points}`;
+    scoreFloat.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
+        color: white;
+        padding: 15px 25px;
+        border-radius: 30px;
+        font-size: 2rem;
+        font-weight: 900;
+        z-index: 10000;
+        pointer-events: none;
+        animation: scoreFloatUp 3s ease-out forwards;
+        box-shadow: 0 10px 30px rgba(76, 175, 80, 0.5);
+        border: 3px solid rgba(255, 255, 255, 0.8);
+        text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.3);
+    `;
+    
+    document.body.appendChild(scoreFloat);
+    
+    // Play a celebration sound effect (optional)
+    try {
+        // You could add a sound here if you have audio files
+        console.log('🔊 PLAYER: Score increase sound would play here');
+    } catch (error) {
+        // Ignore audio errors
+    }
+    
+    setTimeout(() => {
+        if (scoreFloat.parentNode) {
+            scoreFloat.parentNode.removeChild(scoreFloat);
+        }
+    }, 3000);
 }
 
 function showWaitingLobby() {
@@ -708,8 +750,8 @@ function displayQuestion(question, questionNumber) {
     const grid = document.getElementById('answers-grid');
     grid.innerHTML = '';
     hasAnswered = false;
-    isQuestionActive = true; // Question is active when first displayed
-    questionEndTime = null; // Reset question end time
+    isQuestionActive = true;
+    questionEndTime = null;
     
     question.answers.forEach((answer, index) => {
         const btn = document.createElement('button');
@@ -719,15 +761,20 @@ function displayQuestion(question, questionNumber) {
         grid.appendChild(btn);
     });
     
-    // Start timer
-    startTimer(question.timeLimit || 20);
+    // Start timer with EXACT 1-second intervals
+    startTimerPlayer(question.timeLimit || 20);
     hideElement('answer-feedback');
 }
 
-// ENHANCED: Start timer with better visual states
-function startTimer(duration) {
+// FIXED: Player timer with proper 1-second intervals
+function startTimerPlayer(duration) {
     const display = document.getElementById('question-timer');
     let timeLeft = duration;
+    
+    // Clear existing timer
+    if (currentTimerInterval) {
+        clearInterval(currentTimerInterval);
+    }
     
     const update = () => {
         const mins = Math.floor(timeLeft / 60);
@@ -750,19 +797,21 @@ function startTimer(duration) {
         
         if (timeLeft <= 0) {
             clearInterval(currentTimerInterval);
+            currentTimerInterval = null;
             onTimeout();
         } else {
             timeLeft--;
         }
     };
     
+    // Update immediately, then every second
     update();
-    currentTimerInterval = setInterval(update, 1000);
+    currentTimerInterval = setInterval(update, 1000); // FIXED: Exactly 1000ms
 }
 
 // ENHANCED: Handle answer selection with better validation
 async function selectAnswer(answerIndex) {
-    // Enhanced validation - check if question is still active and player hasn't answered
+    // Enhanced validation
     if (hasAnswered || !isQuestionActive || questionEndTime) {
         console.log('⚠️ PLAYER: Cannot answer - conditions not met:', {
             hasAnswered,
@@ -791,8 +840,9 @@ async function selectAnswer(answerIndex) {
         btn.disabled = true;
         if (index === answerIndex) {
             btn.style.transform = 'scale(1.05)';
-            btn.style.border = '3px solid #fff';
-            btn.style.boxShadow = '0 0 20px rgba(255, 255, 255, 0.5)';
+            btn.style.border = '4px solid #fff';
+            btn.style.boxShadow = '0 0 25px rgba(255, 255, 255, 0.7)';
+            btn.style.zIndex = '1000';
         } else {
             btn.style.opacity = '0.6';
         }
@@ -817,6 +867,7 @@ async function selectAnswer(answerIndex) {
             timerEl.textContent = "ANSWERED";
             timerEl.style.background = 'linear-gradient(135deg, #4caf50 0%, #66bb6a 100%)';
             timerEl.style.animation = 'none';
+            timerEl.classList.remove('urgent', 'warning');
         }
         
     } catch (error) {
@@ -836,11 +887,12 @@ async function selectAnswer(answerIndex) {
                 btn.style.border = '';
                 btn.style.boxShadow = '';
                 btn.style.opacity = '';
+                btn.style.zIndex = '';
             });
             
             // Restart timer if needed
-            const timeLeftEstimate = Math.max(5, 20 - responseTime); // Estimate remaining time
-            startTimer(timeLeftEstimate);
+            const timeLeftEstimate = Math.max(5, 20 - responseTime);
+            startTimerPlayer(timeLeftEstimate);
         }
     }
 }
@@ -848,8 +900,8 @@ async function selectAnswer(answerIndex) {
 // ENHANCED: Handle timeout with better state management
 function onTimeout() {
     console.log('⏰ PLAYER: Question timeout on client side');
-    isQuestionActive = false; // Question is no longer active
-    questionEndTime = Date.now(); // Mark when question ended locally
+    isQuestionActive = false;
+    questionEndTime = Date.now();
     
     if (!hasAnswered) {
         hasAnswered = true;
@@ -889,9 +941,19 @@ function showWaitingNext() {
     savePlayerState('waiting-next');
 }
 
+// ENHANCED: Score display with animations
 function updateScoreDisplay() {
     const scoreEl = document.getElementById('current-score');
-    if (scoreEl) scoreEl.textContent = playerScore;
+    if (scoreEl) {
+        // Add animation class for score updates
+        if (previousScore !== playerScore && playerScore > previousScore) {
+            scoreEl.classList.add('score-updated');
+            setTimeout(() => {
+                scoreEl.classList.remove('score-updated');
+            }, 1000);
+        }
+        scoreEl.textContent = playerScore;
+    }
     
     const finalEl = document.getElementById('player-final-score');
     if (finalEl) finalEl.textContent = `${playerScore} points`;
@@ -921,6 +983,7 @@ function updateLeaderboard(elementId, players) {
         if (player.id === playerGamePlayerId) {
             div.style.backgroundColor = '#e3f2fd';
             div.style.fontWeight = 'bold';
+            div.style.border = '3px solid #1368ce';
         }
         
         div.innerHTML = `
@@ -1009,6 +1072,142 @@ function playAgain() {
 
 // Make play again function globally available
 window.playAgain = playAgain;
+
+// Add enhanced CSS for player scoring animations
+const playerEnhancedCSS = `
+<style id="player-enhanced-scoring">
+/* Score animation keyframes */
+@keyframes scoreFloatUp {
+    0% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.5) rotate(-10deg);
+    }
+    15% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.3) rotate(0deg);
+    }
+    85% {
+        opacity: 1;
+        transform: translate(-50%, -70%) scale(1) rotate(0deg);
+    }
+    100% {
+        opacity: 0;
+        transform: translate(-50%, -90%) scale(0.8) rotate(5deg);
+    }
+}
+
+/* Score update animation for current score display */
+@keyframes scoreUpdate {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); color: #4caf50; }
+    100% { transform: scale(1); }
+}
+
+.score-updated {
+    animation: scoreUpdate 0.8s ease-out !important;
+}
+
+/* Enhanced timer states */
+.timer.urgent {
+    animation: urgentPulse 0.5s infinite !important;
+    box-shadow: 0 0 30px rgba(226, 27, 60, 0.8) !important;
+}
+
+.timer.warning {
+    animation: warningPulse 1s infinite !important;
+    box-shadow: 0 0 20px rgba(255, 105, 0, 0.6) !important;
+}
+
+@keyframes urgentPulse {
+    0%, 100% { 
+        opacity: 1; 
+        transform: scale(1);
+        box-shadow: 0 0 30px rgba(226, 27, 60, 0.8);
+    }
+    50% { 
+        opacity: 0.8; 
+        transform: scale(1.05);
+        box-shadow: 0 0 40px rgba(226, 27, 60, 1);
+    }
+}
+
+@keyframes warningPulse {
+    0%, 100% { 
+        opacity: 1;
+        box-shadow: 0 0 20px rgba(255, 105, 0, 0.6);
+    }
+    50% { 
+        opacity: 0.9;
+        box-shadow: 0 0 25px rgba(255, 105, 0, 0.8);
+    }
+}
+
+/* Enhanced answer button selection */
+.answer-btn {
+    transition: all 0.3s ease !important;
+}
+
+.answer-btn:disabled {
+    transition: all 0.5s ease !important;
+}
+
+/* Leaderboard your position highlight */
+.player-score {
+    transition: all 0.3s ease !important;
+}
+
+/* Enhanced feedback styling */
+#answer-feedback {
+    animation: slideInUp 0.5s ease-out !important;
+}
+
+@keyframes slideInUp {
+    0% {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Score display enhancement */
+#current-score, #player-final-score {
+    transition: all 0.3s ease !important;
+    font-weight: bold !important;
+}
+
+/* Make status messages more prominent */
+.status-message {
+    animation: statusBounce 0.5s ease-out !important;
+}
+
+@keyframes statusBounce {
+    0% {
+        opacity: 0;
+        transform: translateY(-10px) scale(0.9);
+    }
+    60% {
+        opacity: 1;
+        transform: translateY(0) scale(1.05);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+</style>
+`;
+
+// Inject the enhanced CSS
+if (!document.getElementById('player-enhanced-scoring')) {
+    const styleElement = document.createElement('div');
+    styleElement.innerHTML = playerEnhancedCSS;
+    document.head.appendChild(styleElement.firstElementChild);
+}
+
+console.log('🎮 PLAYER: Enhanced player.js with proper scoring and timer fixes loaded successfully');
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', initializePlayer);
