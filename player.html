@@ -50,7 +50,7 @@
             </div>
         </div>
         
-        <!-- Waiting for Next Question -->
+        <!-- Waiting for Next Question / Game Over -->
         <div id="waiting-next" class="quiz-container" style="display: none;">
             <div class="question-card">
                 <div id="answer-result">
@@ -61,7 +61,10 @@
                 </div>
                 <div class="leaderboard" id="current-leaderboard"></div>
                 <div id="next-question-message">
-                    <p>⏳ Waiting for next question...</p>
+                    <div style="background: linear-gradient(135deg, #1368ce 0%, #3742fa 100%); color: white; padding: 20px; border-radius: 20px; margin: 20px 0; border: 3px solid #ffffff; box-shadow: 0 10px 30px rgba(19, 104, 206, 0.4);">
+                        <h3 style="margin: 0 0 10px 0; font-size: 1.5rem;">⏳ Waiting...</h3>
+                        <p style="margin: 0; font-size: 1.1rem; font-weight: 600;">Waiting for next question...</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -69,15 +72,21 @@
         <!-- Final Results -->
         <div id="final-results" class="quiz-container" style="display: none;">
             <div class="question-card">
-                <h2>🏆 Quiz Complete!</h2>
-                <div id="final-score-card">
-                    <h3>Your Final Score</h3>
-                    <div class="final-score" id="player-final-score">0 points</div>
-                    <div class="final-rank" id="player-final-rank">#1</div>
+                <div style="background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%); color: white; padding: 25px; border-radius: 25px; margin: 0 0 30px 0; border: 4px solid #ffffff; box-shadow: 0 15px 40px rgba(76, 175, 80, 0.4); animation: gameOverPulse 2s ease-in-out infinite alternate;">
+                    <h2 style="margin: 0 0 15px 0; font-size: 2.5rem; text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.3);">🏆 Quiz Complete!</h2>
+                    <p style="margin: 0; font-size: 1.3rem; font-weight: 700; text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);">🎉 All questions have been answered! 🎉</p>
                 </div>
+                
+                <div id="final-score-card" style="background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.08) 100%); backdrop-filter: blur(20px); border-radius: 20px; padding: 25px; margin: 20px 0; border: 3px solid rgba(255, 255, 255, 0.3);">
+                    <h3 style="color: #ffffff; margin-bottom: 15px; font-size: 1.5rem;">Your Final Score</h3>
+                    <div class="final-score" id="player-final-score" style="font-size: 2.5rem; font-weight: 900; color: #ffd700; text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.4); margin: 15px 0;">0 points</div>
+                    <div class="final-rank" id="player-final-rank" style="font-size: 1.4rem; font-weight: 800; color: #ffffff; text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.3);">#1</div>
+                </div>
+                
                 <div class="leaderboard" id="final-leaderboard-player"></div>
-                <div class="game-controls">
-                    <button onclick="playAgain()" class="btn btn-primary">Play Again</button>
+                
+                <div class="game-controls" style="margin-top: 30px;">
+                    <button onclick="playAgain()" class="btn btn-primary" style="font-size: 1.2rem; padding: 18px 35px; min-width: 200px;">🔄 Play Again</button>
                 </div>
             </div>
         </div>
@@ -189,6 +198,72 @@
                 }
             }
         }
+
+        // Add the game over animation CSS
+        const gameOverCSS = `
+        <style>
+        @keyframes gameOverPulse {
+            0% {
+                box-shadow: 0 15px 40px rgba(76, 175, 80, 0.4);
+                transform: scale(1);
+            }
+            100% {
+                box-shadow: 0 20px 50px rgba(76, 175, 80, 0.6);
+                transform: scale(1.02);
+            }
+        }
+        
+        .game-over-celebration {
+            background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
+            border: 4px solid #ffffff;
+            animation: gameOverPulse 2s ease-in-out infinite alternate;
+        }
+        
+        .confetti {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+        
+        .confetti::before,
+        .confetti::after {
+            content: '🎉';
+            position: absolute;
+            font-size: 2rem;
+            animation: confettiFall 3s linear infinite;
+        }
+        
+        .confetti::before {
+            left: 20%;
+            animation-delay: 0s;
+        }
+        
+        .confetti::after {
+            right: 20%;
+            animation-delay: 1s;
+        }
+        
+        @keyframes confettiFall {
+            0% {
+                transform: translateY(-100px) rotate(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(100vh) rotate(360deg);
+                opacity: 0;
+            }
+        }
+        </style>
+        `;
+        
+        // Inject the game over CSS
+        const styleElement = document.createElement('div');
+        styleElement.innerHTML = gameOverCSS;
+        document.head.appendChild(styleElement.firstElementChild);
     </script>
     
     <!-- Player JavaScript -->

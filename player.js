@@ -1,4 +1,4 @@
-// Player.js - Enhanced with Proper Scoring and Timer Fixes - COMPLETE VERSION
+// Player.js - Enhanced with Proper Game End Handling - FIXED VERSION
 let playerGameInstance = null;
 let playerGamePlayerId = null;
 let playerGamePlayerName = null;
@@ -545,7 +545,7 @@ function checkGameExistsDetailed() {
     });
 }
 
-// ENHANCED: Handle game state changes with proper scoring updates
+// ENHANCED: Handle game state changes with proper game end handling
 function onGameStateChange(gameState) {
     console.log('🎮 PLAYER: Game state changed:', gameState?.status);
     
@@ -612,12 +612,22 @@ function onGameStateChange(gameState) {
             savePlayerState('question-ended');
             break;
         case 'finished':
-            console.log('🏁 PLAYER: Game finished - showing results');
-            clearPlayerState();
+            console.log('🏁 PLAYER: Game finished - showing final results');
+            // CRITICAL FIX: Clear timer when game finishes
+            if (currentTimerInterval) {
+                clearInterval(currentTimerInterval);
+                currentTimerInterval = null;
+            }
+            clearPlayerState(); // Clear state immediately when game finishes
             showFinalResults();
             break;
         case 'abandoned':
             console.log('👋 PLAYER: Game abandoned by host');
+            if (currentTimerInterval) {
+                clearInterval(currentTimerInterval);
+                currentTimerInterval = null;
+            }
+            clearPlayerState();
             showStatus('Game ended - host disconnected', 'info');
             setTimeout(() => {
                 window.location.href = 'index.html';
@@ -989,16 +999,46 @@ function updateLeaderboard(elementId, players) {
     });
 }
 
+// CRITICAL FIX: Enhanced showFinalResults with proper game end notification
 function showFinalResults() {
-    console.log('🏁 PLAYER: Showing final results');
+    console.log('🏁 PLAYER: Showing final results - GAME IS OVER!');
     
+    // Clear any running timers immediately
     if (currentTimerInterval) {
         clearInterval(currentTimerInterval);
+        currentTimerInterval = null;
     }
     
     hideAllScreens();
     showElement('final-results');
+    
+    // Update the waiting message to show game is over
+    const nextQuestionMessage = document.getElementById('next-question-message');
+    if (nextQuestionMessage) {
+        nextQuestionMessage.innerHTML = `
+            <div style="background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%); color: white; padding: 20px; border-radius: 20px; margin: 20px 0; border: 3px solid #ffffff; box-shadow: 0 10px 30px rgba(76, 175, 80, 0.4);">
+                <h3 style="margin: 0 0 10px 0; font-size: 1.5rem;">🎉 Quiz Complete!</h3>
+                <p style="margin: 0; font-size: 1.1rem; font-weight: 600;">All questions have been answered!</p>
+            </div>
+        `;
+    }
+    
+    // Also update the result message area
+    const resultMessage = document.getElementById('result-message');
+    if (resultMessage) {
+        resultMessage.textContent = '🎉 Quiz Complete!';
+        resultMessage.style.background = 'linear-gradient(135deg, #4caf50 0%, #66bb6a 100%)';
+        resultMessage.style.color = 'white';
+        resultMessage.style.padding = '15px 25px';
+        resultMessage.style.borderRadius = '20px';
+        resultMessage.style.border = '3px solid #ffffff';
+        resultMessage.style.boxShadow = '0 10px 30px rgba(76, 175, 80, 0.4)';
+    }
+    
     updateScoreDisplay();
+    
+    // Show a completion notification
+    showStatus('🏁 Quiz completed! Final results are in!', 'success');
     
     // Clear state immediately when game is finished
     clearPlayerState();
@@ -1006,6 +1046,8 @@ function showFinalResults() {
     // Also disable state recovery to prevent auto-redirect
     localStorage.removeItem('gamePin');
     localStorage.removeItem('playerName');
+    
+    console.log('✅ PLAYER: Final results screen fully configured');
 }
 
 function hideAllScreens() {
@@ -1192,6 +1234,27 @@ const playerEnhancedCSS = `
         transform: translateY(0) scale(1);
     }
 }
+
+/* Game over notification styling */
+.game-over-notification {
+    background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%) !important;
+    color: white !important;
+    padding: 20px !important;
+    border-radius: 20px !important;
+    margin: 20px 0 !important;
+    border: 3px solid #ffffff !important;
+    box-shadow: 0 10px 30px rgba(76, 175, 80, 0.4) !important;
+    animation: gameOverPulse 2s ease-in-out infinite alternate !important;
+}
+
+@keyframes gameOverPulse {
+    0% {
+        box-shadow: 0 10px 30px rgba(76, 175, 80, 0.4);
+    }
+    100% {
+        box-shadow: 0 15px 40px rgba(76, 175, 80, 0.6);
+    }
+}
 </style>
 `;
 
@@ -1202,7 +1265,7 @@ if (!document.getElementById('player-enhanced-scoring')) {
     document.head.appendChild(styleElement.firstElementChild);
 }
 
-console.log('🎮 PLAYER: Enhanced player.js with proper scoring and timer fixes loaded successfully');
+console.log('🎮 PLAYER: Enhanced player.js with proper game end notification loaded successfully');
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', initializePlayer);
