@@ -689,14 +689,6 @@ function showScoreIncrease(points) {
     
     document.body.appendChild(scoreFloat);
     
-    // Play a celebration sound effect (optional)
-    try {
-        // You could add a sound here if you have audio files
-        console.log('🔊 PLAYER: Score increase sound would play here');
-    } catch (error) {
-        // Ignore audio errors
-    }
-    
     setTimeout(() => {
         if (scoreFloat.parentNode) {
             scoreFloat.parentNode.removeChild(scoreFloat);
@@ -777,6 +769,7 @@ function startTimerPlayer(duration) {
     }
     
     const update = () => {
+        // CRITICAL FIX: Display current timeLeft, then decrement
         const mins = Math.floor(timeLeft / 60);
         const secs = timeLeft % 60;
         display.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
@@ -795,12 +788,13 @@ function startTimerPlayer(duration) {
             display.style.animation = 'none';
         }
         
+        // Check if time is up AFTER displaying
         if (timeLeft <= 0) {
             clearInterval(currentTimerInterval);
             currentTimerInterval = null;
             onTimeout();
         } else {
-            timeLeft--;
+            timeLeft--; // Decrement AFTER displaying
         }
     };
     
@@ -827,6 +821,7 @@ async function selectAnswer(answerIndex) {
         answerManager.markAnswered();
     }
     
+    // CRITICAL FIX: Calculate proper response time
     const responseTime = answerManager ? answerManager.getResponseTime() : 0;
     
     // Clear timer
@@ -858,7 +853,7 @@ async function selectAnswer(answerIndex) {
             answerTime: Date.now()
         });
         
-        console.log('📤 PLAYER: Answer submitted successfully');
+        console.log('📤 PLAYER: Answer submitted successfully - Response time:', responseTime.toFixed(1), 'seconds');
         showFeedback(`Answer submitted! Response time: ${responseTime.toFixed(1)}s`);
         
         // Update timer to show "ANSWERED"

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Host Quiz - Kokoot! V11</title>
+    <title>Host Quiz - QuizMaster</title>
     <link rel="stylesheet" href="styles.css">
     <style>
         /* CRITICAL FIX: Ensure all buttons are clickable */
@@ -375,7 +375,7 @@
 <body>
     <div class="container">
         <header>
-            <h1>🎯 Kokoot! V11 - Host Dashboard</h1>
+            <h1>🎯 QuizMaster - Host Dashboard</h1>
             <button onclick="location.href='index.html'" class="btn btn-secondary">← Back to Home</button>
         </header>
         
@@ -963,7 +963,7 @@
             document.getElementById('total-questions').textContent = totalQuestions;
             document.getElementById('host-question').textContent = question.question;
             
-            // CRITICAL FIX: Create answers WITHOUT correct indicators initially
+            // CRITICAL FIX: Create answers WITHOUT any correct indicators initially
             const answersContainer = document.getElementById('host-answers');
             answersContainer.innerHTML = '';
             
@@ -971,15 +971,15 @@
                 const answerDiv = document.createElement('div');
                 answerDiv.className = 'host-answer-option';
                 answerDiv.setAttribute('data-index', index);
+                // CRITICAL: NO correct indicators shown initially
                 answerDiv.innerHTML = `
                     <span class="answer-letter">${String.fromCharCode(65 + index)}</span>
                     <span class="answer-text">${answer}</span>
-                    <span class="correct-indicator">✓ CORRECT</span>
                 `;
                 answersContainer.appendChild(answerDiv);
             });
             
-            // Start timer - FIXED to run independently
+            // Start timer
             startHostQuestionTimer(hostQuestionTimeLimit);
             
             // Hide control buttons initially
@@ -1004,6 +1004,7 @@
             timerEl.className = 'host-timer';
             
             const updateTimer = () => {
+                // CRITICAL FIX: Display current timeLeft, then decrement
                 const mins = Math.floor(timeLeft / 60);
                 const secs = timeLeft % 60;
                 timerEl.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
@@ -1017,12 +1018,13 @@
                     timerEl.className = 'host-timer';
                 }
                 
+                // Check if time is up AFTER displaying
                 if (timeLeft <= 0) {
                     clearInterval(hostQuestionTimer);
                     hostQuestionTimer = null;
                     onHostQuestionTimeUp();
                 } else {
-                    timeLeft--;
+                    timeLeft--; // Decrement AFTER displaying
                 }
             };
             
@@ -1048,7 +1050,7 @@
                 }).catch(console.error);
             }
             
-            // NOW reveal the correct answers
+            // NOW reveal the correct answers with animation
             const question = hostCurrentQuiz.questions[hostCurrentQuestionIndex];
             const answerDivs = document.querySelectorAll('.host-answer-option');
             
@@ -1056,6 +1058,11 @@
                 answerDiv.classList.add('time-ended');
                 if (index === question.correct) {
                     answerDiv.classList.add('is-correct');
+                    // Add the correct indicator NOW
+                    const correctIndicator = document.createElement('span');
+                    correctIndicator.className = 'correct-indicator';
+                    correctIndicator.textContent = '✓ CORRECT';
+                    answerDiv.appendChild(correctIndicator);
                 } else {
                     answerDiv.classList.add('is-incorrect');
                 }
@@ -1251,7 +1258,6 @@
             
             if (hostQuestionTimer) {
                 clearInterval(hostQuestionTimer);
-                hostQuestionTimer = null;
             }
             
             hideElement('active-game');
@@ -1288,7 +1294,6 @@
             
             if (hostQuestionTimer) {
                 clearInterval(hostQuestionTimer);
-                hostQuestionTimer = null;
             }
             
             try {
@@ -1391,7 +1396,7 @@
         window.resetGame = resetGame;
         window.createCustomQuiz = createCustomQuiz;
 
-        console.log('🎯 HOST: Kokoot! V11 host.js loaded successfully');
+        console.log('🎯 HOST: QuizMaster host.js loaded successfully');
 
         // Auto-initialize if DOM is already loaded
         if (document.readyState === 'loading') {
