@@ -1,4 +1,4 @@
-// Enhanced Host Management JavaScript - COMPLETE FIXED VERSION
+// Enhanced Host Management JavaScript - FIXED TIMER AND AUTO-CLEANUP VERSION
 let hostCurrentQuiz = null;
 let hostGameInstance = null;
 let hostPlayers = {};
@@ -7,6 +7,14 @@ let questionTimer = null;
 let gamePin = null;
 let isGameActive = false;
 let currentGameState = 'waiting';
+let gameStartTime = null;
+let gameAutoCleanupTimer = null;
+let questionTimeLeft = 0;
+let isQuestionTimeUp = false;
+
+// Game cleanup constants
+const GAME_TIMEOUT_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
+const QUESTION_RESULT_DELAY = 3000; // 3 seconds to show results after time up
 
 // Initialize host page
 function initializeHost() {
@@ -68,7 +76,7 @@ async function loadAvailableQuizzes() {
         return;
     }
     
-    quizList.innerHTML = '<div style="text-align: center; padding: 20px;">Loading quizzes...</div>';
+    quizList.innerHTML = '<div style="text-align: center; padding: 20px; color: white;">Loading quizzes...</div>';
     
     try {
         // Load user's quizzes
@@ -113,7 +121,7 @@ async function loadAvailableQuizzes() {
         if (!hasValidQuizzes) {
             quizList.innerHTML = `
                 <div class="menu-card">
-                    <div style="text-align: center; color: #666;">
+                    <div style="text-align: center; color: #fff;">
                         <h3>No Valid Quizzes Available</h3>
                         <p>Create your first quiz to get started!</p>
                         <button onclick="createCustomQuiz()" class="btn btn-tertiary">Create New Quiz</button>
@@ -300,7 +308,7 @@ async function selectQuiz(quizId, type) {
     }
 }
 
-// Create game session
+// Create game session with auto-cleanup
 async function createGameSession() {
     console.log('🎮 HOST: Creating game session...');
     showStatus('Creating game session...', 'info');
@@ -423,7 +431,7 @@ function onGameStateUpdate(gameState) {
     }
 }
 
-// Start quiz
+// Start quiz with auto-cleanup timer
 async function startQuiz() {
     console.log('🚀 HOST: Starting quiz...');
     
@@ -446,6 +454,11 @@ async function startQuiz() {
             console.log('✅ HOST: Game started successfully');
             currentQuestionIndex = 0;
             isGameActive = true;
+            
+            // Record game start time and set up auto-cleanup
+            gameStartTime = Date.now();
+            setupGameAutoCleanup();
+            
             showActiveGame();
             showStatus('Game started!', 'success');
         } else {
@@ -455,6 +468,35 @@ async function startQuiz() {
         console.error('💥 HOST: Error starting game:', error);
         showStatus('Failed to start game: ' + error.message, 'error');
     }
+}
+
+// FIXED: Setup auto-cleanup for games that run too long
+function setupGameAutoCleanup() {
+    console.log('⏰ HOST: Setting up auto-cleanup timer for', GAME_TIMEOUT_DURATION / 60000, 'minutes');
+    
+    // Clear any existing cleanup timer
+    if (gameAutoCleanupTimer) {
+        clearTimeout(gameAutoCleanupTimer);
+    }
+    
+    gameAutoCleanupTimer = setTimeout(() => {
+        console.log('🧹 HOST: Auto-cleaning up game after timeout');
+        showStatus('Game automatically ended after 1 hour', 'info');
+        
+        // Notify players that game is ending due to timeout
+        if (hostGameInstance && database) {
+            database.ref(`games/${gamePin}/gameState`).update({
+                status: 'finished',
+                endReason: 'timeout',
+                message: 'Game ended automatically after 1 hour'
+            }).catch(console.error);
+        }
+        
+        // End the quiz
+        setTimeout(() => {
+            endQuiz();
+        }, 3000);
+    }, GAME_TIMEOUT_DURATION);
 }
 
 function showActiveGame() {
@@ -467,6 +509,7 @@ function showActiveGame() {
     updateResponsesDisplay();
 }
 
+// FIXED: Display current question without showing correct answer immediately
 function displayCurrentQuestion() {
     if (!hostCurrentQuiz || !hostCurrentQuiz.questions || currentQuestionIndex >= hostCurrentQuiz.questions.length) {
         console.error('❌ HOST: Invalid question index or quiz data');
@@ -478,22 +521,24 @@ function displayCurrentQuestion() {
     
     console.log('📝 HOST: Displaying question:', currentQuestionIndex + 1, 'of', totalQuestions);
     
+    // Reset question state
+    isQuestionTimeUp = false;
+    
     // Update question info
     document.getElementById('current-q-num').textContent = currentQuestionIndex + 1;
     document.getElementById('total-questions').textContent = totalQuestions;
     document.getElementById('host-question').textContent = question.question;
     
-    // Update answers
+    // Update answers WITHOUT showing correct answer initially
     const answersContainer = document.getElementById('host-answers');
     answersContainer.innerHTML = '';
     
     question.answers.forEach((answer, index) => {
         const answerDiv = document.createElement('div');
-        answerDiv.className = `answer-option ${index === question.correct ? 'correct' : ''}`;
+        answerDiv.className = 'answer-option'; // Don't add 'correct' class initially
         answerDiv.innerHTML = `
             <span class="answer-letter">${String.fromCharCode(65 + index)}</span>
             <span class="answer-text">${answer}</span>
-            ${index === question.correct ? '<span class="correct-indicator">✓</span>' : ''}
         `;
         answersContainer.appendChild(answerDiv);
     });
@@ -501,27 +546,38 @@ function displayCurrentQuestion() {
     // Start timer
     startQuestionTimer(question.timeLimit || 20);
     
-    // Hide/show appropriate buttons
+    // Hide control buttons initially
     hideElement('next-btn');
     hideElement('results-btn');
 }
 
+// FIXED: Start question timer and handle time up correctly
 function startQuestionTimer(duration) {
     console.log('⏰ HOST: Starting timer for', duration, 'seconds');
     
     const timerEl = document.getElementById('host-timer');
-    let timeLeft = duration;
+    questionTimeLeft = duration;
+    isQuestionTimeUp = false;
     
     const updateTimer = () => {
-        const mins = Math.floor(timeLeft / 60);
-        const secs = timeLeft % 60;
+        const mins = Math.floor(questionTimeLeft / 60);
+        const secs = questionTimeLeft % 60;
         timerEl.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
         
-        if (timeLeft <= 0) {
+        // Visual urgency indicators
+        if (questionTimeLeft <= 5) {
+            timerEl.style.background = 'linear-gradient(135deg, #e21b3c 0%, #ff4757 100%)';
+            timerEl.style.animation = 'pulse 0.5s infinite';
+        } else if (questionTimeLeft <= 10) {
+            timerEl.style.background = 'linear-gradient(135deg, #ff6900 0%, #ff8c00 100%)';
+            timerEl.style.animation = 'none';
+        }
+        
+        if (questionTimeLeft <= 0) {
             clearInterval(questionTimer);
             onQuestionTimeUp();
         } else {
-            timeLeft--;
+            questionTimeLeft--;
         }
     };
     
@@ -529,15 +585,49 @@ function startQuestionTimer(duration) {
     questionTimer = setInterval(updateTimer, 1000);
 }
 
+// FIXED: Handle when question time is up - show correct answers and delay next question
 function onQuestionTimeUp() {
-    console.log('⏰ HOST: Question time is up');
-    showElement('next-btn');
+    console.log('⏰ HOST: Question time is up - showing correct answers');
+    isQuestionTimeUp = true;
     
-    if (currentQuestionIndex >= hostCurrentQuiz.questions.length - 1) {
-        showElement('results-btn');
+    // Now show the correct answers
+    const question = hostCurrentQuiz.questions[currentQuestionIndex];
+    const answersContainer = document.getElementById('host-answers');
+    const answerDivs = answersContainer.querySelectorAll('.answer-option');
+    
+    answerDivs.forEach((answerDiv, index) => {
+        if (index === question.correct) {
+            answerDiv.classList.add('show-correct');
+            // Add correct indicator if it doesn't exist
+            if (!answerDiv.querySelector('.correct-indicator')) {
+                const correctIndicator = document.createElement('span');
+                correctIndicator.className = 'correct-indicator';
+                correctIndicator.textContent = '✓ CORRECT';
+                answerDiv.appendChild(correctIndicator);
+            }
+        } else {
+            answerDiv.classList.add('show-incorrect');
+        }
+    });
+    
+    // Update game state to indicate question has ended
+    if (hostGameInstance && database) {
+        database.ref(`games/${gamePin}/gameState`).update({
+            status: 'question_ended',
+            questionEndTime: Date.now()
+        }).catch(console.error);
     }
     
-    showStatus('Time\'s up! Review responses and continue.', 'info');
+    // Show control buttons after a delay to let players see the correct answer
+    setTimeout(() => {
+        showElement('next-btn');
+        
+        if (currentQuestionIndex >= hostCurrentQuiz.questions.length - 1) {
+            showElement('results-btn');
+        }
+        
+        showStatus('Question ended! Review answers and continue.', 'info');
+    }, QUESTION_RESULT_DELAY);
 }
 
 function updateResponsesDisplay() {
@@ -556,10 +646,21 @@ function updateResponsesDisplay() {
         if (player.status === 'answered') {
             statusText = `Answered in ${(player.responseTime || 0).toFixed(1)}s`;
             statusClass = 'answered';
+            
+            // Show if answer was correct only after time is up
+            if (isQuestionTimeUp && typeof player.currentAnswer === 'number') {
+                const question = hostCurrentQuiz.questions[currentQuestionIndex];
+                const isCorrect = player.currentAnswer === question.correct;
+                statusClass += isCorrect ? ' correct' : ' incorrect';
+                statusText += isCorrect ? ' ✓' : ' ✗';
+            }
         }
         
         responseDiv.innerHTML = `
-            <span class="player-name">${player.name}</span>
+            <div class="player-response-header">
+                <span class="player-name">${player.name}</span>
+                <span class="player-total-score">${player.score || 0} pts</span>
+            </div>
             <span class="response-status ${statusClass}">${statusText}</span>
         `;
         
@@ -606,6 +707,12 @@ function showResults() {
         clearInterval(questionTimer);
     }
     
+    // Clear auto-cleanup timer
+    if (gameAutoCleanupTimer) {
+        clearTimeout(gameAutoCleanupTimer);
+        gameAutoCleanupTimer = null;
+    }
+    
     hideElement('active-game');
     showElement('results-screen');
     
@@ -634,12 +741,18 @@ function displayFinalLeaderboard() {
     });
 }
 
-// End quiz
+// End quiz with cleanup
 async function endQuiz() {
     console.log('🏁 HOST: Ending quiz');
     
     if (questionTimer) {
         clearInterval(questionTimer);
+    }
+    
+    // Clear auto-cleanup timer
+    if (gameAutoCleanupTimer) {
+        clearTimeout(gameAutoCleanupTimer);
+        gameAutoCleanupTimer = null;
     }
     
     try {
@@ -655,14 +768,19 @@ async function endQuiz() {
     }
 }
 
-// Reset game
+// Reset game with full cleanup
 function resetGame() {
     console.log('🔄 HOST: Resetting game');
     
-    // Cleanup
+    // Cleanup timers
     if (questionTimer) {
         clearInterval(questionTimer);
         questionTimer = null;
+    }
+    
+    if (gameAutoCleanupTimer) {
+        clearTimeout(gameAutoCleanupTimer);
+        gameAutoCleanupTimer = null;
     }
     
     if (hostGameInstance) {
@@ -677,6 +795,9 @@ function resetGame() {
     gamePin = null;
     isGameActive = false;
     currentGameState = 'waiting';
+    gameStartTime = null;
+    questionTimeLeft = 0;
+    isQuestionTimeUp = false;
     
     // Reset UI
     hideElement('game-lobby');
@@ -724,15 +845,68 @@ function generateGamePin() {
     return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-// Cleanup on page unload
+// Enhanced cleanup on page unload
 window.addEventListener('beforeunload', () => {
-    console.log('🧹 HOST: Page unloading - cleanup');
+    console.log('🧹 HOST: Page unloading - comprehensive cleanup');
+    
+    // Clear all timers
     if (questionTimer) clearInterval(questionTimer);
+    if (gameAutoCleanupTimer) clearTimeout(gameAutoCleanupTimer);
+    
+    // Cleanup game instance
     if (hostGameInstance) hostGameInstance.cleanup();
+    
+    // If game is active, mark it as abandoned in Firebase
+    if (isGameActive && gamePin && database) {
+        database.ref(`games/${gamePin}/gameState`).update({
+            status: 'abandoned',
+            abandonedAt: Date.now(),
+            message: 'Host disconnected'
+        }).catch(() => {
+            // Ignore errors during cleanup
+        });
+    }
+});
+
+// Handle page visibility changes for mobile devices
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        console.log('📱 HOST: Page hidden - saving state');
+        // Page is hidden (mobile background, tab switch, etc.)
+        if (isGameActive && gamePin && gameStartTime) {
+            const elapsedTime = Date.now() - gameStartTime;
+            localStorage.setItem('hostGameState', JSON.stringify({
+                gamePin,
+                currentQuestionIndex,
+                isGameActive,
+                elapsedTime,
+                timestamp: Date.now()
+            }));
+        }
+    } else {
+        console.log('📱 HOST: Page visible - checking state');
+        // Page is visible again
+        const savedState = localStorage.getItem('hostGameState');
+        if (savedState) {
+            try {
+                const state = JSON.parse(savedState);
+                const timeSinceHidden = Date.now() - state.timestamp;
+                
+                // If less than 5 minutes since hidden, might still be valid
+                if (timeSinceHidden < 5 * 60 * 1000) {
+                    console.log('📱 HOST: Checking if game is still active...');
+                    // You could add logic here to reconnect to the game
+                } else {
+                    localStorage.removeItem('hostGameState');
+                }
+            } catch (error) {
+                localStorage.removeItem('hostGameState');
+            }
+        }
+    }
 });
 
 // Global function exposure
-window.initializeHost = initializeHost;
 window.selectQuiz = selectQuiz;
 window.startQuiz = startQuiz;
 window.nextQuestion = nextQuestion;
@@ -741,7 +915,7 @@ window.endQuiz = endQuiz;
 window.resetGame = resetGame;
 window.createCustomQuiz = createCustomQuiz;
 
-console.log('🎯 HOST: host.js loaded successfully');
+console.log('🎯 HOST: Enhanced host.js with timer fix and auto-cleanup loaded successfully');
 
 // Auto-initialize if DOM is already loaded
 if (document.readyState === 'loading') {

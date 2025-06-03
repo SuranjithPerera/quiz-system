@@ -1,7 +1,7 @@
-// Player.js - Enhanced with State Recovery and Better Timer Management
+// Player.js - Enhanced with State Recovery and Better Timer Management - SYNTAX FIXED VERSION
 let playerGameInstance = null;
-let playerId = null;
-let playerName = null;
+let playerGamePlayerId = null; // Renamed to avoid conflicts
+let playerGamePlayerName = null;
 let currentGamePin = null;
 let playerScore = 0;
 let hasAnswered = false;
@@ -10,6 +10,7 @@ let currentTimerInterval = null;
 let currentQuestionData = null;
 let isRecoveringState = false;
 let isQuestionActive = true; // Track if question is still accepting answers
+let questionEndTime = null; // Track when question officially ends
 
 // State persistence keys for player
 const PLAYER_STATE_KEYS = {
@@ -58,9 +59,9 @@ class SimpleQuizGame {
         try {
             console.log('🎮 GAME: Joining game with name:', playerName);
             
-            const playerId = Date.now().toString() + '_' + Math.floor(Math.random() * 1000);
+            const newPlayerId = Date.now().toString() + '_' + Math.floor(Math.random() * 1000);
             const playerData = {
-                id: playerId,
+                id: newPlayerId,
                 name: playerName,
                 score: 0,
                 status: 'waiting',
@@ -68,11 +69,11 @@ class SimpleQuizGame {
             };
 
             console.log('📤 GAME: Writing player data to Firebase...');
-            const playerRef = database.ref(`games/${this.gamePin}/players/${playerId}`);
+            const playerRef = database.ref(`games/${this.gamePin}/players/${newPlayerId}`);
             await playerRef.set(playerData);
             
             console.log('✅ GAME: Player data written successfully');
-            return playerId;
+            return newPlayerId;
         } catch (error) {
             console.error('💥 GAME: Error joining game:', error);
             return null;
@@ -162,11 +163,11 @@ function initializePlayer() {
     } else {
         // Get player info from localStorage (new join)
         currentGamePin = localStorage.getItem('gamePin');
-        playerName = localStorage.getItem('playerName');
+        playerGamePlayerName = localStorage.getItem('playerName');
         
-        console.log('🎮 PLAYER: Retrieved - PIN:', currentGamePin, 'Name:', playerName);
+        console.log('🎮 PLAYER: Retrieved - PIN:', currentGamePin, 'Name:', playerGamePlayerName);
         
-        if (!currentGamePin || !playerName) {
+        if (!currentGamePin || !playerGamePlayerName) {
             console.error('❌ PLAYER: Missing game information');
             showStatus('Invalid game information. Please refresh and try again.', 'error');
             return;
@@ -177,7 +178,7 @@ function initializePlayer() {
         const playerNameEl = document.getElementById('player-name-display');
         
         if (gamePinEl) gamePinEl.textContent = currentGamePin;
-        if (playerNameEl) playerNameEl.textContent = playerName;
+        if (playerNameEl) playerNameEl.textContent = playerGamePlayerName;
         
         // Wait for Firebase to be ready
         waitForFirebaseReady(() => {
@@ -219,8 +220,8 @@ async function recoverPlayerState() {
     try {
         // Get saved state
         currentGamePin = localStorage.getItem(PLAYER_STATE_KEYS.GAME_PIN);
-        playerId = localStorage.getItem(PLAYER_STATE_KEYS.PLAYER_ID);
-        playerName = localStorage.getItem(PLAYER_STATE_KEYS.PLAYER_NAME);
+        playerGamePlayerId = localStorage.getItem(PLAYER_STATE_KEYS.PLAYER_ID);
+        playerGamePlayerName = localStorage.getItem(PLAYER_STATE_KEYS.PLAYER_NAME);
         const savedGameState = localStorage.getItem(PLAYER_STATE_KEYS.GAME_STATE);
         const savedScore = localStorage.getItem(PLAYER_STATE_KEYS.CURRENT_SCORE);
         
@@ -230,8 +231,8 @@ async function recoverPlayerState() {
         
         console.log('📝 PLAYER: Recovered state:', {
             gamePin: currentGamePin,
-            playerId,
-            playerName,
+            playerId: playerGamePlayerId,
+            playerName: playerGamePlayerName,
             gameState: savedGameState,
             score: playerScore
         });
@@ -241,7 +242,7 @@ async function recoverPlayerState() {
         const playerNameEl = document.getElementById('player-name-display');
         
         if (gamePinEl) gamePinEl.textContent = currentGamePin;
-        if (playerNameEl) playerNameEl.textContent = playerName;
+        if (playerNameEl) playerNameEl.textContent = playerGamePlayerName;
         
         // Check if game still exists
         const gameExists = await checkGameExists(currentGamePin);
@@ -257,10 +258,10 @@ async function recoverPlayerState() {
         
         // Rejoin the game
         playerGameInstance = new SimpleQuizGame(currentGamePin, false);
-        const rejoinedPlayerId = await playerGameInstance.rejoinGame(playerId, playerName);
+        const rejoinedPlayerId = await playerGameInstance.rejoinGame(playerGamePlayerId, playerGamePlayerName);
         
         if (rejoinedPlayerId) {
-            playerId = rejoinedPlayerId;
+            playerGamePlayerId = rejoinedPlayerId;
             
             // Get current game state to determine which screen to show
             const gameStateRef = database.ref(`games/${currentGamePin}/gameState`);
@@ -320,6 +321,10 @@ async function recoverToCorrectScreen(currentGameState, savedGameState) {
                 showWaitingLobby();
             }
             break;
+        case 'question_ended':
+            // Question time is up, wait for next question
+            showWaitingNext();
+            break;
         case 'finished':
             showFinalResults();
             break;
@@ -343,14 +348,14 @@ function savePlayerState(gameState = 'lobby') {
     try {
         localStorage.setItem(PLAYER_STATE_KEYS.IS_ACTIVE, 'true');
         localStorage.setItem(PLAYER_STATE_KEYS.GAME_PIN, currentGamePin);
-        localStorage.setItem(PLAYER_STATE_KEYS.PLAYER_ID, playerId);
-        localStorage.setItem(PLAYER_STATE_KEYS.PLAYER_NAME, playerName);
+        localStorage.setItem(PLAYER_STATE_KEYS.PLAYER_ID, playerGamePlayerId);
+        localStorage.setItem(PLAYER_STATE_KEYS.PLAYER_NAME, playerGamePlayerName);
         localStorage.setItem(PLAYER_STATE_KEYS.GAME_STATE, gameState);
         localStorage.setItem(PLAYER_STATE_KEYS.CURRENT_SCORE, playerScore.toString());
         
         console.log('💾 PLAYER: State saved:', {
             gamePin: currentGamePin,
-            playerId,
+            playerId: playerGamePlayerId,
             gameState,
             score: playerScore
         });
@@ -371,11 +376,12 @@ function clearPlayerState() {
     
     // Reset all global variables
     currentGamePin = null;
-    playerId = null;
-    playerName = null;
+    playerGamePlayerId = null;
+    playerGamePlayerName = null;
     playerScore = 0;
     hasAnswered = false;
     isQuestionActive = true;
+    questionEndTime = null;
     
     console.log('✅ PLAYER: All state cleared');
 }
@@ -435,13 +441,13 @@ async function joinGame() {
         
         // Step 2: Create game instance and join
         playerGameInstance = new SimpleQuizGame(currentGamePin, false);
-        playerId = await playerGameInstance.joinGame(playerName);
+        playerGamePlayerId = await playerGameInstance.joinGame(playerGamePlayerName);
         
-        if (!playerId) {
+        if (!playerGamePlayerId) {
             throw new Error('Failed to get player ID from join operation');
         }
         
-        console.log('🎉 PLAYER: Successfully joined with ID:', playerId);
+        console.log('🎉 PLAYER: Successfully joined with ID:', playerGamePlayerId);
         
         // Step 3: Update UI and set up listeners
         hideElement('joining-game');
@@ -548,6 +554,7 @@ function checkGameExistsDetailed() {
     });
 }
 
+// ENHANCED: Handle game state changes with new timer behavior
 function onGameStateChange(gameState) {
     console.log('🎮 PLAYER: Game state changed:', gameState?.status);
     
@@ -566,6 +573,7 @@ function onGameStateChange(gameState) {
             console.log('🎯 PLAYER: Game playing - showing question');
             hasAnswered = false;
             isQuestionActive = true; // Reset question active state
+            questionEndTime = null; // Reset question end time
             if (answerManager) {
                 answerManager.startQuestion(gameState.questionStartTime);
             }
@@ -573,15 +581,56 @@ function onGameStateChange(gameState) {
             savePlayerState('playing');
             break;
         case 'question_ended':
-            console.log('⏰ PLAYER: Question ended - showing waiting screen');
+            console.log('⏰ PLAYER: Question ended - disabling answers and showing waiting screen');
             isQuestionActive = false; // Question no longer accepts answers
-            showWaitingNext();
-            savePlayerState('waiting-next');
+            questionEndTime = gameState.questionEndTime || Date.now();
+            
+            // Clear timer if still running
+            if (currentTimerInterval) {
+                clearInterval(currentTimerInterval);
+                currentTimerInterval = null;
+            }
+            
+            // Update timer display to show "TIME'S UP"
+            const timerEl = document.getElementById('question-timer');
+            if (timerEl) {
+                timerEl.textContent = "TIME'S UP";
+                timerEl.style.background = 'linear-gradient(135deg, #e21b3c 0%, #ff4757 100%)';
+                timerEl.style.animation = 'pulse 1s infinite';
+            }
+            
+            // Disable answer buttons if still enabled
+            const buttons = document.querySelectorAll('.answer-btn');
+            buttons.forEach(btn => {
+                btn.disabled = true;
+                btn.style.opacity = '0.6';
+            });
+            
+            // Show feedback about time being up
+            if (!hasAnswered) {
+                showFeedback('Time\'s up! No answer submitted.');
+            } else {
+                showFeedback('Time\'s up! Answer submitted.');
+            }
+            
+            // Auto-transition to waiting screen after a delay
+            setTimeout(() => {
+                showWaitingNext();
+            }, 2000);
+            
+            savePlayerState('question-ended');
             break;
         case 'finished':
             console.log('🏁 PLAYER: Game finished - showing results');
             clearPlayerState(); // Clear state immediately when game finishes
             showFinalResults();
+            break;
+        case 'abandoned':
+            console.log('👋 PLAYER: Game abandoned by host');
+            showStatus('Game ended - host disconnected', 'info');
+            setTimeout(() => {
+                window.location.href = 'index.html';
+            }, 3000);
             break;
         default:
             console.log('❓ PLAYER: Unknown game status:', gameState.status);
@@ -597,9 +646,9 @@ function onPlayersUpdate(players) {
     if (countEl) countEl.textContent = playerCount;
     
     // Update player score
-    if (players[playerId]) {
+    if (players[playerGamePlayerId]) {
         const oldScore = playerScore;
-        playerScore = players[playerId].score || 0;
+        playerScore = players[playerGamePlayerId].score || 0;
         
         // Log score changes
         if (oldScore !== playerScore) {
@@ -660,6 +709,7 @@ function displayQuestion(question, questionNumber) {
     grid.innerHTML = '';
     hasAnswered = false;
     isQuestionActive = true; // Question is active when first displayed
+    questionEndTime = null; // Reset question end time
     
     question.answers.forEach((answer, index) => {
         const btn = document.createElement('button');
@@ -674,6 +724,7 @@ function displayQuestion(question, questionNumber) {
     hideElement('answer-feedback');
 }
 
+// ENHANCED: Start timer with better visual states
 function startTimer(duration) {
     const display = document.getElementById('question-timer');
     let timeLeft = duration;
@@ -683,12 +734,17 @@ function startTimer(duration) {
         const secs = timeLeft % 60;
         display.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
         
-        // Visual urgency indicators
+        // Enhanced visual urgency indicators
         if (timeLeft <= 5) {
             display.style.background = 'linear-gradient(135deg, #e21b3c 0%, #ff4757 100%)';
-            display.style.animation = 'pulse 0.5s infinite';
+            display.classList.add('urgent');
         } else if (timeLeft <= 10) {
             display.style.background = 'linear-gradient(135deg, #ff6900 0%, #ff8c00 100%)';
+            display.classList.add('warning');
+            display.classList.remove('urgent');
+        } else {
+            display.style.background = 'linear-gradient(135deg, #26d0ce 0%, #1dd1a1 100%)';
+            display.classList.remove('urgent', 'warning');
             display.style.animation = 'none';
         }
         
@@ -704,12 +760,14 @@ function startTimer(duration) {
     currentTimerInterval = setInterval(update, 1000);
 }
 
+// ENHANCED: Handle answer selection with better validation
 async function selectAnswer(answerIndex) {
-    // Check if question is still active and player hasn't answered
-    if (hasAnswered || !isQuestionActive) {
-        console.log('⚠️ PLAYER: Cannot answer - already answered or question inactive:', {
+    // Enhanced validation - check if question is still active and player hasn't answered
+    if (hasAnswered || !isQuestionActive || questionEndTime) {
+        console.log('⚠️ PLAYER: Cannot answer - conditions not met:', {
             hasAnswered,
-            isQuestionActive
+            isQuestionActive,
+            questionEnded: !!questionEndTime
         });
         return;
     }
@@ -727,19 +785,22 @@ async function selectAnswer(answerIndex) {
         clearInterval(currentTimerInterval);
     }
     
-    // Update UI
+    // Update UI - show selected answer
     const buttons = document.querySelectorAll('.answer-btn');
     buttons.forEach((btn, index) => {
         btn.disabled = true;
         if (index === answerIndex) {
             btn.style.transform = 'scale(1.05)';
             btn.style.border = '3px solid #fff';
+            btn.style.boxShadow = '0 0 20px rgba(255, 255, 255, 0.5)';
+        } else {
+            btn.style.opacity = '0.6';
         }
     });
     
     // Submit answer
     try {
-        const playerRef = database.ref(`games/${currentGamePin}/players/${playerId}`);
+        const playerRef = database.ref(`games/${currentGamePin}/players/${playerGamePlayerId}`);
         await playerRef.update({
             currentAnswer: answerIndex,
             responseTime: responseTime,
@@ -748,17 +809,22 @@ async function selectAnswer(answerIndex) {
         });
         
         console.log('📤 PLAYER: Answer submitted successfully');
-        showFeedback(`Answer submitted! (${responseTime.toFixed(1)}s)`);
+        showFeedback(`Answer submitted! Response time: ${responseTime.toFixed(1)}s`);
         
-        // Don't automatically transition to waiting screen
-        // Let the host control when to show results
+        // Update timer to show "ANSWERED"
+        const timerEl = document.getElementById('question-timer');
+        if (timerEl) {
+            timerEl.textContent = "ANSWERED";
+            timerEl.style.background = 'linear-gradient(135deg, #4caf50 0%, #66bb6a 100%)';
+            timerEl.style.animation = 'none';
+        }
         
     } catch (error) {
         console.error('💥 PLAYER: Submit failed:', error);
         showStatus('Failed to submit answer', 'error');
         
         // Reset answer state so they can try again if question is still active
-        if (isQuestionActive) {
+        if (isQuestionActive && !questionEndTime) {
             hasAnswered = false;
             if (answerManager) {
                 answerManager = new SimpleAnswerManager();
@@ -768,26 +834,43 @@ async function selectAnswer(answerIndex) {
                 btn.disabled = false;
                 btn.style.transform = '';
                 btn.style.border = '';
+                btn.style.boxShadow = '';
+                btn.style.opacity = '';
             });
+            
+            // Restart timer if needed
+            const timeLeftEstimate = Math.max(5, 20 - responseTime); // Estimate remaining time
+            startTimer(timeLeftEstimate);
         }
     }
 }
 
+// ENHANCED: Handle timeout with better state management
 function onTimeout() {
-    console.log('⏰ PLAYER: Question timeout');
+    console.log('⏰ PLAYER: Question timeout on client side');
     isQuestionActive = false; // Question is no longer active
+    questionEndTime = Date.now(); // Mark when question ended locally
     
     if (!hasAnswered) {
         hasAnswered = true;
         
-        // Disable all buttons
+        // Disable all buttons with better visual feedback
         const buttons = document.querySelectorAll('.answer-btn');
         buttons.forEach(btn => {
             btn.disabled = true;
             btn.style.opacity = '0.6';
+            btn.style.cursor = 'not-allowed';
         });
         
-        showFeedback('Time\'s up!');
+        showFeedback('Time\'s up! No answer submitted.');
+        
+        // Update timer display
+        const timerEl = document.getElementById('question-timer');
+        if (timerEl) {
+            timerEl.textContent = "TIME'S UP";
+            timerEl.style.background = 'linear-gradient(135deg, #e21b3c 0%, #ff4757 100%)';
+            timerEl.style.animation = 'pulse 1s infinite';
+        }
     }
 }
 
@@ -820,7 +903,7 @@ function updateLeaderboards(players) {
     updateLeaderboard('current-leaderboard', sorted.slice(0, 5));
     updateLeaderboard('final-leaderboard-player', sorted);
     
-    const rank = sorted.findIndex(p => p.id === playerId) + 1;
+    const rank = sorted.findIndex(p => p.id === playerGamePlayerId) + 1;
     const rankEl = document.getElementById('player-final-rank');
     if (rankEl) rankEl.textContent = `#${rank} of ${sorted.length}`;
 }
@@ -835,13 +918,13 @@ function updateLeaderboard(elementId, players) {
         const div = document.createElement('div');
         div.className = `player-score ${index < 3 ? `rank-${index + 1}` : ''}`;
         
-        if (player.id === playerId) {
+        if (player.id === playerGamePlayerId) {
             div.style.backgroundColor = '#e3f2fd';
             div.style.fontWeight = 'bold';
         }
         
         div.innerHTML = `
-            <span>#${index + 1} ${player.name} ${player.id === playerId ? '(You)' : ''}</span>
+            <span>#${index + 1} ${player.name} ${player.id === playerGamePlayerId ? '(You)' : ''}</span>
             <span>${player.score || 0} points</span>
         `;
         board.appendChild(div);
@@ -895,7 +978,7 @@ function showStatus(message, type) {
     }
 }
 
-// Cleanup
+// Enhanced cleanup
 window.addEventListener('beforeunload', () => {
     console.log('🧹 PLAYER: Page unloading - cleanup');
     if (currentTimerInterval) clearInterval(currentTimerInterval);
@@ -908,11 +991,12 @@ window.addEventListener('beforeunload', () => {
     }
 });
 
-// Handle page visibility changes
+// Handle page visibility changes for better mobile experience
 document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && playerId && currentGamePin) {
+    if (!document.hidden && playerGamePlayerId && currentGamePin) {
         // Page became visible again, save current state
         savePlayerState();
+        console.log('📱 PLAYER: Page visible - state saved');
     }
 });
 
