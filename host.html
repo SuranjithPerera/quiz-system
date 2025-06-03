@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Host Quiz - QuizMaster</title>
+    <title>Host Quiz - Kokoot! V11</title>
     <link rel="stylesheet" href="styles.css">
     <style>
         /* CRITICAL FIX: Ensure all buttons are clickable */
@@ -19,19 +19,6 @@
             pointer-events: none !important;
             opacity: 0.6 !important;
             cursor: not-allowed !important;
-        }
-
-        /* CRITICAL FIX: Ensure quiz cards and their content are clickable */
-        .menu-card {
-            pointer-events: auto !important;
-            position: relative !important;
-            z-index: 1 !important;
-        }
-
-        .menu-card button {
-            pointer-events: auto !important;
-            z-index: 20 !important;
-            position: relative !important;
         }
 
         /* Enhanced lobby layout for centered Game PIN - FULLY RESPONSIVE */
@@ -137,66 +124,6 @@
             box-sizing: border-box;
         }
         
-        .players-sidebar h3 {
-            color: #46178f;
-            font-weight: 900;
-            margin-bottom: clamp(10px, 2vw, 20px);
-            font-size: clamp(1.1rem, 3vw, 1.4rem);
-            text-align: center;
-            text-transform: uppercase;
-            letter-spacing: clamp(0.5px, 0.2vw, 1px);
-            border-bottom: clamp(2px, 0.5vw, 3px) solid #ff6900;
-            padding-bottom: clamp(8px, 1.5vw, 12px);
-            word-break: break-word;
-        }
-        
-        .player-count-badge {
-            background: linear-gradient(135deg, #e21b3c 0%, #ff4757 100%);
-            color: white;
-            padding: clamp(4px, 1vw, 8px) clamp(8px, 2vw, 16px);
-            border-radius: clamp(10px, 2vw, 20px);
-            font-weight: 800;
-            font-size: clamp(0.9rem, 2vw, 1.1rem);
-            margin-left: clamp(5px, 1vw, 10px);
-            border: 2px solid rgba(255, 255, 255, 0.4);
-            box-shadow: 0 4px 15px rgba(226, 27, 60, 0.3);
-            display: inline-block;
-        }
-        
-        .players-container {
-            display: flex;
-            flex-direction: column;
-            gap: clamp(6px, 1.5vw, 12px);
-            max-height: 200px;
-            overflow-y: auto;
-        }
-        
-        .player-item-lobby {
-            padding: clamp(8px, 2vw, 15px) clamp(10px, 3vw, 20px);
-            background: linear-gradient(135deg, #26d0ce 0%, #00a8a6 100%);
-            border-radius: clamp(8px, 2vw, 15px);
-            color: white;
-            font-weight: 700;
-            text-align: center;
-            border: 3px solid rgba(255, 255, 255, 0.4);
-            box-shadow: 0 6px 20px rgba(38, 208, 206, 0.3);
-            transition: all 0.3s ease;
-            font-size: clamp(0.9rem, 2.5vw, 1.1rem);
-            word-break: break-word;
-            hyphens: auto;
-            line-height: 1.3;
-        }
-        
-        .player-item-lobby:hover {
-            transform: translateY(-2px) scale(1.02);
-            box-shadow: 0 8px 25px rgba(38, 208, 206, 0.4);
-        }
-        
-        .start-btn-container {
-            margin-top: clamp(15px, 3vw, 30px);
-            width: 100%;
-        }
-        
         .start-btn {
             background: linear-gradient(135deg, #e21b3c 0%, #ff4757 100%);
             color: white;
@@ -221,19 +148,6 @@
             word-break: break-word;
             hyphens: auto;
             line-height: 1.2;
-        }
-        
-        .start-btn:hover:not(:disabled) {
-            background: linear-gradient(135deg, #ff4757 0%, #ff6b6b 100%);
-            transform: translateY(-2px);
-            box-shadow: 0 12px 30px rgba(226, 27, 60, 0.5);
-        }
-        
-        .start-btn:disabled {
-            background: linear-gradient(135deg, #999 0%, #666 100%);
-            cursor: not-allowed;
-            opacity: 0.6;
-            transform: none;
         }
 
         /* QUIZ SELECTION SCREEN - PROPER SCROLLABLE LAYOUT */
@@ -261,16 +175,6 @@
             height: 100%;
             display: flex;
             flex-direction: column;
-        }
-
-        #quiz-selection .question-card h2 {
-            font-size: clamp(1.8rem, 4vw, 2.5rem);
-            margin-bottom: 20px;
-            text-align: center;
-            color: #ffffff;
-            font-weight: 900;
-            text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.3);
-            flex-shrink: 0;
         }
 
         /* QUIZ LIST CONTAINER - CRITICAL FIX FOR SCROLLING */
@@ -313,292 +217,141 @@
             justify-content: space-between;
         }
 
-        #quiz-list .menu-card:hover {
-            transform: translateY(-5px) scale(1.02);
-            box-shadow: 0 20px 40px rgba(70, 23, 143, 0.3);
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.15) 100%);
-            border-color: rgba(255, 255, 255, 0.4);
+        /* Host specific answer display - CRITICAL FIX */
+        .host-answer-option {
+            padding: 20px 25px;
+            margin: 15px 0;
+            background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+            border-radius: 20px;
+            border: 3px solid #e9ecef;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            transition: all 0.5s ease;
+            color: #333;
+            position: relative;
+            overflow: hidden;
+            min-height: 70px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
         }
 
-        #quiz-list .menu-card h3 {
-            font-size: 1.4rem;
-            margin-bottom: 15px;
-            color: #ffffff;
-            font-weight: 800;
-            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.3);
-            flex-shrink: 0;
+        /* CRITICAL: Only show correct answers AFTER time ends */
+        .host-answer-option .correct-indicator {
+            display: none !important;
         }
 
-        #quiz-list .menu-card p {
-            margin-bottom: 10px;
-            opacity: 0.95;
-            line-height: 1.5;
-            font-size: 1rem;
-            color: #f5f5f5;
-            font-weight: 500;
-            flex-shrink: 0;
-        }
-
-        #quiz-list .menu-card button {
-            background: linear-gradient(135deg, #e21b3c 0%, #ff6900 100%);
-            color: white;
-            border: none;
-            padding: 12px 25px;
-            border-radius: 25px;
-            font-size: 1rem;
-            font-weight: 800;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            box-shadow: 0 6px 20px rgba(226, 27, 60, 0.3);
-            pointer-events: auto !important;
-            z-index: 20 !important;
-            position: relative !important;
-            margin-top: auto;
-            width: 100%;
-            flex-shrink: 0;
-        }
-
-        #quiz-list .menu-card button:hover {
-            background: linear-gradient(135deg, #ff6900 0%, #e21b3c 100%);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(226, 27, 60, 0.4);
-        }
-
-        /* CREATE NEW QUIZ BUTTON - FIXED POSITION AND VISIBILITY */
-        #quiz-selection .btn-tertiary {
-            background: linear-gradient(135deg, #9c4dff 0%, #7b2cbf 100%) !important;
+        .host-answer-option.time-ended.is-correct {
+            background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%) !important;
             color: white !important;
-            border: none !important;
-            padding: 15px 30px !important;
-            border-radius: 25px !important;
-            font-size: 1.1rem !important;
-            font-weight: 800 !important;
-            cursor: pointer !important;
-            transition: all 0.3s ease !important;
-            text-transform: uppercase !important;
-            letter-spacing: 0.5px !important;
-            box-shadow: 0 8px 25px rgba(156, 77, 255, 0.3) !important;
-            margin: 20px auto 0 auto !important;
-            display: block !important;
-            max-width: 250px !important;
-            flex-shrink: 0 !important;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3) !important;
-            border: 3px solid rgba(255, 255, 255, 0.2) !important;
-            min-height: 50px !important;
-            line-height: 1.2 !important;
-            z-index: 100 !important;
-            position: relative !important;
+            border-color: #ffffff !important;
+            box-shadow: 0 12px 30px rgba(76, 175, 80, 0.4) !important;
+            transform: scale(1.05) !important;
+            animation: correctReveal 1s ease-out !important;
         }
 
-        #quiz-selection .btn-tertiary:hover {
-            background: linear-gradient(135deg, #7b2cbf 0%, #9c4dff 100%) !important;
-            transform: translateY(-3px) !important;
-            box-shadow: 0 12px 35px rgba(156, 77, 255, 0.4) !important;
-            border-color: rgba(255, 255, 255, 0.4) !important;
+        .host-answer-option.time-ended.is-correct .correct-indicator {
+            display: inline-block !important;
+            background: linear-gradient(135deg, #ffffff 0%, #f0f0f0 100%);
+            color: #4caf50;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-weight: 900;
+            font-size: 1.1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 6px 20px rgba(255, 255, 255, 0.6);
+            animation: bounceIn 0.8s ease-out;
+            flex-shrink: 0;
+            border: 3px solid rgba(76, 175, 80, 0.8);
         }
 
-        /* Mobile responsive - Enhanced for all screen sizes */
-        @media (max-width: 768px) {
-            .container {
-                padding: 10px 5px;
+        .host-answer-option.time-ended.is-incorrect {
+            background: linear-gradient(135deg, #f44336 0%, #ef5350 100%) !important;
+            color: white !important;
+            border-color: #ffffff !important;
+            box-shadow: 0 8px 20px rgba(244, 67, 54, 0.3) !important;
+            opacity: 0.8 !important;
+        }
+
+        @keyframes correctReveal {
+            0% { 
+                transform: scale(1);
+                box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
             }
-            
-            .lobby-container {
-                grid-template-columns: 1fr;
-                gap: 15px;
-                padding: 5px;
-                margin-top: 5px;
-                min-height: calc(100vh - 100px);
+            50% { 
+                transform: scale(1.1);
+                box-shadow: 0 15px 35px rgba(76, 175, 80, 0.5);
             }
-            
-            .players-sidebar {
-                order: 1;
-                max-height: 250px;
-                position: static;
-                margin-bottom: 15px;
-            }
-            
-            .main-lobby-content {
-                order: 2;
-                padding: 15px;
-            }
-            
-            .game-pin-display {
-                padding: 15px 10px;
-                margin-bottom: 15px;
-            }
-            
-            .game-pin-number {
-                font-size: clamp(1.8rem, 12vw, 3rem);
-                letter-spacing: clamp(1px, 2vw, 4px);
-                padding: 10px 15px;
-            }
-            
-            .start-game-section {
-                padding: 15px;
-            }
-            
-            .start-btn {
-                padding: 15px 20px;
-                font-size: clamp(0.9rem, 4vw, 1.1rem);
-                min-height: 60px;
+            100% { 
+                transform: scale(1.05);
+                box-shadow: 0 12px 30px rgba(76, 175, 80, 0.4);
             }
         }
-        
-        @media (max-width: 480px) {
-            .container {
-                padding: 5px;
+
+        @keyframes bounceIn {
+            0% { 
+                transform: scale(0.3); 
+                opacity: 0; 
             }
-            
-            .lobby-container {
-                gap: 10px;
-                padding: 0;
-                margin-top: 0;
+            50% { 
+                transform: scale(1.1); 
+                opacity: 1; 
             }
-            
-            .main-lobby-content {
-                padding: 10px;
-                border-radius: 15px;
-            }
-            
-            .game-pin-display {
-                padding: 10px 8px;
-                border-radius: 12px;
-                margin-bottom: 10px;
-            }
-            
-            .game-pin-display h2 {
-                margin-bottom: 10px;
-            }
-            
-            .game-pin-number {
-                font-size: clamp(1.5rem, 15vw, 2.5rem);
-                letter-spacing: clamp(0.5px, 1.5vw, 3px);
-                padding: 8px 12px;
-                margin-bottom: 10px;
-            }
-            
-            .game-pin-instructions {
-                margin-bottom: 15px;
-            }
-            
-            .start-game-section {
-                padding: 10px;
-            }
-            
-            .start-btn {
-                padding: 12px 15px;
-                font-size: clamp(0.8rem, 5vw, 1rem);
-                min-height: 50px;
-            }
-            
-            .players-sidebar {
-                padding: 10px;
-                max-height: 200px;
-            }
-            
-            .players-sidebar h3 {
-                font-size: clamp(1rem, 4vw, 1.2rem);
-                margin-bottom: 8px;
-                padding-bottom: 6px;
-            }
-            
-            .player-item-lobby {
-                padding: 6px 10px;
-                font-size: clamp(0.8rem, 3.5vw, 1rem);
+            100% { 
+                transform: scale(1); 
+                opacity: 1; 
             }
         }
-        
-        @media (min-width: 769px) and (max-width: 1024px) {
-            .lobby-container {
-                grid-template-columns: 1fr;
-                gap: 25px;
-                padding: 15px;
+
+        /* Enhanced timer display for host */
+        .host-timer {
+            background: linear-gradient(135deg, #26d0ce 0%, #1dd1a1 100%);
+            color: white;
+            padding: 18px 30px;
+            border-radius: 35px;
+            font-weight: 900;
+            font-size: clamp(1.3rem, 3vw, 1.8rem);
+            box-shadow: 0 10px 30px rgba(38, 208, 206, 0.5);
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            border: 4px solid rgba(255, 255, 255, 0.4);
+            min-width: 120px;
+            text-align: center;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 2px;
+        }
+
+        .host-timer.warning {
+            background: linear-gradient(135deg, #ff6900 0%, #ff8c00 100%) !important;
+            animation: warningPulse 1s infinite !important;
+        }
+
+        .host-timer.urgent {
+            background: linear-gradient(135deg, #e21b3c 0%, #ff4757 100%) !important;
+            animation: urgentPulse 0.5s infinite !important;
+        }
+
+        .host-timer.time-up {
+            background: linear-gradient(135deg, #666 0%, #999 100%) !important;
+            animation: none !important;
+        }
+
+        @keyframes warningPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+
+        @keyframes urgentPulse {
+            0%, 100% { 
+                opacity: 1; 
+                transform: scale(1);
             }
-            
-            .players-sidebar {
-                order: 1;
-                max-height: 300px;
-            }
-            
-            .main-lobby-content {
-                order: 2;
-                padding: 30px;
+            50% { 
+                opacity: 0.8; 
+                transform: scale(1.05);
             }
         }
-        
-        @media (min-width: 1025px) {
-            .lobby-container {
-                grid-template-columns: 2fr 1fr;
-                gap: 30px;
-                padding: 20px;
-            }
-            
-            .players-sidebar {
-                order: 2;
-                position: sticky;
-                top: 30px;
-                max-height: calc(100vh - 150px);
-            }
-            
-            .main-lobby-content {
-                order: 1;
-                padding: 40px;
-            }
-        }
-        
-        /* Landscape mobile orientation */
-        @media (max-height: 500px) and (orientation: landscape) {
-            .lobby-container {
-                grid-template-columns: 1fr 1fr;
-                gap: 15px;
-                min-height: calc(100vh - 80px);
-            }
-            
-            .players-sidebar {
-                order: 2;
-                max-height: calc(100vh - 120px);
-            }
-            
-            .main-lobby-content {
-                order: 1;
-                padding: 15px;
-            }
-            
-            .game-pin-display {
-                padding: 10px;
-                margin-bottom: 10px;
-            }
-            
-            .game-pin-number {
-                font-size: clamp(1.2rem, 8vw, 2rem);
-                padding: 5px 10px;
-                margin-bottom: 8px;
-            }
-            
-            .start-game-section {
-                padding: 10px;
-            }
-        }
-        
-        /* Extra large screens */
-        @media (min-width: 1400px) {
-            .lobby-container {
-                max-width: 1200px;
-                margin: 20px auto 0 auto;
-            }
-            
-            .game-pin-display {
-                max-width: 700px;
-            }
-            
-            .start-game-section {
-                max-width: 600px;
-            }
-        }
-        
+
         @keyframes pinGlow {
             0% { 
                 box-shadow: 0 20px 60px rgba(70, 23, 143, 0.4);
@@ -607,48 +360,14 @@
                 box-shadow: 0 25px 70px rgba(70, 23, 143, 0.6), 0 0 40px rgba(156, 77, 255, 0.3);
             }
         }
-        
-        /* Empty players state - Responsive */
-        .no-players-message {
-            text-align: center;
-            padding: clamp(15px, 4vw, 30px) clamp(10px, 3vw, 20px);
-            color: #46178f;
-            font-size: clamp(0.9rem, 2.5vw, 1.1rem);
-            opacity: 0.8;
-            border: 2px dashed #9c4dff;
-            border-radius: clamp(8px, 2vw, 15px);
-            background: rgba(156, 77, 255, 0.05);
-            word-break: break-word;
-            hyphens: auto;
-            line-height: 1.4;
-        }
-        
-        .no-players-message > div:first-child {
-            font-size: clamp(1.5rem, 4vw, 2rem);
-            margin-bottom: clamp(5px, 1vw, 10px);
-        }
-        
-        .no-players-message > div:last-child {
-            font-size: clamp(0.8rem, 2vw, 0.9rem);
-            margin-top: clamp(4px, 1vw, 8px);
-            opacity: 0.7;
-        }
-        
-        .waiting-animation {
-            display: inline-block;
-            animation: bounce 1.5s ease-in-out infinite;
-            font-size: clamp(1rem, 2.5vw, 1.2rem);
-        }
-        
-        @keyframes bounce {
-            0%, 20%, 50%, 80%, 100% {
-                transform: translateY(0);
-            }
-            40% {
-                transform: translateY(-10px);
-            }
-            60% {
-                transform: translateY(-5px);
+
+        /* Mobile responsive */
+        @media (max-width: 768px) {
+            .lobby-container {
+                grid-template-columns: 1fr;
+                gap: 15px;
+                padding: 5px;
+                margin-top: 5px;
             }
         }
     </style>
@@ -656,7 +375,7 @@
 <body>
     <div class="container">
         <header>
-            <h1>🎯 Quiz Host Dashboard</h1>
+            <h1>🎯 Kokoot! V11 - Host Dashboard</h1>
             <button onclick="location.href='index.html'" class="btn btn-secondary">← Back to Home</button>
         </header>
         
@@ -720,7 +439,7 @@
                     <div class="question-card">
                         <div class="question-header">
                             <div class="question-number">Question <span id="current-q-num">1</span> of <span id="total-questions">0</span></div>
-                            <div class="timer" id="host-timer">00:20</div>
+                            <div class="host-timer" id="host-timer">00:20</div>
                         </div>
                         <div class="question-text" id="host-question"></div>
                         <div class="answers-grid" id="host-answers"></div>
@@ -764,7 +483,7 @@
     <script src="script.js"></script>
     
     <script>
-        // Global variables
+        // Global variables for host
         let hostCurrentQuiz = null;
         let hostGameInstance = null;
         let hostPlayers = {};
@@ -773,6 +492,9 @@
         let hostGamePin = null;
         let isHostGameActive = false;
         let hostCurrentGameState = 'waiting';
+        let hostQuestionStartTime = null;
+        let hostQuestionTimeLimit = 20;
+        let hostIsQuestionTimeUp = false;
 
         // Initialize host page
         function initializeHost() {
@@ -986,7 +708,7 @@
             // Validate and repair questions
             if (!quiz.questions || !Array.isArray(quiz.questions)) {
                 console.warn('❌ HOST: No valid questions array in quiz:', repairedQuiz.title);
-                return null; // Don't add quizzes without questions
+                return null;
             }
             
             // Validate each question
@@ -1219,6 +941,7 @@
             updateResponsesDisplay();
         }
 
+        // CRITICAL FIX: Display question WITHOUT showing correct answer initially
         function displayCurrentQuestion() {
             if (!hostCurrentQuiz || !hostCurrentQuiz.questions || hostCurrentQuestionIndex >= hostCurrentQuiz.questions.length) {
                 console.error('❌ HOST: Invalid question index or quiz data');
@@ -1230,66 +953,204 @@
             
             console.log('📝 HOST: Displaying question:', hostCurrentQuestionIndex + 1, 'of', totalQuestions);
             
+            // Reset question state
+            hostIsQuestionTimeUp = false;
+            hostQuestionStartTime = Date.now();
+            hostQuestionTimeLimit = question.timeLimit || 20;
+            
             // Update question info
             document.getElementById('current-q-num').textContent = hostCurrentQuestionIndex + 1;
             document.getElementById('total-questions').textContent = totalQuestions;
             document.getElementById('host-question').textContent = question.question;
             
-            // Update answers
+            // CRITICAL FIX: Create answers WITHOUT correct indicators initially
             const answersContainer = document.getElementById('host-answers');
             answersContainer.innerHTML = '';
             
             question.answers.forEach((answer, index) => {
                 const answerDiv = document.createElement('div');
-                answerDiv.className = `answer-option ${index === question.correct ? 'correct' : ''}`;
+                answerDiv.className = 'host-answer-option';
+                answerDiv.setAttribute('data-index', index);
                 answerDiv.innerHTML = `
                     <span class="answer-letter">${String.fromCharCode(65 + index)}</span>
                     <span class="answer-text">${answer}</span>
-                    ${index === question.correct ? '<span class="correct-indicator">✓</span>' : ''}
+                    <span class="correct-indicator">✓ CORRECT</span>
                 `;
                 answersContainer.appendChild(answerDiv);
             });
             
-            // Start timer
-            startQuestionTimer(question.timeLimit || 20);
+            // Start timer - FIXED to run independently
+            startHostQuestionTimer(hostQuestionTimeLimit);
             
-            // Hide/show appropriate buttons
+            // Hide control buttons initially
             hideElement('next-btn');
             hideElement('results-btn');
         }
 
-        function startQuestionTimer(duration) {
-            console.log('⏰ HOST: Starting timer for', duration, 'seconds');
+        // CRITICAL FIX: Independent host timer that doesn't depend on player actions
+        function startHostQuestionTimer(duration) {
+            console.log('⏰ HOST: Starting independent timer for', duration, 'seconds');
             
             const timerEl = document.getElementById('host-timer');
             let timeLeft = duration;
+            
+            // Clear any existing timer
+            if (hostQuestionTimer) {
+                clearInterval(hostQuestionTimer);
+                hostQuestionTimer = null;
+            }
+            
+            // Reset timer display
+            timerEl.className = 'host-timer';
             
             const updateTimer = () => {
                 const mins = Math.floor(timeLeft / 60);
                 const secs = timeLeft % 60;
                 timerEl.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
                 
+                // Update timer appearance based on time left
+                if (timeLeft <= 5) {
+                    timerEl.className = 'host-timer urgent';
+                } else if (timeLeft <= 10) {
+                    timerEl.className = 'host-timer warning';
+                } else {
+                    timerEl.className = 'host-timer';
+                }
+                
                 if (timeLeft <= 0) {
                     clearInterval(hostQuestionTimer);
-                    onQuestionTimeUp();
+                    hostQuestionTimer = null;
+                    onHostQuestionTimeUp();
                 } else {
                     timeLeft--;
                 }
             };
             
+            // Update immediately, then every second
             updateTimer();
             hostQuestionTimer = setInterval(updateTimer, 1000);
         }
 
-        function onQuestionTimeUp() {
-            console.log('⏰ HOST: Question time is up');
-            showElement('next-btn');
+        // CRITICAL FIX: Only reveal correct answers AFTER time is up
+        function onHostQuestionTimeUp() {
+            console.log('⏰ HOST: Question time is up - NOW revealing correct answers');
+            hostIsQuestionTimeUp = true;
             
-            if (hostCurrentQuestionIndex >= hostCurrentQuiz.questions.length - 1) {
-                showElement('results-btn');
+            const timerEl = document.getElementById('host-timer');
+            timerEl.textContent = "TIME'S UP";
+            timerEl.className = 'host-timer time-up';
+            
+            // Update game state to question_ended
+            if (hostGameInstance && database) {
+                database.ref(`games/${hostGamePin}/gameState`).update({
+                    status: 'question_ended',
+                    questionEndTime: Date.now()
+                }).catch(console.error);
             }
             
-            showStatus('Time\'s up! Review responses and continue.', 'info');
+            // NOW reveal the correct answers
+            const question = hostCurrentQuiz.questions[hostCurrentQuestionIndex];
+            const answerDivs = document.querySelectorAll('.host-answer-option');
+            
+            answerDivs.forEach((answerDiv, index) => {
+                answerDiv.classList.add('time-ended');
+                if (index === question.correct) {
+                    answerDiv.classList.add('is-correct');
+                } else {
+                    answerDiv.classList.add('is-incorrect');
+                }
+            });
+            
+            // Calculate and update player scores
+            calculateAndUpdatePlayerScores();
+            
+            // Show control buttons after revealing answers
+            setTimeout(() => {
+                showElement('next-btn');
+                
+                if (hostCurrentQuestionIndex >= hostCurrentQuiz.questions.length - 1) {
+                    showElement('results-btn');
+                }
+                
+                showStatus('Time\'s up! Correct answer revealed. Click Next to continue.', 'info');
+            }, 2000);
+        }
+
+        // ENHANCED: Calculate scores for all players after time ends
+        function calculateAndUpdatePlayerScores() {
+            console.log('🏆 HOST: Calculating scores for all players');
+            
+            const question = hostCurrentQuiz.questions[hostCurrentQuestionIndex];
+            const correctAnswerIndex = question.correct;
+            const questionTimeLimit = question.timeLimit || 20;
+            
+            // Process each player's answer
+            Object.keys(hostPlayers).forEach(async (playerId) => {
+                const player = hostPlayers[playerId];
+                
+                if (player.status === 'answered' && typeof player.currentAnswer === 'number') {
+                    const isCorrect = player.currentAnswer === correctAnswerIndex;
+                    const responseTime = player.responseTime || questionTimeLimit;
+                    
+                    // Calculate score using time-based formula
+                    let questionScore = 0;
+                    if (isCorrect) {
+                        // Base score for correct answer
+                        const baseScore = 1000;
+                        
+                        // Time bonus (faster response = higher bonus)
+                        const timePercentage = Math.max(0, (questionTimeLimit - responseTime) / questionTimeLimit);
+                        const timeBonus = Math.floor(500 * timePercentage);
+                        
+                        questionScore = baseScore + timeBonus;
+                    }
+                    
+                    // Update player's total score
+                    const newTotalScore = (player.score || 0) + questionScore;
+                    
+                    console.log(`🎯 HOST: Player ${player.name}: ${isCorrect ? 'Correct' : 'Incorrect'}, +${questionScore} points (Total: ${newTotalScore})`);
+                    
+                    // Update in Firebase
+                    try {
+                        await database.ref(`games/${hostGamePin}/players/${playerId}`).update({
+                            score: newTotalScore,
+                            lastQuestionScore: questionScore,
+                            lastQuestionCorrect: isCorrect,
+                            scoredAt: Date.now()
+                        });
+                        
+                        // Update local copy
+                        hostPlayers[playerId].score = newTotalScore;
+                        hostPlayers[playerId].lastQuestionScore = questionScore;
+                        hostPlayers[playerId].lastQuestionCorrect = isCorrect;
+                        
+                    } catch (error) {
+                        console.error('💥 HOST: Error updating player score:', error);
+                    }
+                } else {
+                    // Player didn't answer
+                    console.log(`❌ HOST: Player ${player.name}: No answer submitted`);
+                    
+                    try {
+                        await database.ref(`games/${hostGamePin}/players/${playerId}`).update({
+                            lastQuestionScore: 0,
+                            lastQuestionCorrect: false,
+                            scoredAt: Date.now()
+                        });
+                        
+                        hostPlayers[playerId].lastQuestionScore = 0;
+                        hostPlayers[playerId].lastQuestionCorrect = false;
+                        
+                    } catch (error) {
+                        console.error('💥 HOST: Error updating player score:', error);
+                    }
+                }
+            });
+            
+            // Update the responses display to show scores
+            setTimeout(() => {
+                updateResponsesDisplay();
+            }, 1000);
         }
 
         function updateResponsesDisplay() {
@@ -1298,21 +1159,40 @@
             
             responsesContainer.innerHTML = '';
             
-            Object.values(hostPlayers).forEach(player => {
+            // Sort players by total score for better display
+            const sortedPlayers = Object.values(hostPlayers).sort((a, b) => (b.score || 0) - (a.score || 0));
+            
+            sortedPlayers.forEach(player => {
                 const responseDiv = document.createElement('div');
                 responseDiv.className = 'player-response';
                 
                 let statusText = 'Not answered';
                 let statusClass = 'waiting';
+                let scoreInfo = '';
                 
                 if (player.status === 'answered') {
-                    statusText = `Answered in ${(player.responseTime || 0).toFixed(1)}s`;
+                    const responseTime = (player.responseTime || 0).toFixed(1);
+                    statusText = `Answered in ${responseTime}s`;
                     statusClass = 'answered';
+                    
+                    // Show if answer was correct/incorrect after time is up
+                    if (hostIsQuestionTimeUp) {
+                        const isCorrect = player.lastQuestionCorrect;
+                        const questionScore = player.lastQuestionScore || 0;
+                        
+                        statusClass += isCorrect ? ' correct' : ' incorrect';
+                        statusText += isCorrect ? ' ✓' : ' ✗';
+                        scoreInfo = `<div class="score-info">+${questionScore} pts this question</div>`;
+                    }
                 }
                 
                 responseDiv.innerHTML = `
-                    <span class="player-name">${player.name}</span>
+                    <div class="player-response-header">
+                        <span class="player-name">${player.name}</span>
+                        <span class="player-total-score">${player.score || 0} pts total</span>
+                    </div>
                     <span class="response-status ${statusClass}">${statusText}</span>
+                    ${scoreInfo}
                 `;
                 
                 responsesContainer.appendChild(responseDiv);
@@ -1323,8 +1203,10 @@
         async function nextQuestion() {
             console.log('➡️ HOST: Moving to next question');
             
+            // Clear timer
             if (hostQuestionTimer) {
                 clearInterval(hostQuestionTimer);
+                hostQuestionTimer = null;
             }
             
             if (hostCurrentQuestionIndex >= hostCurrentQuiz.questions.length - 1) {
@@ -1335,15 +1217,28 @@
             
             try {
                 hostCurrentQuestionIndex++;
-                const success = await hostGameInstance.nextQuestion();
                 
-                if (success) {
-                    console.log('✅ HOST: Moved to question', hostCurrentQuestionIndex + 1);
-                    displayCurrentQuestion();
-                    updateResponsesDisplay();
-                } else {
-                    throw new Error('Failed to move to next question');
-                }
+                // Reset player statuses for next question
+                const playerUpdates = {};
+                Object.keys(hostPlayers).forEach(playerId => {
+                    playerUpdates[`players/${playerId}/status`] = 'waiting';
+                    playerUpdates[`players/${playerId}/currentAnswer`] = null;
+                    playerUpdates[`players/${playerId}/responseTime`] = null;
+                    playerUpdates[`players/${playerId}/answerTime`] = null;
+                });
+                
+                // Update game state
+                playerUpdates['gameState/status'] = 'playing';
+                playerUpdates['gameState/currentQuestion'] = hostCurrentQuestionIndex;
+                playerUpdates['gameState/questionStartTime'] = Date.now();
+                
+                await database.ref(`games/${hostGamePin}`).update(playerUpdates);
+                
+                console.log('✅ HOST: Moved to question', hostCurrentQuestionIndex + 1);
+                
+                // Display the new question
+                displayCurrentQuestion();
+                
             } catch (error) {
                 console.error('💥 HOST: Error moving to next question:', error);
                 showStatus('Error moving to next question', 'error');
@@ -1356,6 +1251,7 @@
             
             if (hostQuestionTimer) {
                 clearInterval(hostQuestionTimer);
+                hostQuestionTimer = null;
             }
             
             hideElement('active-game');
@@ -1392,6 +1288,7 @@
             
             if (hostQuestionTimer) {
                 clearInterval(hostQuestionTimer);
+                hostQuestionTimer = null;
             }
             
             try {
@@ -1429,6 +1326,8 @@
             hostGamePin = null;
             isHostGameActive = false;
             hostCurrentGameState = 'waiting';
+            hostQuestionStartTime = null;
+            hostIsQuestionTimeUp = false;
             
             // Reset UI
             hideElement('game-lobby');
@@ -1492,7 +1391,7 @@
         window.resetGame = resetGame;
         window.createCustomQuiz = createCustomQuiz;
 
-        console.log('🎯 HOST: host.js loaded successfully');
+        console.log('🎯 HOST: Kokoot! V11 host.js loaded successfully');
 
         // Auto-initialize if DOM is already loaded
         if (document.readyState === 'loading') {
