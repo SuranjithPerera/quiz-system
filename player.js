@@ -572,44 +572,56 @@ function onGameStateChange(gameState) {
             savePlayerState('playing');
             break;
         case 'question_ended':
-            console.log('⏰ PLAYER: Question ended - disabling answers and showing waiting screen');
-            isQuestionActive = false;
-            questionEndTime = gameState.questionEndTime || Date.now();
+            console.log('⏰ PLAYER: Question ended - checking if player was in game');
             
-            // Clear timer if still running
-            if (currentTimerInterval) {
-                clearInterval(currentTimerInterval);
-                currentTimerInterval = null;
-            }
-            
-            // Update timer display to show "TIME'S UP"
-            const timerEl = document.getElementById('question-timer');
-            if (timerEl) {
-                timerEl.textContent = "TIME'S UP";
-                timerEl.style.background = 'linear-gradient(135deg, #e21b3c 0%, #ff4757 100%)';
-                timerEl.style.animation = 'pulse 1s infinite';
-            }
-            
-            // Disable answer buttons if still enabled
-            const buttons = document.querySelectorAll('.answer-btn');
-            buttons.forEach(btn => {
-                btn.disabled = true;
-                btn.style.opacity = '0.6';
-            });
-            
-            // Show feedback about time being up
-            if (!hasAnswered) {
-                showFeedback('Time\'s up! No answer submitted.');
+            // CRITICAL FIX: Only process question_ended if player was already in an active question
+            // New players joining should NOT be affected by this state
+            if (hasAnswered || isQuestionActive || document.getElementById('active-question').style.display !== 'none') {
+                console.log('📝 PLAYER: Was in active question, processing timeout');
+                isQuestionActive = false;
+                questionEndTime = gameState.questionEndTime || Date.now();
+                
+                // Clear timer if still running
+                if (currentTimerInterval) {
+                    clearInterval(currentTimerInterval);
+                    currentTimerInterval = null;
+                }
+                
+                // Update timer display to show "TIME'S UP"
+                const timerEl = document.getElementById('question-timer');
+                if (timerEl) {
+                    timerEl.textContent = "TIME'S UP";
+                    timerEl.style.background = 'linear-gradient(135deg, #e21b3c 0%, #ff4757 100%)';
+                    timerEl.style.animation = 'pulse 1s infinite';
+                }
+                
+                // Disable answer buttons if still enabled
+                const buttons = document.querySelectorAll('.answer-btn');
+                buttons.forEach(btn => {
+                    btn.disabled = true;
+                    btn.style.opacity = '0.6';
+                });
+                
+                // Show feedback about time being up
+                if (!hasAnswered) {
+                    showFeedback('Time\'s up! No answer submitted.');
+                } else {
+                    showFeedback('Time\'s up! Answer submitted.');
+                }
+                
+                // Auto-transition to waiting screen after a delay
+                setTimeout(() => {
+                    showWaitingNext();
+                }, 2000);
+                
+                savePlayerState('question-ended');
             } else {
-                showFeedback('Time\'s up! Answer submitted.');
+                console.log('⚠️ PLAYER: Ignoring question_ended state - player was not in active question');
+                // New player joining should stay in lobby
+                if (document.getElementById('waiting-lobby').style.display !== 'none') {
+                    console.log('👍 PLAYER: Staying in lobby as intended');
+                }
             }
-            
-            // Auto-transition to waiting screen after a delay
-            setTimeout(() => {
-                showWaitingNext();
-            }, 2000);
-            
-            savePlayerState('question-ended');
             break;
         case 'finished':
             console.log('🏁 PLAYER: Game finished - showing final results');
