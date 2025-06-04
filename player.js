@@ -438,3 +438,4 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('📄 PLAYER: DOM loaded, initializing player...');
     initializePlayer();
 });
+
