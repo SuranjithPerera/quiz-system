@@ -1,4 +1,4 @@
-// Player.js - Enhanced with Proper Game End Handling - FINAL COMPLETE FIX
+// Player.js - Enhanced with Proper Game End Handling - VERIFIED FINAL FIX
 let playerGameInstance = null;
 let playerGamePlayerId = null;
 let playerGamePlayerName = null;
@@ -119,18 +119,14 @@ class SimpleQuizGame {
 
 let answerManager = null;
 
-// CRITICAL FIX: Force clear all state before initialization
-function forceClearAllState() {
-    console.log('🧹 PLAYER: Force clearing ALL state');
+// CRITICAL FIX: Clear only old state, not the current join info
+function clearOldPlayerState() {
+    console.log('🧹 PLAYER: Clearing old player state');
     
     // Clear all player state keys
     Object.values(PLAYER_STATE_KEYS).forEach(key => {
         localStorage.removeItem(key);
     });
-    
-    // Clear game join info
-    localStorage.removeItem('gamePin');
-    localStorage.removeItem('playerName');
     
     // Reset all variables
     playerGameInstance = null;
@@ -150,23 +146,27 @@ function forceClearAllState() {
         currentTimerInterval = null;
     }
     
-    console.log('✅ PLAYER: All state forcefully cleared');
+    console.log('✅ PLAYER: Old state cleared');
 }
 
 function initializePlayer() {
     console.log('🎮 PLAYER: Starting initialization...');
     
-    // CRITICAL FIX: Always clear state first
-    forceClearAllState();
+    // CRITICAL FIX: Get player info FIRST before clearing anything
+    const newGamePin = localStorage.getItem('gamePin');
+    const newPlayerName = localStorage.getItem('playerName');
+    
+    console.log('🎮 PLAYER: Retrieved join info - PIN:', newGamePin, 'Name:', newPlayerName);
+    
+    // Clear old player state (but NOT the gamePin and playerName we just got)
+    clearOldPlayerState();
     
     // Initialize answer manager
     answerManager = new SimpleAnswerManager();
     
-    // Get fresh player info from localStorage
-    currentGamePin = localStorage.getItem('gamePin');
-    playerGamePlayerName = localStorage.getItem('playerName');
-    
-    console.log('🎮 PLAYER: Fresh join - PIN:', currentGamePin, 'Name:', playerGamePlayerName);
+    // Now set the current values
+    currentGamePin = newGamePin;
+    playerGamePlayerName = newPlayerName;
     
     if (!currentGamePin || !playerGamePlayerName) {
         console.error('❌ PLAYER: Missing game information');
@@ -280,7 +280,9 @@ async function joinGame() {
             showStatus(gameCheckResult.message, 'error');
             
             // Clear state and redirect
-            forceClearAllState();
+            clearPlayerState();
+            localStorage.removeItem('gamePin');
+            localStorage.removeItem('playerName');
             setTimeout(() => {
                 window.location.href = 'index.html';
             }, 3000);
@@ -355,7 +357,9 @@ async function joinGame() {
         showStatus('Failed to join: ' + error.message, 'error');
         
         // Clear state and redirect
-        forceClearAllState();
+        clearPlayerState();
+        localStorage.removeItem('gamePin');
+        localStorage.removeItem('playerName');
         setTimeout(() => {
             window.location.href = 'index.html';
         }, 3000);
@@ -871,7 +875,11 @@ function showFinalResults() {
     showStatus('🏁 Quiz completed! Final results are in!', 'success');
     
     // Clear all state completely
-    forceClearAllState();
+    clearPlayerState();
+    
+    // Clear the join info too since game is over
+    localStorage.removeItem('gamePin');
+    localStorage.removeItem('playerName');
     
     console.log('✅ PLAYER: Final results screen configured');
 }
@@ -908,12 +916,19 @@ function showStatus(message, type) {
 window.addEventListener('beforeunload', () => {
     console.log('🧹 PLAYER: Page unloading - cleanup');
     
-    // Force clear all state on page unload
-    forceClearAllState();
-    
+    // Clean up game instance
     if (playerGameInstance) {
         playerGameInstance.cleanup();
     }
+    
+    // Clear timer
+    if (currentTimerInterval) {
+        clearInterval(currentTimerInterval);
+        currentTimerInterval = null;
+    }
+    
+    // Clear state
+    clearPlayerState();
 });
 
 // Handle page visibility changes
@@ -926,7 +941,9 @@ document.addEventListener('visibilitychange', () => {
 // Handle Play Again button
 function playAgain() {
     console.log('🔄 PLAYER: Play again clicked');
-    forceClearAllState();
+    clearPlayerState();
+    localStorage.removeItem('gamePin');
+    localStorage.removeItem('playerName');
     window.location.href = 'index.html';
 }
 
@@ -1061,15 +1078,8 @@ if (!document.getElementById('player-enhanced-scoring')) {
 
 console.log('🎮 PLAYER: Enhanced player.js loaded successfully');
 
-// CRITICAL: Initialize ONLY when DOM is ready AND clear any existing state
+// Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
     console.log('📄 PLAYER: DOM loaded, initializing player...');
-    
-    // Force clear any existing state before initialization
-    forceClearAllState();
-    
-    // Small delay to ensure everything is ready
-    setTimeout(() => {
-        initializePlayer();
-    }, 100);
+    initializePlayer();
 });
