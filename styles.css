@@ -246,7 +246,7 @@ header p {
 
 .btn-primary {
     background: linear-gradient(135deg, #e21b3c 0%, #ff6900 100%);
-    color: white;
+    color: rgb(24, 209, 175);
 }
 
 .btn-primary:hover {
