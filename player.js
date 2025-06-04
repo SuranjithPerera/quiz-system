@@ -1,4 +1,4 @@
-// Player.js - Enhanced with Proper Game End Handling - FULLY FIXED VERSION
+// Player.js - Enhanced with Proper Game End Handling - FINAL COMPLETE FIX
 let playerGameInstance = null;
 let playerGamePlayerId = null;
 let playerGamePlayerName = null;
@@ -12,7 +12,6 @@ let isRecoveringState = false;
 let isQuestionActive = false;
 let questionEndTime = null;
 let previousScore = 0;
-let isNewJoin = true; // Track if this is a new join
 
 // State persistence keys for player
 const PLAYER_STATE_KEYS = {
@@ -82,34 +81,6 @@ class SimpleQuizGame {
         }
     }
 
-    async rejoinGame(existingPlayerId, playerName) {
-        try {
-            console.log('🔄 GAME: Rejoining game with existing ID:', existingPlayerId);
-            
-            const playerRef = database.ref(`games/${this.gamePin}/players/${existingPlayerId}`);
-            
-            // Check if player still exists in the game
-            const snapshot = await playerRef.once('value');
-            if (!snapshot.exists()) {
-                console.log('❌ GAME: Player no longer exists, creating new...');
-                return await this.joinGame(playerName);
-            }
-            
-            // Update rejoined status
-            await playerRef.update({
-                status: 'waiting',
-                rejoinedAt: Date.now()
-            });
-            
-            console.log('✅ GAME: Successfully rejoined game');
-            return existingPlayerId;
-        } catch (error) {
-            console.error('💥 GAME: Error rejoining game:', error);
-            // Fallback to new join
-            return await this.joinGame(playerName);
-        }
-    }
-
     listenToGameState(callback) {
         console.log('🎧 GAME: Setting up game state listener');
         const gameStateRef = database.ref(`games/${this.gamePin}/gameState`);
@@ -148,248 +119,99 @@ class SimpleQuizGame {
 
 let answerManager = null;
 
+// CRITICAL FIX: Force clear all state before initialization
+function forceClearAllState() {
+    console.log('🧹 PLAYER: Force clearing ALL state');
+    
+    // Clear all player state keys
+    Object.values(PLAYER_STATE_KEYS).forEach(key => {
+        localStorage.removeItem(key);
+    });
+    
+    // Clear game join info
+    localStorage.removeItem('gamePin');
+    localStorage.removeItem('playerName');
+    
+    // Reset all variables
+    playerGameInstance = null;
+    playerGamePlayerId = null;
+    playerGamePlayerName = null;
+    currentGamePin = null;
+    playerScore = 0;
+    hasAnswered = false;
+    questionStartTime = null;
+    isQuestionActive = false;
+    questionEndTime = null;
+    previousScore = 0;
+    
+    // Clear any running timers
+    if (currentTimerInterval) {
+        clearInterval(currentTimerInterval);
+        currentTimerInterval = null;
+    }
+    
+    console.log('✅ PLAYER: All state forcefully cleared');
+}
+
 function initializePlayer() {
     console.log('🎮 PLAYER: Starting initialization...');
+    
+    // CRITICAL FIX: Always clear state first
+    forceClearAllState();
     
     // Initialize answer manager
     answerManager = new SimpleAnswerManager();
     
-    // CRITICAL FIX: Clear any existing state that might be stuck
-    const urlGamePin = localStorage.getItem('gamePin');
-    const urlPlayerName = localStorage.getItem('playerName');
-    const savedGamePin = localStorage.getItem(PLAYER_STATE_KEYS.GAME_PIN);
+    // Get fresh player info from localStorage
+    currentGamePin = localStorage.getItem('gamePin');
+    playerGamePlayerName = localStorage.getItem('playerName');
     
-    // Check if this is a fresh join (new game PIN or different game)
-    if (urlGamePin && urlPlayerName && (!savedGamePin || urlGamePin !== savedGamePin)) {
-        console.log('🆕 PLAYER: New game join detected, clearing old state');
-        clearPlayerState();
-        isNewJoin = true;
-    } else {
-        isNewJoin = false;
-    }
+    console.log('🎮 PLAYER: Fresh join - PIN:', currentGamePin, 'Name:', playerGamePlayerName);
     
-    // Check for state recovery
-    const needsRecovery = checkForStateRecovery();
-    
-    if (needsRecovery && !isNewJoin) {
-        console.log('🔄 PLAYER: Recovery needed, starting recovery process...');
-        waitForFirebaseReady(() => {
-            recoverPlayerState();
-        });
-    } else {
-        // Get player info from localStorage (new join)
-        currentGamePin = localStorage.getItem('gamePin');
-        playerGamePlayerName = localStorage.getItem('playerName');
-        
-        console.log('🎮 PLAYER: Retrieved - PIN:', currentGamePin, 'Name:', playerGamePlayerName);
-        
-        if (!currentGamePin || !playerGamePlayerName) {
-            console.error('❌ PLAYER: Missing game information');
-            showStatus('Invalid game information. Please refresh and try again.', 'error');
-            return;
-        }
-        
-        // Clear any stuck state for fresh join
-        clearPlayerState();
-        
-        // Update UI immediately
-        const gamePinEl = document.getElementById('player-game-pin');
-        const playerNameEl = document.getElementById('player-name-display');
-        
-        if (gamePinEl) gamePinEl.textContent = currentGamePin;
-        if (playerNameEl) playerNameEl.textContent = playerGamePlayerName;
-        
-        // Reset game state
-        playerScore = 0;
-        previousScore = 0;
-        hasAnswered = false;
-        isQuestionActive = false;
-        
-        // Wait for Firebase to be ready
-        waitForFirebaseReady(() => {
-            joinGame();
-        });
-    }
-}
-
-// State Recovery Functions
-function checkForStateRecovery() {
-    const isActive = localStorage.getItem(PLAYER_STATE_KEYS.IS_ACTIVE);
-    const savedGamePin = localStorage.getItem(PLAYER_STATE_KEYS.GAME_PIN);
-    const savedPlayerId = localStorage.getItem(PLAYER_STATE_KEYS.PLAYER_ID);
-    const savedPlayerName = localStorage.getItem(PLAYER_STATE_KEYS.PLAYER_NAME);
-    const savedGameState = localStorage.getItem(PLAYER_STATE_KEYS.GAME_STATE);
-    
-    // Compare with current join info
-    const currentJoinPin = localStorage.getItem('gamePin');
-    const currentJoinName = localStorage.getItem('playerName');
-    
-    console.log('🔍 PLAYER: Checking recovery state:', {
-        isActive: !!isActive,
-        hasGamePin: !!savedGamePin,
-        hasPlayerId: !!savedPlayerId,
-        hasPlayerName: !!savedPlayerName,
-        gameState: savedGameState,
-        isSameGame: savedGamePin === currentJoinPin,
-        isSamePlayer: savedPlayerName === currentJoinName
-    });
-    
-    // Don't recover if:
-    // 1. Game is finished
-    // 2. Different game PIN
-    // 3. Different player name
-    if (savedGameState === 'finished' || 
-        savedGamePin !== currentJoinPin || 
-        savedPlayerName !== currentJoinName) {
-        console.log('🚫 PLAYER: Recovery not needed, clearing old state');
-        clearPlayerState();
-        return false;
-    }
-    
-    return isActive && savedGamePin && savedPlayerId && savedPlayerName;
-}
-
-async function recoverPlayerState() {
-    console.log('🔄 PLAYER: Starting state recovery...');
-    isRecoveringState = true;
-    
-    try {
-        // Get saved state
-        currentGamePin = localStorage.getItem(PLAYER_STATE_KEYS.GAME_PIN);
-        playerGamePlayerId = localStorage.getItem(PLAYER_STATE_KEYS.PLAYER_ID);
-        playerGamePlayerName = localStorage.getItem(PLAYER_STATE_KEYS.PLAYER_NAME);
-        const savedGameState = localStorage.getItem(PLAYER_STATE_KEYS.GAME_STATE);
-        const savedScore = localStorage.getItem(PLAYER_STATE_KEYS.CURRENT_SCORE);
-        
-        if (savedScore) {
-            playerScore = parseInt(savedScore) || 0;
-            previousScore = playerScore;
-        }
-        
-        console.log('📝 PLAYER: Recovered state:', {
-            gamePin: currentGamePin,
-            playerId: playerGamePlayerId,
-            playerName: playerGamePlayerName,
-            gameState: savedGameState,
-            score: playerScore
-        });
-        
-        // Update UI
-        const gamePinEl = document.getElementById('player-game-pin');
-        const playerNameEl = document.getElementById('player-name-display');
-        
-        if (gamePinEl) gamePinEl.textContent = currentGamePin;
-        if (playerNameEl) playerNameEl.textContent = playerGamePlayerName;
-        
-        // Check if game still exists
-        const gameExists = await checkGameExists(currentGamePin);
-        if (!gameExists) {
-            console.log('❌ PLAYER: Game no longer exists');
-            clearPlayerState();
-            showStatus('Game no longer exists', 'error');
-            setTimeout(() => {
-                window.location.href = 'index.html';
-            }, 3000);
-            return;
-        }
-        
-        // Rejoin the game
-        playerGameInstance = new SimpleQuizGame(currentGamePin, false);
-        const rejoinedPlayerId = await playerGameInstance.rejoinGame(playerGamePlayerId, playerGamePlayerName);
-        
-        if (rejoinedPlayerId) {
-            playerGamePlayerId = rejoinedPlayerId;
-            
-            // Get current game state
-            const gameStateRef = database.ref(`games/${currentGamePin}/gameState`);
-            const gameStateSnapshot = await gameStateRef.once('value');
-            const currentGameState = gameStateSnapshot.val();
-            
-            console.log('🎮 PLAYER: Current game state for recovery:', currentGameState);
-            
-            // Set up listeners FIRST
-            playerGameInstance.listenToGameState(onGameStateChange);
-            playerGameInstance.listenToPlayers(onPlayersUpdate);
-            
-            // Then show appropriate screen based on current state
-            if (currentGameState) {
-                await recoverToCorrectScreen(currentGameState, savedGameState);
-            } else {
-                // Default to lobby
-                showWaitingLobby();
-            }
-            
-            showStatus('Reconnected to game!', 'success');
-            console.log('✅ PLAYER: State recovery complete');
-        } else {
-            throw new Error('Failed to rejoin game');
-        }
-        
-    } catch (error) {
-        console.error('💥 PLAYER: Recovery failed:', error);
-        clearPlayerState();
-        showStatus('Failed to reconnect to game', 'error');
+    if (!currentGamePin || !playerGamePlayerName) {
+        console.error('❌ PLAYER: Missing game information');
+        showStatus('Invalid game information. Please enter game PIN and name.', 'error');
+        // Redirect to home after delay
         setTimeout(() => {
             window.location.href = 'index.html';
         }, 3000);
-    } finally {
-        isRecoveringState = false;
+        return;
     }
-}
-
-async function recoverToCorrectScreen(currentGameState, savedGameState) {
-    console.log('🎯 PLAYER: Recovering to correct screen:', currentGameState.status);
     
-    // CRITICAL FIX: Always check the CURRENT game state, not saved state
-    switch (currentGameState.status) {
-        case 'waiting':
-            showWaitingLobby();
-            break;
-        case 'playing':
-            // Only show question if we haven't answered it yet
-            if (!hasAnswered && currentGameState.currentQuestion !== undefined) {
-                const gameRef = database.ref(`games/${currentGamePin}`);
-                const gameSnapshot = await gameRef.once('value');
-                const gameData = gameSnapshot.val();
-                
-                if (gameData && gameData.quiz && gameData.quiz.questions) {
-                    const currentQuestion = gameData.quiz.questions[currentGameState.currentQuestion];
-                    if (currentQuestion) {
-                        // Mark as not new join for this question
-                        isNewJoin = false;
-                        showActiveQuestion(currentGameState);
-                    } else {
-                        showWaitingNext();
-                    }
-                } else {
-                    showWaitingNext();
-                }
-            } else {
-                // Already answered or no active question
-                showWaitingNext();
-            }
-            break;
-        case 'question_ended':
-            // Always show waiting screen for ended questions
-            showWaitingNext();
-            break;
-        case 'finished':
-            showFinalResults();
-            break;
-        default:
-            showWaitingLobby();
-    }
+    // Update UI immediately
+    const gamePinEl = document.getElementById('player-game-pin');
+    const playerNameEl = document.getElementById('player-name-display');
+    
+    if (gamePinEl) gamePinEl.textContent = currentGamePin;
+    if (playerNameEl) playerNameEl.textContent = playerGamePlayerName;
+    
+    // Reset all screens to initial state
+    hideAllScreens();
+    showElement('joining-game');
+    
+    // Wait for Firebase to be ready
+    waitForFirebaseReady(() => {
+        joinGame();
+    });
 }
 
-async function checkGameExists(gamePin) {
-    try {
-        const gameRef = database.ref(`games/${gamePin}`);
-        const snapshot = await gameRef.once('value');
-        return snapshot.exists();
-    } catch (error) {
-        console.error('Error checking game existence:', error);
-        return false;
-    }
+function clearPlayerState() {
+    console.log('🧹 PLAYER: Clearing saved state');
+    Object.values(PLAYER_STATE_KEYS).forEach(key => {
+        localStorage.removeItem(key);
+    });
+    
+    // Reset all global variables
+    currentGamePin = null;
+    playerGamePlayerId = null;
+    playerGamePlayerName = null;
+    playerScore = 0;
+    previousScore = 0;
+    hasAnswered = false;
+    isQuestionActive = false;
+    questionEndTime = null;
+    
+    console.log('✅ PLAYER: All state cleared');
 }
 
 function savePlayerState(gameState = 'lobby') {
@@ -410,26 +232,6 @@ function savePlayerState(gameState = 'lobby') {
     } catch (error) {
         console.error('Error saving player state:', error);
     }
-}
-
-function clearPlayerState() {
-    console.log('🧹 PLAYER: Clearing saved state');
-    Object.values(PLAYER_STATE_KEYS).forEach(key => {
-        localStorage.removeItem(key);
-    });
-    
-    // Reset all global variables
-    currentGamePin = null;
-    playerGamePlayerId = null;
-    playerGamePlayerName = null;
-    playerScore = 0;
-    previousScore = 0;
-    hasAnswered = false;
-    isQuestionActive = false;
-    questionEndTime = null;
-    isNewJoin = true;
-    
-    console.log('✅ PLAYER: All state cleared');
 }
 
 function waitForFirebaseReady(callback) {
@@ -455,7 +257,7 @@ function waitForFirebaseReady(callback) {
             }, 500);
         } else if (attempts >= maxAttempts) {
             console.error('❌ PLAYER: Timeout after', maxAttempts, 'attempts');
-            showStatus('Connection timeout. Firebase/Database not loading.', 'error');
+            showStatus('Connection timeout. Please refresh and try again.', 'error');
         } else {
             setTimeout(checkReady, 500);
         }
@@ -466,7 +268,7 @@ function waitForFirebaseReady(callback) {
 
 async function joinGame() {
     console.log('🚀 PLAYER: Starting join process...');
-    showStatus('Checking game...', 'info');
+    showStatus('Connecting to game...', 'info');
     
     try {
         // Step 1: Check if game exists
@@ -476,6 +278,12 @@ async function joinGame() {
         if (!gameCheckResult.exists) {
             console.error('❌ PLAYER: Game not found -', gameCheckResult.reason);
             showStatus(gameCheckResult.message, 'error');
+            
+            // Clear state and redirect
+            forceClearAllState();
+            setTimeout(() => {
+                window.location.href = 'index.html';
+            }, 3000);
             return;
         }
         
@@ -492,65 +300,65 @@ async function joinGame() {
         
         console.log('🎉 PLAYER: Successfully joined with ID:', playerGamePlayerId);
         
-        // Step 3: Set up listeners BEFORE showing any screen
-        console.log('🎧 PLAYER: Setting up listeners...');
-        playerGameInstance.listenToPlayers(onPlayersUpdate);
-        
-        // Step 4: Get current game state and handle accordingly
+        // Step 3: Get current game state
         const gameStateRef = database.ref(`games/${currentGamePin}/gameState`);
         const gameStateSnapshot = await gameStateRef.once('value');
         const currentState = gameStateSnapshot.val();
         
         console.log('🎮 PLAYER: Current game state on join:', currentState);
         
-        // Start listening to game state changes
+        // Step 4: Set up listeners
+        console.log('🎧 PLAYER: Setting up listeners...');
         playerGameInstance.listenToGameState(onGameStateChange);
+        playerGameInstance.listenToPlayers(onPlayersUpdate);
         
         // Step 5: Show appropriate screen based on current state
+        hideElement('joining-game');
+        
         if (currentState) {
             switch (currentState.status) {
                 case 'waiting':
-                    hideElement('joining-game');
                     showElement('waiting-lobby');
-                    showStatus('Joined successfully!', 'success');
+                    showStatus('Joined successfully! Waiting for host to start...', 'success');
+                    savePlayerState('lobby');
                     break;
+                    
                 case 'playing':
+                case 'question_ended':
                     // New player joining mid-game should wait
-                    hideElement('joining-game');
                     showWaitingNext();
                     showStatus('Game in progress. Wait for next question!', 'info');
+                    savePlayerState('waiting-next');
                     break;
-                case 'question_ended':
-                    // New player joining after question ended
-                    hideElement('joining-game');
-                    showWaitingNext();
-                    showStatus('Joined! Waiting for next question...', 'success');
-                    break;
+                    
                 case 'finished':
-                    hideElement('joining-game');
                     showFinalResults();
-                    showStatus('Game has ended!', 'info');
+                    showStatus('Game has already ended!', 'info');
                     break;
+                    
                 default:
-                    hideElement('joining-game');
                     showElement('waiting-lobby');
                     showStatus('Joined successfully!', 'success');
+                    savePlayerState('lobby');
             }
         } else {
             // Default to lobby if no state
-            hideElement('joining-game');
             showElement('waiting-lobby');
             showStatus('Joined successfully!', 'success');
+            savePlayerState('lobby');
         }
-        
-        // Save initial state
-        savePlayerState('lobby');
         
         console.log('✅ PLAYER: Setup complete!');
         
     } catch (error) {
         console.error('💥 PLAYER: Join failed:', error);
         showStatus('Failed to join: ' + error.message, 'error');
+        
+        // Clear state and redirect
+        forceClearAllState();
+        setTimeout(() => {
+            window.location.href = 'index.html';
+        }, 3000);
     }
 }
 
@@ -618,29 +426,23 @@ function checkGameExistsDetailed() {
 
 // Handle game state changes
 function onGameStateChange(gameState) {
-    console.log('🎮 PLAYER: Game state changed:', gameState?.status, 'isNewJoin:', isNewJoin);
+    console.log('🎮 PLAYER: Game state changed:', gameState?.status);
     
     if (!gameState) {
         console.log('⚠️ PLAYER: No game state received');
         return;
     }
     
-    // Don't save state during recovery
-    if (isRecoveringState) {
-        console.log('🔄 PLAYER: Skipping state save during recovery');
-        return;
-    }
-    
     switch (gameState.status) {
         case 'waiting':
             console.log('🏠 PLAYER: Game waiting - showing lobby');
-            showWaitingLobby();
+            hideAllScreens();
+            showElement('waiting-lobby');
             savePlayerState('lobby');
             break;
             
         case 'playing':
-            console.log('🎯 PLAYER: Game playing - checking if should show question');
-            
+            console.log('🎯 PLAYER: Game playing - showing question');
             // Reset state for new question
             hasAnswered = false;
             isQuestionActive = true;
@@ -648,45 +450,26 @@ function onGameStateChange(gameState) {
             if (answerManager) {
                 answerManager.startQuestion(gameState.questionStartTime);
             }
-            
-            // Only show question if we're not a brand new join
-            if (!isNewJoin) {
-                showActiveQuestion(gameState);
-                savePlayerState('playing');
-            } else {
-                console.log('🆕 PLAYER: New join during active game - waiting');
-                showWaitingNext();
-                savePlayerState('waiting-next');
-            }
-            
-            // Clear new join flag after first question
-            isNewJoin = false;
+            showActiveQuestion(gameState);
+            savePlayerState('playing');
             break;
             
         case 'question_ended':
             console.log('⏰ PLAYER: Question ended');
+            isQuestionActive = false;
+            questionEndTime = gameState.questionEndTime || Date.now();
             
-            // Only process if we were in an active question
-            if (isQuestionActive) {
-                isQuestionActive = false;
-                questionEndTime = gameState.questionEndTime || Date.now();
-                
-                // Clear timer if still running
-                if (currentTimerInterval) {
-                    clearInterval(currentTimerInterval);
-                    currentTimerInterval = null;
-                }
-                
-                // Show waiting screen
-                setTimeout(() => {
-                    showWaitingNext();
-                }, 2000);
-                
-                savePlayerState('question-ended');
-            } else {
-                // We weren't in the question, just stay in waiting
-                console.log('⏭️ PLAYER: Wasn\'t in question, staying in wait screen');
+            // Clear timer if still running
+            if (currentTimerInterval) {
+                clearInterval(currentTimerInterval);
+                currentTimerInterval = null;
             }
+            
+            // Show waiting screen
+            setTimeout(() => {
+                showWaitingNext();
+                savePlayerState('question-ended');
+            }, 2000);
             break;
             
         case 'finished':
@@ -695,7 +478,6 @@ function onGameStateChange(gameState) {
                 clearInterval(currentTimerInterval);
                 currentTimerInterval = null;
             }
-            clearPlayerState();
             showFinalResults();
             break;
             
@@ -744,11 +526,7 @@ function onPlayersUpdate(players) {
         }
         
         updateScoreDisplay();
-        
-        // Only save state if not recovering
-        if (!isRecoveringState) {
-            savePlayerState();
-        }
+        savePlayerState();
     }
     
     updateLeaderboards(players);
@@ -806,10 +584,12 @@ function showActiveQuestion(gameState) {
         } else {
             console.error('❌ PLAYER: Question not found at index:', gameState.currentQuestion);
             showStatus('Error loading question', 'error');
+            showWaitingNext();
         }
     }, (error) => {
         console.error('💥 PLAYER: Error fetching question:', error);
         showStatus('Error loading question', 'error');
+        showWaitingNext();
     });
 }
 
@@ -1019,11 +799,6 @@ function showWaitingNext() {
     hideAllScreens();
     showElement('waiting-next');
     updateScoreDisplay();
-    
-    // Only save state if not recovering
-    if (!isRecoveringState) {
-        savePlayerState('waiting-next');
-    }
 }
 
 function updateScoreDisplay() {
@@ -1095,12 +870,8 @@ function showFinalResults() {
     // Show completion notification
     showStatus('🏁 Quiz completed! Final results are in!', 'success');
     
-    // Clear state immediately when game is finished
-    clearPlayerState();
-    
-    // Also clear join info to prevent auto-recovery
-    localStorage.removeItem('gamePin');
-    localStorage.removeItem('playerName');
+    // Clear all state completely
+    forceClearAllState();
     
     console.log('✅ PLAYER: Final results screen configured');
 }
@@ -1136,33 +907,26 @@ function showStatus(message, type) {
 // Enhanced cleanup
 window.addEventListener('beforeunload', () => {
     console.log('🧹 PLAYER: Page unloading - cleanup');
-    if (currentTimerInterval) clearInterval(currentTimerInterval);
-    if (playerGameInstance) playerGameInstance.cleanup();
     
-    // Only clear join info if not recovering
-    if (!isRecoveringState) {
-        localStorage.removeItem('gamePin');
-        localStorage.removeItem('playerName');
+    // Force clear all state on page unload
+    forceClearAllState();
+    
+    if (playerGameInstance) {
+        playerGameInstance.cleanup();
     }
 });
 
 // Handle page visibility changes
 document.addEventListener('visibilitychange', () => {
     if (!document.hidden && playerGamePlayerId && currentGamePin) {
-        // Page became visible again, save current state
-        if (!isRecoveringState) {
-            savePlayerState();
-        }
-        console.log('📱 PLAYER: Page visible - state saved');
+        console.log('📱 PLAYER: Page visible');
     }
 });
 
 // Handle Play Again button
 function playAgain() {
     console.log('🔄 PLAYER: Play again clicked');
-    clearPlayerState();
-    localStorage.removeItem('gamePin');
-    localStorage.removeItem('playerName');
+    forceClearAllState();
     window.location.href = 'index.html';
 }
 
@@ -1297,5 +1061,15 @@ if (!document.getElementById('player-enhanced-scoring')) {
 
 console.log('🎮 PLAYER: Enhanced player.js loaded successfully');
 
-// Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', initializePlayer);
+// CRITICAL: Initialize ONLY when DOM is ready AND clear any existing state
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('📄 PLAYER: DOM loaded, initializing player...');
+    
+    // Force clear any existing state before initialization
+    forceClearAllState();
+    
+    // Small delay to ensure everything is ready
+    setTimeout(() => {
+        initializePlayer();
+    }, 100);
+});
