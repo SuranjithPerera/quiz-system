@@ -56,7 +56,8 @@ class SimpleQuizGame {
             await playerRef.set(playerData);
             console.log('✅ GAME: Player data written successfully');
             return newPlayerId;
-        } catch (error) {
+        }
+        catch (error) {
             console.error('💥 GAME: Error joining game:', error);
             return null;
         }
@@ -143,7 +144,7 @@ function initializePlayer() {
 
     hideAllScreens();
     showElement('joining-game');
-    waitForFirebaseReady(joinGame);
+    waitForFirebaseReady(authenticateAndLoad);
 }
 
 // Called by showFinalResults to clear runtime variables of the game that just ended.
@@ -174,7 +175,8 @@ function savePlayerState(gameState = 'lobby') {
         localStorage.setItem(PLAYER_STATE_KEYS.GAME_STATE, gameState);
         localStorage.setItem(PLAYER_STATE_KEYS.CURRENT_SCORE, playerScore.toString());
         console.log('💾 PLAYER: State saved:', { gamePin: currentGamePin, playerId: playerGamePlayerId, gameState, score: playerScore });
-    } catch (error) {
+    }
+    catch (error) {
         console.error('Error saving player state:', error);
     }
 }
@@ -235,7 +237,8 @@ async function joinGame() {
             }
         } else { showElement('waiting-lobby'); showStatus('Joined successfully!', 'success'); savePlayerState('lobby'); }
         console.log('✅ PLAYER: Setup complete!');
-    } catch (error) {
+    }
+    catch (error) {
         console.error('💥 PLAYER: Join failed:', error);
         showStatus('Failed to join: ' + error.message, 'error');
         localStorage.removeItem('gamePin'); localStorage.removeItem('playerName');
@@ -440,7 +443,8 @@ async function selectAnswer(answerIndex) {
         await database.ref(`games/${currentGamePin}/players/${playerGamePlayerId}/score`).set(playerScore);
 
         console.log('✅ PLAYER: Answer submitted:', answerData);
-    } catch (error) {
+    }
+    catch (error) {
         console.error('💥 PLAYER: Error submitting answer:', error);
         showStatus('Error submitting answer.', 'error');
     }
@@ -563,7 +567,7 @@ async function showFinalResults() {
         console.log('🏁 PLAYER: Final results display already processed. Skipping redundant call.');
         return;
     }
-    console.log('🏁 PLAYER: Processing final results display...');
+    console.log('🏁 PLAYER: Processing final results display.');
     hasShownFinalResults = true; // Set guard flag
 
     if (currentTimerInterval) {
@@ -590,7 +594,8 @@ async function showFinalResults() {
                 console.log('PLAYER: Definitive final score not found/not a number in direct Firebase fetch. Using current global playerScore:', playerScore);
                 finalScoreToDisplay = playerScore; // Ensure it uses the global if fetch fails
             }
-        } catch (err) {
+        }
+        catch (err) {
             console.error('PLAYER: Error fetching definitive final score from Firebase. Using current global playerScore:', err);
             finalScoreToDisplay = playerScore; // Ensure it uses the global on error
         }

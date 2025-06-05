@@ -306,7 +306,8 @@ async function createGameSession() {
             }
         }, 3600000); // 1 hour
 
-    } catch (error) {
+    }
+    catch (error) {
         console.error('💥 HOST: Error creating game session:', error);
         showStatus('Failed to create game. Try again.', 'error');
         hostGameInstance = null;
@@ -456,7 +457,8 @@ async function nextQuestion() {
             await hostGameInstance.updateGameState('finished', currentQuestionIndex, 0, null, Date.now());
             endQuiz(); // This will call showResults internally
         }
-    } catch (error) {
+    }
+    catch (error) {
         console.error('💥 HOST: Error moving to next question:', error);
         showStatus('Error moving to next question', 'error');
     }
@@ -517,7 +519,8 @@ async function displayFinalLeaderboard() {
             `;
             finalLeaderboardEl.appendChild(li);
         });
-    } catch (error) {
+    }
+    catch (error) {
         console.error('💥 HOST: Error displaying final leaderboard:', error);
         finalLeaderboardEl.innerHTML = '<li>Error loading leaderboard.</li>';
         showStatus('Error displaying final leaderboard', 'error');
