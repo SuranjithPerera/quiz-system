@@ -1,4 +1,4 @@
-// Player.js - Final attempt to fix score display issue
+// player.js - Final attempt to fix score display issue
 let playerGameInstance = null;
 let playerGamePlayerId = null;
 let playerGamePlayerName = null;
@@ -65,14 +65,15 @@ class SimpleQuizGame {
             return null;
         }
     }
+    // MODIFIED: This listener will now pass the full gameData object
     listenToGameState(callback) {
         console.log('🎧 GAME: Setting up game state listener');
-        const gameStateRef = database.ref(`games/${this.gamePin}/gameState`);
-        gameStateRef.on('value', (snapshot) => {
-            const gameState = snapshot.val();
-            console.log('📡 GAME: Game state update:', gameState);
-            if (gameState) callback(gameState);
-        }, (error) => console.log('💥 GAME: Game state listener error:', error)); // Changed to console.log to avoid stopping
+        const gameRef = database.ref(`games/${this.gamePin}`); // Listen to the entire game node
+        gameRef.on('value', (snapshot) => {
+            const gameData = snapshot.val(); // Get full gameData
+            console.log('📡 GAME: Full game data update:', gameData);
+            if (gameData) callback(gameData); // Pass full gameData to callback
+        }, (error) => console.log('💥 GAME: Game state listener error:', error));
     }
     listenToPlayers(callback) {
         console.log('👥 GAME: Setting up players listener');
@@ -81,7 +82,7 @@ class SimpleQuizGame {
             const players = snapshot.val() || {};
             console.log('👥 GAME: Players update:', Object.keys(players).length, 'players');
             callback(players);
-        }, (error) => console.log('💥 GAME: Players listener error:', error)); // Changed to console.log to avoid stopping
+        }, (error) => console.log('💥 GAME: Players listener error:', error));
     }
     cleanup() {
         if (this.gamePin && typeof database !== 'undefined') {
@@ -130,11 +131,6 @@ function initializePlayer() {
 
     console.log('🎮 PLAYER: Retrieved join info - PIN:', storedGamePin, 'Name:', storedPlayerName, 'ID:', storedPlayerId);
 
-    // If no stored player ID and no new game info, it's a completely fresh start or an error
-    // In this case, we might want to clear old state more aggressively or redirect.
-    // For now, only clear if explicitly told to (e.g., by playAgain) or if no vital info exists.
-    // The playAgain() function now explicitly calls clearOldSessionState().
-    // If we have no game info, we should just redirect, not clear.
     if (!storedGamePin || !storedPlayerName) {
         console.error('❌ PLAYER: Missing game information. Redirecting to home.');
         showStatus('Invalid game information. Please enter game PIN and name.', 'error');
@@ -245,24 +241,15 @@ async function joinGame() {
 
         console.log('🎉 PLAYER: Successfully joined with ID:', playerGamePlayerId);
 
-        const gameStateRef = database.ref(`games/${currentGamePin}/gameState`);
-        const gameStateSnapshot = await gameStateRef.once('value');
-        const currentState = gameStateSnapshot.val();
-        console.log('🎮 PLAYER: Current game state on join:', currentState);
+        // No need to fetch game state here, onGameStateChange listener will handle it.
         console.log('🎧 PLAYER: Setting up listeners...');
-        playerGameInstance.listenToGameState(onGameStateChange);
+        playerGameInstance.listenToGameState(onGameStateChange); // This listener now passes full gameData
         playerGameInstance.listenToPlayers(onPlayersUpdate);
         hideElement('joining-game');
-        if (currentState) {
-            switch (currentState.status) {
-                case 'waiting': showElement('waiting-lobby'); showStatus('Joined successfully! Waiting for host to start...', 'success'); savePlayerState('lobby'); break;
-                case 'playing':
-                case 'question_ended':
-                    showWaitingNext(); showStatus('Game in progress. Wait for next question!', 'info'); savePlayerState('waiting-next'); break;
-                case 'finished': await showFinalResults(); showStatus('Game has already ended!', 'info'); break; // Ensure this await is handled
-                default: showElement('waiting-lobby'); showStatus('Joined successfully!', 'success'); savePlayerState('lobby');
-            }
-        } else { showElement('waiting-lobby'); showStatus('Joined successfully!', 'success'); savePlayerState('lobby'); }
+
+        // Initial display based on current game state received *after* listeners are set up
+        // The first onGameStateChange callback will handle the initial UI state
+        // and player count.
         console.log('✅ PLAYER: Setup complete!');
     } catch (error) {
         console.error('💥 PLAYER: Join failed:', error);
@@ -292,19 +279,113 @@ function checkGameExistsDetailed() {
     });
 }
 
-async function onGameStateChange(gameState) {
-    // ... (onGameStateChange implementation as before, calls showFinalResults)
+// MODIFIED: onGameStateChange now receives the full gameData object
+async function onGameStateChange(gameData) {
+    if (!gameData) {
+        console.log('⚠️ PLAYER: No game data received for state change.');
+        return;
+    }
+    const gameState = gameData.gameState;
+    const quizData = gameData.quizData; // Extract quizData directly from gameData
+    const players = gameData.players || {}; // Also extract players for live updates
+
     console.log('🎮 PLAYER: Game state changed to:', gameState?.status);
     if (!gameState) { console.log('⚠️ PLAYER: No game state received'); return; }
+
+    // Update player's score from gameData.players if it exists
+    if (playerGamePlayerId && players[playerGamePlayerId] && typeof players[playerGamePlayerId].score === 'number') {
+        const newScore = players[playerGamePlayerId].score;
+        if (playerScore !== newScore) {
+            console.log(`🏆 PLAYER: Updating score from ${playerScore} to ${newScore}`);
+            if (newScore > playerScore) { // Only show increase for positive changes
+                showScoreIncrease(newScore - playerScore);
+            }
+            previousScore = playerScore; // Store previous score before updating
+            playerScore = newScore;
+            updateScoreDisplay(); // Update the UI
+        }
+    }
+
     switch (gameState.status) {
-        case 'waiting': /* ... */ hideAllScreens(); showElement('waiting-lobby'); savePlayerState('lobby'); break;
-        case 'playing': /* ... */ hasAnswered = false; isQuestionActive = true; questionEndTime = null; if (answerManager) answerManager.startQuestion(gameState.questionStartTime); showActiveQuestion(gameState); savePlayerState('playing'); break;
-        case 'question_ended': /* ... */ isQuestionActive = false; questionEndTime = gameState.questionEndTime || Date.now(); if (currentTimerInterval) { clearInterval(currentTimerInterval); currentTimerInterval = null; } setTimeout(() => { showWaitingNext(); savePlayerState('question-ended'); }, 1500); break; // Reduced delay
-        case 'finished': console.log('🏁 PLAYER: Game state is finished. Processing final results display.'); if (currentTimerInterval) { clearInterval(currentTimerInterval); currentTimerInterval = null; } await showFinalResults(); break;
-        case 'abandoned': /* ... */ console.log('👋 PLAYER: Game abandoned by host'); if (currentTimerInterval) clearInterval(currentTimerInterval); if (playerGameInstance) playerGameInstance.cleanup(); clearActiveGameStateVariables(); hasShownFinalResults = true; showStatus('Game ended - host disconnected', 'info'); Object.values(PLAYER_STATE_KEYS).forEach(key => localStorage.removeItem(key)); localStorage.removeItem('gamePin'); localStorage.removeItem('playerName'); setTimeout(() => { window.location.href = 'index.html'; }, 3000); break;
-        default: console.log('❓ PLAYER: Unknown game status:', gameState.status);
+        case 'waiting':
+            hideAllScreens();
+            showElement('waiting-lobby');
+            showStatus('Joined successfully! Waiting for host to start...', 'success');
+            savePlayerState('lobby');
+            updateLobbyPlayerCount(Object.keys(players).length); // Update lobby count
+            updateLeaderboards(players); // Update lobby leaderboard
+            break;
+
+        case 'playing':
+            hasAnswered = false;
+            isQuestionActive = true;
+            questionEndTime = null;
+            if (answerManager) answerManager.startQuestion(gameState.questionStartTime);
+
+            if (quizData && quizData.questions && typeof gameState.currentQuestion === 'number') {
+                currentQuestionData = quizData.questions[gameState.currentQuestion]; // Set currentQuestionData
+                if (currentQuestionData) {
+                    displayQuestion(currentQuestionData, gameState.currentQuestion + 1); // Pass questionData directly
+                    startTimerPlayer(currentQuestionData.timeLimit);
+                } else {
+                    console.error('💥 PLAYER: Missing question data for current question index:', gameState.currentQuestion);
+                    showStatus('Error loading question data.', 'error');
+                }
+            } else {
+                console.error('💥 PLAYER: Missing quizData or currentQuestion index for active game state.', { quizData, currentQuestion: gameState.currentQuestion });
+                showStatus('Error loading quiz data.', 'error');
+            }
+            savePlayerState('playing');
+            updateLeaderboards(players); // Update in-game leaderboard
+            break;
+
+        case 'question_ended':
+            isQuestionActive = false;
+            questionEndTime = gameState.questionEndTime || Date.now();
+            if (currentTimerInterval) { clearInterval(currentTimerInterval); currentTimerInterval = null; }
+
+            // Highlight correct/incorrect answer based on currentQuestionData
+            if (currentQuestionData) {
+                const correctAnswerIndex = currentQuestionData.correctAnswer;
+                document.querySelectorAll('.answer-btn').forEach((button, index) => {
+                    button.disabled = true; // Disable all buttons
+                    if (index === correctAnswerIndex) {
+                        button.classList.add('correct-answer');
+                    } else if (button.classList.contains('selected-answer')) {
+                        button.classList.add('incorrect-answer');
+                    }
+                });
+            }
+
+            setTimeout(() => { showWaitingNext(); savePlayerState('question-ended'); }, 1500); // Reduced delay
+            updateLeaderboards(players); // Update leaderboard after question ends
+            break;
+
+        case 'finished':
+            console.log('🏁 PLAYER: Game state is finished. Processing final results display.');
+            if (currentTimerInterval) { clearInterval(currentTimerInterval); currentTimerInterval = null; }
+            await showFinalResults(gameData.leaderboard || {}); // Pass leaderboard if available directly from gameData
+            break;
+
+        case 'abandoned':
+            console.log('👋 PLAYER: Game abandoned by host');
+            if (currentTimerInterval) clearInterval(currentTimerInterval);
+            if (playerGameInstance) playerGameInstance.cleanup();
+            clearActiveGameStateVariables(); // Helper function to clear temp game state
+            hasShownFinalResults = true; // Prevents showing final results screen again if already abandoned
+            showStatus('Game ended - host disconnected', 'info');
+            // Clear all player-specific localStorage items to force fresh join next time
+            Object.values(PLAYER_STATE_KEYS).forEach(key => localStorage.removeItem(key));
+            localStorage.removeItem('gamePin');
+            localStorage.removeItem('playerName');
+            setTimeout(() => { window.location.href = 'index.html'; }, 3000);
+            break;
+
+        default:
+            console.log('❓ PLAYER: Unknown game status:', gameState.status);
     }
 }
+
 
 function onPlayersUpdate(players) {
     // ... (onPlayersUpdate implementation as before)
@@ -339,31 +420,18 @@ function showScoreIncrease(points) {
     }
 }
 function showWaitingLobby() { /* ... (implementation as before) ... */ }
-function showActiveQuestion(gameState) { /* ... (implementation as before, sets currentQuestionData) ... */
-    hideElement('waiting-lobby');
-    hideElement('final-results');
-    showElement('active-game');
+// MODIFIED: showActiveQuestion is now removed as its logic is inlined into onGameStateChange,
+// and displayQuestion is called directly.
+// The previous showActiveQuestion was trying to load from localStorage.
+// The new logic in onGameStateChange directly sets currentQuestionData and calls displayQuestion.
 
-    const quizData = localStorage.getItem('quizData'); // Assuming quizData is stored here
-    if (quizData) {
-        const parsedQuizData = JSON.parse(quizData);
-        currentQuestionData = parsedQuizData.questions[gameState.currentQuestion];
-        if (currentQuestionData) {
-            displayQuestion(currentQuestionData, gameState.currentQuestion + 1);
-            startTimerPlayer(currentQuestionData.timeLimit);
-        } else {
-            console.error('💥 PLAYER: No question data for current question index:', gameState.currentQuestion);
-        }
-    } else {
-        console.error('💥 PLAYER: No quiz data found in localStorage.');
-    }
-}
-function displayQuestion(question, questionNumber) {
-    document.getElementById('player-question-text').textContent = question.question;
+// MODIFIED: displayQuestion now accepts questionData directly
+function displayQuestion(questionData, questionNumber) {
+    document.getElementById('player-question-text').textContent = questionData.question;
     document.getElementById('question-number').textContent = `Question ${questionNumber}`;
     const answersContainer = document.getElementById('answers-container');
     answersContainer.innerHTML = '';
-    question.options.forEach((option, index) => {
+    questionData.options.forEach((option, index) => {
         const button = document.createElement('button');
         button.className = 'answer-btn';
         button.textContent = option;
@@ -417,7 +485,7 @@ async function selectAnswer(answerIndex) {
 
     try {
         if (playerGameInstance && currentGamePin && playerGamePlayerId && currentQuestionData) {
-            const answerCorrect = (answerIndex === currentQuestionData.correctAnswer);
+            // The host will calculate correctness and update score, player just sends selected answer
             await database.ref(`games/${currentGamePin}/players/${playerGamePlayerId}`).update({
                 currentAnswer: answerIndex,
                 responseTime: responseTime,
@@ -425,7 +493,6 @@ async function selectAnswer(answerIndex) {
                 answerTime: Date.now() // Record when answer was submitted
             });
 
-            // No immediate score update for player, wait for host to process
             showStatus('Answer submitted! Waiting for host...', 'success');
         } else {
             console.error('💥 PLAYER: Missing data to submit answer.', { playerGameInstance, currentGamePin, playerGamePlayerId, currentQuestionData });
@@ -463,12 +530,12 @@ function showWaitingNext() {
     showStatus('Waiting for the next question...', 'info');
     // Ensure scoreboard is visible here if you want it after each question
     updateScoreDisplay();
-    updateLeaderboards(Object.values(hostPlayers)); // Assuming hostPlayers is accessible, otherwise fetch from Firebase
+    // The leaderboard for waiting-next-question will be updated by onPlayersUpdate
 }
 
 
 function updateScoreDisplay() {
-    const scoreEl = document.getElementById('current-score');
+    const scoreEl = document.getElementById('player-current-score'); // Ensure this ID is correct for the active game score display
     if (scoreEl) {
         if (previousScore !== playerScore && playerScore > previousScore) {
             scoreEl.classList.add('score-updated');
@@ -482,7 +549,7 @@ function updateScoreDisplay() {
 function updateLeaderboards(players) {
     const sortedPlayers = Object.values(players).sort((a, b) => b.score - a.score);
     updateLeaderboard('lobby-leaderboard-list', sortedPlayers);
-    updateLeaderboard('in-game-leaderboard-list', sortedPlayers);
+    updateLeaderboard('in-game-leaderboard-list', sortedPlayers); // Assuming this ID exists in active game
 }
 
 function updateLeaderboard(elementId, players) {
@@ -500,7 +567,7 @@ function updateLeaderboard(elementId, players) {
     }
 }
 
-async function showFinalResults() {
+async function showFinalResults(leaderboardData) { // Now accepts leaderboardData directly
     if (hasShownFinalResults) {
         console.log('🏁 PLAYER: Final results display already processed. Skipping redundant call.');
         return;
@@ -513,10 +580,11 @@ async function showFinalResults() {
         currentTimerInterval = null;
     }
 
-    let finalScoreToDisplay = playerScore; // Default to current global playerScore (which should be up-to-date via onPlayersUpdate)
+    let finalScoreToDisplay = playerScore; // Default to current global playerScore
 
     // Attempt to fetch the most up-to-date score directly from Firebase as a final confirmation
-    if (playerGamePlayerId && currentGamePin && typeof database !== 'undefined' && database.ref) {
+    // This part can be simplified if leaderboardData is reliably passed.
+    if (!leaderboardData && playerGamePlayerId && currentGamePin && typeof database !== 'undefined' && database.ref) {
         try {
             console.log(`PLAYER: Attempting to fetch definitive final score for player ${playerGamePlayerId} in game ${currentGamePin}`);
             const playerRef = database.ref(`games/${currentGamePin}/players/${playerGamePlayerId}`);
@@ -525,21 +593,23 @@ async function showFinalResults() {
 
             if (playerData && typeof playerData.score === 'number') {
                 finalScoreToDisplay = playerData.score;
-                // Sync global playerScore one last time for any immediate subsequent reads if needed, though display uses finalScoreToDisplay
-                playerScore = finalScoreToDisplay;
+                playerScore = finalScoreToDisplay; // Sync global playerScore
                 console.log('PLAYER: Fetched definitive final score from Firebase:', finalScoreToDisplay);
             } else {
                 console.log('PLAYER: Definitive final score not found/not a number in direct Firebase fetch. Using current global playerScore:', playerScore);
-                finalScoreToDisplay = playerScore; // Ensure it uses the global if fetch fails
             }
         } catch (err) {
             console.error('PLAYER: Error fetching definitive final score from Firebase. Using current global playerScore:', err);
-            finalScoreToDisplay = playerScore; // Ensure it uses the global on error
         }
-    } else {
-        console.log('PLAYER: Skipping direct Firebase fetch for final score (missing vital info). Using current global playerScore:', playerScore);
-        finalScoreToDisplay = playerScore; // Ensure it uses the global
+    } else if (leaderboardData) {
+        const playerEntry = leaderboardData.find(p => p.id === playerGamePlayerId);
+        if (playerEntry) {
+            finalScoreToDisplay = playerEntry.score;
+            playerScore = finalScoreToDisplay; // Sync global playerScore
+            console.log('PLAYER: Using leaderboardData for final score:', finalScoreToDisplay);
+        }
     }
+
 
     hideAllScreens();
     showElement('final-results');
@@ -555,6 +625,41 @@ async function showFinalResults() {
 
     showStatus('🏁 Quiz completed! Final results are in!', 'success');
 
+    // Display final leaderboard
+    const finalLeaderboardList = document.getElementById('final-leaderboard-list');
+    if (finalLeaderboardList) {
+        finalLeaderboardList.innerHTML = ''; // Clear previous entries
+        const leaderboard = leaderboardData || Object.values(await database.ref(`games/${currentGamePin}/players`).once('value').then(s => s.val() || {}));
+        const sortedLeaderboard = Object.values(leaderboard).sort((a, b) => b.score - a.score);
+        if (sortedLeaderboard && sortedLeaderboard.length > 0) {
+            sortedLeaderboard.forEach((player, index) => {
+                const li = document.createElement('li');
+                li.innerHTML = `<span>${index + 1}. ${player.name}</span> <span>${player.score}</span>`;
+                if (player.id === playerGamePlayerId) {
+                    li.classList.add('current-player-rank'); // Highlight current player in final leaderboard
+                }
+                finalLeaderboardList.appendChild(li);
+            });
+        } else {
+            finalLeaderboardList.innerHTML = '<li>No final scores available.</li>';
+        }
+    }
+
+    // Add confetti for winning (if applicable, based on your logic)
+    const playerRank = sortedLeaderboard.findIndex(p => p.id === playerGamePlayerId);
+    if (playerRank === 0 && sortedLeaderboard.length > 0) { // Assuming rank 0 is the winner
+        injectConfettiCSS();
+        document.getElementById('final-results').classList.add('game-over-winner');
+        const confettiContainer = document.createElement('div');
+        confettiContainer.className = 'confetti';
+        document.getElementById('final-results').appendChild(confettiContainer);
+    } else {
+        document.getElementById('final-results').classList.remove('game-over-winner');
+        const existingConfetti = document.querySelector('.confetti');
+        if (existingConfetti) existingConfetti.remove();
+    }
+
+
     if (playerGameInstance) {
         playerGameInstance.cleanup(); // Detach Firebase listeners
     }
@@ -563,15 +668,9 @@ async function showFinalResults() {
 
     // Clear persistent storage for the game just ended
     console.log('PLAYER: Clearing game-specific localStorage items.');
-    localStorage.removeItem(PLAYER_STATE_KEYS.GAME_PIN); // If these specific keys were used
-    localStorage.removeItem(PLAYER_STATE_KEYS.PLAYER_ID);
-    localStorage.removeItem(PLAYER_STATE_KEYS.PLAYER_NAME);
+    Object.values(PLAYER_STATE_KEYS).forEach(key => localStorage.removeItem(key));
     localStorage.removeItem('gamePin');     // Clear direct keys from index.html
     localStorage.removeItem('playerName');
-    localStorage.removeItem(PLAYER_STATE_KEYS.IS_ACTIVE);
-    localStorage.removeItem(PLAYER_STATE_KEYS.GAME_STATE);
-    localStorage.removeItem(PLAYER_STATE_KEYS.CURRENT_SCORE);
-
     console.log('✅ PLAYER: Final results screen configured and state handled.');
 }
 
@@ -597,6 +696,19 @@ function showStatus(message, type) {
         statusEl.innerHTML = `<p class="${type}">${message}</p>`; // Added class for styling
     }
 }
+
+// New helper function to clear active game state variables when game ends or is abandoned
+function clearActiveGameStateVariables() {
+    hasAnswered = false;
+    isQuestionActive = false;
+    questionEndTime = null;
+    currentQuestionData = null;
+    if (answerManager) { // Reset answer manager for new game
+        answerManager.questionStartTime = null;
+        answerManager.hasAnswered = false;
+    }
+}
+
 
 window.addEventListener('beforeunload', () => {
     console.log('🧹 PLAYER: Page unloading - potential cleanup');
