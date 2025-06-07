@@ -246,7 +246,7 @@ header p {
 
 .btn-primary {
     background: linear-gradient(135deg, #e21b3c 0%, #ff6900 100%);
-    color:white;
+    color: white;
 }
 
 .btn-primary:hover {
@@ -1166,4 +1166,3 @@ input:focus {
         border: 2px solid #000000;
     }
 }
-
