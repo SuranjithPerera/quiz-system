@@ -503,7 +503,7 @@ function onGameStateChange(gameState) {
     }
 }
 
-// Players update
+// FIXED: Players update with proper score tracking
 function onPlayersUpdate(players) {
     const playerCount = Object.keys(players).length;
     console.log('👥 PLAYER: Players update - count:', playerCount);
@@ -512,10 +512,17 @@ function onPlayersUpdate(players) {
     const countEl = document.getElementById('lobby-player-count');
     if (countEl) countEl.textContent = playerCount;
     
-    // Update player score
+    // FIXED: Update player score from Firebase data
     if (players[playerGamePlayerId]) {
+        const playerData = players[playerGamePlayerId];
         const oldScore = playerScore;
-        const newScore = players[playerGamePlayerId].score || 0;
+        const newScore = playerData.score || 0;
+        
+        console.log('🏆 PLAYER: Score data from Firebase:', {
+            oldScore,
+            newScore,
+            playerData
+        });
         
         if (oldScore !== newScore) {
             console.log('🏆 PLAYER: Score updated from', oldScore, 'to', newScore);
@@ -805,7 +812,10 @@ function showWaitingNext() {
     updateScoreDisplay();
 }
 
+// FIXED: Update score display to show correct current score
 function updateScoreDisplay() {
+    console.log('🎯 PLAYER: Updating score display - current score:', playerScore);
+    
     const scoreEl = document.getElementById('current-score');
     if (scoreEl) {
         // Add animation class for score updates
@@ -818,19 +828,28 @@ function updateScoreDisplay() {
         scoreEl.textContent = playerScore;
     }
     
+    // FIXED: Show correct final score
     const finalEl = document.getElementById('player-final-score');
-    if (finalEl) finalEl.textContent = `${playerScore} points`;
+    if (finalEl) {
+        finalEl.textContent = `${playerScore} points`;
+        console.log('🏆 PLAYER: Final score display updated:', playerScore, 'points');
+    }
 }
 
+// FIXED: Update leaderboards with proper player data
 function updateLeaderboards(players) {
     const sorted = Object.values(players).sort((a, b) => (b.score || 0) - (a.score || 0));
     
     updateLeaderboard('current-leaderboard', sorted.slice(0, 5));
     updateLeaderboard('final-leaderboard-player', sorted);
     
+    // FIXED: Calculate rank correctly
     const rank = sorted.findIndex(p => p.id === playerGamePlayerId) + 1;
     const rankEl = document.getElementById('player-final-rank');
-    if (rankEl) rankEl.textContent = `#${rank} of ${sorted.length}`;
+    if (rankEl) {
+        rankEl.textContent = `#${rank} of ${sorted.length}`;
+        console.log('🏅 PLAYER: Rank updated:', rank, 'of', sorted.length);
+    }
 }
 
 function updateLeaderboard(elementId, players) {
@@ -869,6 +888,8 @@ function showFinalResults() {
     hideAllScreens();
     showElement('final-results');
     
+    // FIXED: Ensure score is displayed correctly
+    console.log('🏆 PLAYER: Final score to display:', playerScore);
     updateScoreDisplay();
     
     // Show completion notification

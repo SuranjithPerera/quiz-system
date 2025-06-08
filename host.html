@@ -123,6 +123,54 @@
             width: 100%;
             box-sizing: border-box;
         }
+
+        /* FIXED: Player list styling to ensure names are visible */
+        .player-item-lobby {
+            background: linear-gradient(135deg, #e21b3c 0%, #ff4757 100%);
+            color: white !important;
+            padding: 12px 20px;
+            margin: 8px 0;
+            border-radius: 15px;
+            font-weight: 700;
+            font-size: 1rem;
+            text-align: center;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 4px 15px rgba(226, 27, 60, 0.3);
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+
+        .player-item-lobby:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(226, 27, 60, 0.4);
+        }
+
+        .no-players-message {
+            text-align: center;
+            padding: 30px 20px;
+            color: #666;
+            font-style: italic;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            border: 2px dashed #ccc;
+        }
+
+        /* FIXED: Player count badge */
+        .player-count-badge {
+            background: linear-gradient(135deg, #ff6900 0%, #ff8c00 100%);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 800;
+            margin-left: 10px;
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 4px 12px rgba(255, 105, 0, 0.3);
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+        }
         
         .start-btn {
             background: linear-gradient(135deg, #e21b3c 0%, #ff4757 100%);
@@ -827,22 +875,26 @@
             isHostGameActive = false;
         }
 
+        // FIXED: Players update function with proper display
         function onPlayersUpdate(players) {
             console.log('👥 HOST: Players updated:', Object.keys(players).length);
             hostPlayers = players;
             updatePlayersDisplay(players);
         }
 
+        // FIXED: Update players display to show names properly
         function updatePlayersDisplay(players) {
             const playerCount = Object.keys(players).length;
             const countEl = document.getElementById('player-count');
             const containerEl = document.getElementById('players-container');
             const startBtn = document.getElementById('start-btn');
             
+            console.log('👥 HOST: Updating players display - count:', playerCount);
+            
             // Update count
             if (countEl) countEl.textContent = playerCount;
             
-            // Update players list
+            // Update players list - FIXED to show player names
             if (containerEl) {
                 if (playerCount === 0) {
                     containerEl.innerHTML = `
@@ -856,12 +908,20 @@
                     `;
                 } else {
                     containerEl.innerHTML = '';
-                    Object.values(players).forEach(player => {
+                    console.log('👥 HOST: Creating player items for', playerCount, 'players');
+                    
+                    Object.values(players).forEach((player, index) => {
+                        console.log('👤 HOST: Adding player:', player.name);
                         const playerDiv = document.createElement('div');
                         playerDiv.className = 'player-item-lobby';
-                        playerDiv.textContent = player.name;
+                        playerDiv.textContent = player.name || `Player ${index + 1}`;
+                        playerDiv.style.display = 'block';
+                        playerDiv.style.visibility = 'visible';
+                        playerDiv.style.opacity = '1';
                         containerEl.appendChild(playerDiv);
                     });
+                    
+                    console.log('✅ HOST: Player items created successfully');
                 }
             }
             
@@ -1298,6 +1358,14 @@
             
             try {
                 if (hostGameInstance) {
+                    // CRITICAL FIX: Set game state to finished for players
+                    await database.ref(`games/${hostGamePin}/gameState`).update({
+                        status: 'finished',
+                        endedAt: Date.now(),
+                        endReason: 'host_ended',
+                        message: 'Quiz completed by host'
+                    });
+                    
                     await hostGameInstance.endGame();
                 }
                 
