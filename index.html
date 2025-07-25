@@ -24,7 +24,7 @@
 
         <!-- ADMIN ACCESS BUTTON (shown only to admins) -->
         <div id="admin-access" style="display:none;text-align:center;margin:40px 0;">
-            <button class="btn btn-secondary" id="admin-panel-btn" style="background: linear-gradient(135deg, #ff6900 0%, #ffb800 100%); border: 3px solid #ffffff; color: white; padding: 18px 30px; border-radius: 30px; font-weight: 900; font-size: 1.2rem; box-shadow: 0 12px 35px rgba(255, 105, 0, 0.4);">
+            <button class="btn" id="admin-panel-btn" style="background: linear-gradient(135deg, #ff6900 0%, #ffb800 100%); border: 3px solid #ffffff; color: white; padding: 18px 30px; border-radius: 30px; font-weight: 900; font-size: 1.2rem; box-shadow: 0 12px 35px rgba(255, 105, 0, 0.4); transition: all 0.3s ease;">
                 🔧 Go to Admin Dashboard
             </button>
         </div>
@@ -83,13 +83,15 @@
     <script src="script.js"></script>
     <script>
         // Admin access management
-        const ADMIN_EMAIL_WHITELIST = ["admin@kokoot.com"];
+        const ADMIN_EMAIL_WHITELIST = ["admin@kokoot.com", "your-email@example.com"]; // Add your email here
 
         function showAdminButton() {
+            console.log('👑 ADMIN: Showing admin access button');
             document.getElementById('admin-access').style.display = 'block';
         }
 
         function hideAdminButton() {
+            console.log('🙈 ADMIN: Hiding admin access button');
             document.getElementById('admin-access').style.display = 'none';
         }
 
@@ -98,42 +100,84 @@
             return data && data.isAdmin === true;
         }
 
-        function testIfAdmin(user) {
+        async function testIfAdmin(user) {
+            if (!user) return false;
+            
             const emailOk = ADMIN_EMAIL_WHITELIST.includes((user.email || '').toLowerCase());
-            return database.ref('users/' + user.uid).once('value')
-                .then(snap => emailOk || hasAdminFlag(snap))
-                .catch(() => emailOk);
+            console.log('🔍 ADMIN: Email check for', user.email, '- Result:', emailOk);
+            
+            if (emailOk) return true;
+            
+            try {
+                if (database && database.ref) {
+                    const snap = await database.ref('users/' + user.uid).once('value');
+                    const hasFlag = hasAdminFlag(snap);
+                    console.log('🔍 ADMIN: Database flag check - Result:', hasFlag);
+                    return hasFlag;
+                }
+            } catch (error) {
+                console.error('💥 ADMIN: Error checking database flag:', error);
+            }
+            
+            return false;
         }
 
         // Wait until firebase/auth ready
         document.addEventListener('DOMContentLoaded', () => {
-            // Admin button click handler
-            document.getElementById('admin-panel-btn').addEventListener('click', () => {
+            console.log('🚀 INDEX: Initializing with admin functionality...');
+            
+            // Admin button click handler with hover effect
+            const adminBtn = document.getElementById('admin-panel-btn');
+            adminBtn.addEventListener('click', () => {
+                console.log('🔧 ADMIN: Navigating to admin dashboard');
                 window.location.href = 'admin.html';
+            });
+            
+            // Add hover effects
+            adminBtn.addEventListener('mouseenter', () => {
+                adminBtn.style.transform = 'translateY(-3px)';
+                adminBtn.style.boxShadow = '0 18px 45px rgba(255, 105, 0, 0.6)';
+            });
+            
+            adminBtn.addEventListener('mouseleave', () => {
+                adminBtn.style.transform = 'translateY(0)';
+                adminBtn.style.boxShadow = '0 12px 35px rgba(255, 105, 0, 0.4)';
             });
 
             // Wait for Firebase to initialize
             const checkAuth = () => {
                 if (typeof auth === 'undefined') {
+                    console.log('⏳ INDEX: Waiting for Firebase auth...');
                     setTimeout(checkAuth, 100);
                     return;
                 }
 
+                console.log('✅ INDEX: Firebase auth ready, setting up listeners');
+
                 if (auth.currentUser) {
+                    console.log('👤 INDEX: User already signed in:', auth.currentUser.email);
                     testIfAdmin(auth.currentUser).then(isAdmin => {
+                        console.log('🔍 INDEX: Initial admin check result:', isAdmin);
                         if (isAdmin) showAdminButton();
                     });
                 }
 
                 auth.onAuthStateChanged(user => {
+                    console.log('🔄 INDEX: Auth state changed:', user ? user.email : 'signed out');
                     updateAuthSection(user);
+                    
                     if (!user) {
                         hideAdminButton();
                         return;
                     }
+                    
                     testIfAdmin(user).then(isAdmin => {
-                        if (isAdmin) showAdminButton();
-                        else hideAdminButton();
+                        console.log('🔍 INDEX: Admin check result for', user.email, ':', isAdmin);
+                        if (isAdmin) {
+                            showAdminButton();
+                        } else {
+                            hideAdminButton();
+                        }
                     });
                 });
             };
@@ -147,7 +191,10 @@
                 authSection.innerHTML = `
                     <div class="user-info" style="text-align: center;">
                         <p>Welcome, <strong>${user.displayName || user.email}</strong>!</p>
-                        <button class="btn btn-primary" onclick="signOut()" style="margin-top: 10px;">Sign Out</button>
+                        <div style="display: flex; gap: 10px; justify-content: center; margin-top: 10px; flex-wrap: wrap;">
+                            <button class="btn btn-primary" onclick="window.location.href='manage.html'" style="flex: 1; min-width: 120px;">My Quizzes</button>
+                            <button class="btn btn-secondary" onclick="signOut()" style="flex: 1; min-width: 120px;">Sign Out</button>
+                        </div>
                     </div>
                 `;
             } else {
@@ -217,9 +264,7 @@
             }
         }
 
-        console.log('🎮 INDEX: Kokoot! main page loaded');
+        console.log('🎮 INDEX: Kokoot! main page loaded with admin functionality');
     </script>
 </body>
 </html>
-
-

@@ -1,4 +1,4 @@
-/* Admin Dashboard Specific Styles */
+/* Admin Dashboard Styles */
 
 .admin-dashboard {
     max-width: 1400px;
@@ -149,142 +149,6 @@
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* Overview Grid */
-.overview-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-    gap: 25px;
-}
-
-.overview-section {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.08) 100%);
-    backdrop-filter: blur(20px);
-    border-radius: 20px;
-    padding: 25px;
-    border: 3px solid rgba(255, 255, 255, 0.2);
-}
-
-.overview-section h3 {
-    margin-bottom: 20px;
-    color: #ffffff;
-    font-weight: 800;
-    font-size: 1.3rem;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-/* Activity List */
-.activity-list {
-    max-height: 300px;
-    overflow-y: auto;
-}
-
-.activity-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    color: #f0f0f0;
-}
-
-.activity-item:last-child {
-    border-bottom: none;
-}
-
-.activity-action {
-    font-weight: 700;
-    color: #ffffff;
-}
-
-.activity-time {
-    font-size: 0.85rem;
-    opacity: 0.8;
-}
-
-/* Top Users List */
-.top-users-list {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-.top-user-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
-    padding: 15px;
-    border-radius: 15px;
-    border: 2px solid rgba(255, 255, 255, 0.1);
-}
-
-.user-info-admin {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-}
-
-.user-name-admin {
-    font-weight: 700;
-    color: #ffffff;
-}
-
-.user-email-admin {
-    font-size: 0.85rem;
-    opacity: 0.8;
-    color: #f0f0f0;
-}
-
-.user-quiz-count {
-    background: linear-gradient(135deg, #26d0ce 0%, #1dd1a1 100%);
-    color: white;
-    padding: 8px 15px;
-    border-radius: 20px;
-    font-weight: 700;
-    font-size: 0.9rem;
-}
-
-/* Health Indicators */
-.health-indicators {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-.health-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 0;
-}
-
-.health-label {
-    font-weight: 700;
-    color: #ffffff;
-}
-
-.health-status {
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-weight: 700;
-    font-size: 0.85rem;
-}
-
-.health-status.healthy {
-    background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
-    color: white;
-}
-
-.health-status.warning {
-    background: linear-gradient(135deg, #ff6900 0%, #ff8c00 100%);
-    color: white;
-}
-
-.health-status.error {
-    background: linear-gradient(135deg, #e21b3c 0%, #ff4757 100%);
-    color: white;
-}
-
 /* Section Headers */
 .section-header {
     display: flex;
@@ -300,26 +164,6 @@
     font-weight: 900;
     font-size: 2rem;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-/* Search Bar */
-.search-bar input {
-    padding: 12px 20px;
-    border: 3px solid #ff6900;
-    border-radius: 30px;
-    background: rgba(255, 255, 255, 0.9);
-    color: #46178f;
-    font-weight: 600;
-    font-size: 1rem;
-    min-width: 250px;
-    transition: all 0.3s ease;
-}
-
-.search-bar input:focus {
-    outline: none;
-    border-color: #9c4dff;
-    box-shadow: 0 0 0 4px rgba(156, 77, 255, 0.3);
-    background: #ffffff;
 }
 
 /* Game Filters */
@@ -341,162 +185,6 @@
     border-color: #9c4dff;
     box-shadow: 0 0 0 4px rgba(156, 77, 255, 0.3);
     background: #ffffff;
-}
-
-/* Admin Table */
-.users-table-container {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.9) 100%);
-    border-radius: 20px;
-    padding: 20px;
-    overflow-x: auto;
-    border: 3px solid rgba(255, 255, 255, 0.3);
-    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.1);
-}
-
-.admin-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.95rem;
-}
-
-.admin-table th {
-    background: linear-gradient(135deg, #46178f 0%, #7b2cbf 100%);
-    color: white;
-    padding: 15px 12px;
-    text-align: left;
-    font-weight: 800;
-    border: none;
-    font-size: 0.9rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.admin-table th:first-child {
-    border-radius: 15px 0 0 15px;
-}
-
-.admin-table th:last-child {
-    border-radius: 0 15px 15px 0;
-}
-
-.admin-table td {
-    padding: 15px 12px;
-    border-bottom: 1px solid rgba(70, 23, 143, 0.1);
-    color: #46178f;
-    font-weight: 600;
-}
-
-.admin-table tr:hover {
-    background: rgba(156, 77, 255, 0.05);
-}
-
-.admin-table .user-cell {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-}
-
-.admin-table .user-name {
-    font-weight: 800;
-    color: #46178f;
-}
-
-.admin-table .user-id {
-    font-size: 0.8rem;
-    opacity: 0.7;
-    font-family: monospace;
-}
-
-/* Action Buttons in Table */
-.action-btn {
-    background: linear-gradient(135deg, #26d0ce 0%, #1dd1a1 100%);
-    color: white;
-    border: none;
-    padding: 6px 12px;
-    border-radius: 15px;
-    cursor: pointer;
-    font-size: 0.8rem;
-    font-weight: 700;
-    margin: 2px;
-    transition: all 0.3s ease;
-}
-
-.action-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(38, 208, 206, 0.4);
-}
-
-.action-btn.danger {
-    background: linear-gradient(135deg, #e21b3c 0%, #ff4757 100%);
-}
-
-.action-btn.danger:hover {
-    box-shadow: 0 5px 15px rgba(226, 27, 60, 0.4);
-}
-
-.action-btn.warning {
-    background: linear-gradient(135deg, #ff6900 0%, #ff8c00 100%);
-}
-
-.action-btn.warning:hover {
-    box-shadow: 0 5px 15px rgba(255, 105, 0, 0.4);
-}
-
-/* Quizzes Grid */
-.quizzes-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 20px;
-}
-
-.quiz-card-admin {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.9) 100%);
-    border-radius: 20px;
-    padding: 20px;
-    border: 3px solid rgba(255, 105, 0, 0.3);
-    transition: all 0.3s ease;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-    color: #46178f;
-}
-
-.quiz-card-admin:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 15px 40px rgba(255, 105, 0, 0.3);
-    border-color: #ff6900;
-}
-
-.quiz-title-admin {
-    font-size: 1.3rem;
-    font-weight: 800;
-    color: #46178f;
-    margin-bottom: 10px;
-}
-
-.quiz-meta-admin {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 15px;
-    font-size: 0.85rem;
-    color: #7b2cbf;
-}
-
-.quiz-creator-admin {
-    font-weight: 700;
-}
-
-.quiz-questions-admin {
-    background: linear-gradient(135deg, #26d0ce 0%, #1dd1a1 100%);
-    color: white;
-    padding: 4px 10px;
-    border-radius: 15px;
-    font-weight: 700;
-}
-
-.quiz-actions-admin {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
 }
 
 /* Games List */
@@ -558,67 +246,32 @@
     color: white;
 }
 
-/* System Actions */
-.system-actions {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 25px;
-    margin-bottom: 30px;
-}
-
-.action-group {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.08) 100%);
-    backdrop-filter: blur(20px);
-    border-radius: 20px;
-    padding: 25px;
-    border: 3px solid rgba(255, 255, 255, 0.2);
-}
-
-.action-group h3 {
-    margin-bottom: 20px;
-    color: #ffffff;
-    font-weight: 800;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-.action-group .btn {
-    display: block;
-    width: 100%;
-    margin-bottom: 10px;
-    text-align: center;
-}
-
-/* System Logs */
-.logs-container {
-    background: linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.9) 100%);
+/* Action Buttons */
+.action-btn {
+    background: linear-gradient(135deg, #26d0ce 0%, #1dd1a1 100%);
+    color: white;
+    border: none;
+    padding: 8px 15px;
     border-radius: 15px;
-    padding: 20px;
-    max-height: 400px;
-    overflow-y: auto;
-    font-family: 'Courier New', monospace;
-    font-size: 0.85rem;
-    color: #00ff00;
-    border: 2px solid rgba(255, 255, 255, 0.2);
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 700;
+    margin: 2px;
+    transition: all 0.3s ease;
 }
 
-.log-entry {
-    padding: 5px 0;
-    border-bottom: 1px solid rgba(0, 255, 0, 0.1);
+.action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(38, 208, 206, 0.4);
 }
 
-.log-timestamp {
-    color: #ffff00;
-    margin-right: 10px;
+.action-btn.danger {
+    background: linear-gradient(135deg, #e21b3c 0%, #ff4757 100%);
 }
 
-.log-level {
-    margin-right: 10px;
-    font-weight: bold;
+.action-btn.danger:hover {
+    box-shadow: 0 5px 15px rgba(226, 27, 60, 0.4);
 }
-
-.log-level.info { color: #00bfff; }
-.log-level.warn { color: #ff8c00; }
-.log-level.error { color: #ff4757; }
 
 /* Modals */
 .modal {
@@ -660,6 +313,39 @@
     color: #e21b3c;
 }
 
+/* Players table (modal) */
+#players-content table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    color: #333;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-top: 15px;
+}
+
+#players-content th {
+    background: #f7c873;
+    color: #2d102f;
+    padding: 12px 8px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+#players-content td {
+    padding: 10px 8px;
+    border-bottom: 1px solid #ffdc90;
+}
+
+#players-content tr:last-child td {
+    border-bottom: none;
+}
+
+#players-content tr:nth-child(even) {
+    background-color: #fdf8e9;
+}
+
 /* Loading Items */
 .loading-item {
     text-align: center;
@@ -668,36 +354,32 @@
     font-style: italic;
 }
 
-.loading-row {
-    text-align: center;
-    padding: 40px 20px;
-    color: #7b2cbf;
-    font-style: italic;
+/* Status message in admin */
+.status-message {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    border-radius: 25px;
+    font-weight: 600;
+    z-index: 1000;
+    max-width: 300px;
+    word-wrap: break-word;
 }
 
-/* Players table (modal) */
-#quiz-details-content table {
-    width: 100%;
-    border-collapse: collapse;
-    background: #fff;
-    color: #333;
-    border-radius: 8px;
-    overflow: hidden;
+.status-message.success {
+    background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
+    color: white;
 }
 
-#quiz-details-content th {
-    background: #f7c873;
-    color: #2d102f;
-    padding: 8px;
+.status-message.error {
+    background: linear-gradient(135deg, #e21b3c 0%, #ff4757 100%);
+    color: white;
 }
 
-#quiz-details-content td {
-    padding: 6px;
-    border-bottom: 1px solid #ffdc90;
-}
-
-#quiz-details-content tr:last-child td {
-    border-bottom: none;
+.status-message.info {
+    background: linear-gradient(135deg, #1368ce 0%, #3742fa 100%);
+    color: white;
 }
 
 /* Responsive Design */
@@ -710,38 +392,9 @@
         flex-direction: column;
     }
     
-    .overview-grid {
-        grid-template-columns: 1fr;
-    }
-    
     .section-header {
         flex-direction: column;
         align-items: stretch;
-    }
-    
-    .search-bar input {
-        min-width: 100%;
-    }
-    
-    .users-table-container {
-        padding: 10px;
-    }
-    
-    .admin-table {
-        font-size: 0.8rem;
-    }
-    
-    .admin-table th,
-    .admin-table td {
-        padding: 8px 6px;
-    }
-    
-    .quizzes-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .system-actions {
-        grid-template-columns: 1fr;
     }
     
     .modal-content {
@@ -749,25 +402,9 @@
         margin: 10% auto;
         padding: 20px;
     }
-}
-
-/* Custom Scrollbars */
-.activity-list::-webkit-scrollbar,
-.logs-container::-webkit-scrollbar,
-.users-table-container::-webkit-scrollbar {
-    width: 8px;
-}
-
-.activity-list::-webkit-scrollbar-track,
-.logs-container::-webkit-scrollbar-track,
-.users-table-container::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 10px;
-}
-
-.activity-list::-webkit-scrollbar-thumb,
-.logs-container::-webkit-scrollbar-thumb,
-.users-table-container::-webkit-scrollbar-thumb {
-    background: linear-gradient(135deg, #ff6900 0%, #ffb800 100%);
-    border-radius: 10px;
+    
+    .game-item {
+        flex-direction: column;
+        align-items: stretch;
+    }
 }
