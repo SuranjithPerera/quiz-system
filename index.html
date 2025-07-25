@@ -58,6 +58,14 @@
                 
                 <button class="btn btn-tertiary" onclick="manageQuizzes()">Manage Quizzes</button>
             </div>
+
+            <!-- Network Helper Card -->
+            <div class="menu-card">
+                <h2>🌐 Network Helper</h2>
+                <p>Get network information for local hosting</p>
+                
+                <button class="btn btn-primary" onclick="networkHelper()">Network Info</button>
+            </div>
         </div>
 
         <!-- Authentication Card -->
@@ -93,7 +101,7 @@
             document.getElementById('admin-access').style.display = 'none';
         }
 
-        // UPDATED: Simple check - any logged-in user is admin
+        // UPDATED: Simple check - any logged-in user gets admin access
         function testIfAdmin(user) {
             // Return true for ANY authenticated user
             return Promise.resolve(!!user);
@@ -216,6 +224,10 @@
 
         function manageQuizzes() {
             window.location.href = 'manage.html';
+        }
+
+        function networkHelper() {
+            window.location.href = 'network-helper.html';
         }
 
         function showStatus(message, type = 'info') {
