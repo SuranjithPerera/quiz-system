@@ -675,6 +675,31 @@
     font-style: italic;
 }
 
+/* Players table (modal) */
+#quiz-details-content table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    color: #333;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+#quiz-details-content th {
+    background: #f7c873;
+    color: #2d102f;
+    padding: 8px;
+}
+
+#quiz-details-content td {
+    padding: 6px;
+    border-bottom: 1px solid #ffdc90;
+}
+
+#quiz-details-content tr:last-child td {
+    border-bottom: none;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .stats-grid {
