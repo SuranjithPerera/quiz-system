@@ -1,4 +1,4 @@
-// Player.js - Enhanced with Proper Game End Handling - VERIFIED FINAL FIX
+// Player.js - COMPLETE FIX for Final Score Display Issue
 let playerGameInstance = null;
 let playerGamePlayerId = null;
 let playerGamePlayerName = null;
@@ -503,7 +503,7 @@ function onGameStateChange(gameState) {
     }
 }
 
-// Players update
+// COMPLETE FIX: Enhanced players update with real-time score tracking
 function onPlayersUpdate(players) {
     const playerCount = Object.keys(players).length;
     console.log('👥 PLAYER: Players update - count:', playerCount);
@@ -512,28 +512,69 @@ function onPlayersUpdate(players) {
     const countEl = document.getElementById('lobby-player-count');
     if (countEl) countEl.textContent = playerCount;
     
-    // Update player score
-    if (players[playerGamePlayerId]) {
-        const oldScore = playerScore;
-        const newScore = players[playerGamePlayerId].score || 0;
+    // COMPLETE FIX: Immediate score synchronization
+    if (playerGamePlayerId && players[playerGamePlayerId]) {
+        const currentPlayerData = players[playerGamePlayerId];
+        const newScore = currentPlayerData.score || 0;
         
-        if (oldScore !== newScore) {
-            console.log('🏆 PLAYER: Score updated from', oldScore, 'to', newScore);
+        console.log('🏆 PLAYER: COMPLETE FIX - Score check:', {
+            playerId: playerGamePlayerId,
+            currentLocalScore: playerScore,
+            firebaseScore: newScore,
+            playerData: currentPlayerData
+        });
+        
+        // CRITICAL: Always update to Firebase score regardless of local value
+        if (newScore !== playerScore) {
+            console.log('🔄 PLAYER: COMPLETE FIX - Score mismatch detected, updating:', playerScore, '->', newScore);
             
-            if (newScore > oldScore) {
-                const increase = newScore - oldScore;
+            if (newScore > playerScore) {
+                const increase = newScore - playerScore;
                 showScoreIncrease(increase);
             }
             
-            previousScore = oldScore;
+            previousScore = playerScore;
             playerScore = newScore;
+            
+            // IMMEDIATE: Force update all score displays
+            forceUpdateAllScoreDisplays();
+            
+            console.log('✅ PLAYER: COMPLETE FIX - Score updated and displays refreshed');
         }
         
-        updateScoreDisplay();
         savePlayerState();
+    } else if (playerGamePlayerId) {
+        console.warn('⚠️ PLAYER: Player data not found in players update for ID:', playerGamePlayerId);
     }
     
     updateLeaderboards(players);
+}
+
+// NEW FUNCTION: Force update all score displays immediately
+function forceUpdateAllScoreDisplays() {
+    console.log('🎯 PLAYER: FORCE UPDATE - Updating all score displays with score:', playerScore);
+    
+    // Update current score display (for intermediate screens)
+    const currentScoreEl = document.getElementById('current-score');
+    if (currentScoreEl) {
+        currentScoreEl.textContent = playerScore;
+        console.log('✅ PLAYER: Current score element updated to:', playerScore);
+    }
+    
+    // Update final score display (for results screen)
+    const finalScoreEl = document.getElementById('player-final-score');
+    if (finalScoreEl) {
+        finalScoreEl.textContent = `${playerScore} points`;
+        console.log('✅ PLAYER: Final score element updated to:', playerScore, 'points');
+    }
+    
+    // Force visual update with animation
+    if (currentScoreEl && previousScore !== playerScore && playerScore > previousScore) {
+        currentScoreEl.classList.add('score-updated');
+        setTimeout(() => {
+            currentScoreEl.classList.remove('score-updated');
+        }, 1000);
+    }
 }
 
 // Score increase animation
@@ -802,35 +843,29 @@ function showWaitingNext() {
     console.log('⏳ PLAYER: Waiting for next question');
     hideAllScreens();
     showElement('waiting-next');
-    updateScoreDisplay();
+    forceUpdateAllScoreDisplays(); // Update score when showing waiting screen
 }
 
+// REPLACED: Old updateScoreDisplay with forceUpdateAllScoreDisplays
 function updateScoreDisplay() {
-    const scoreEl = document.getElementById('current-score');
-    if (scoreEl) {
-        // Add animation class for score updates
-        if (previousScore !== playerScore && playerScore > previousScore) {
-            scoreEl.classList.add('score-updated');
-            setTimeout(() => {
-                scoreEl.classList.remove('score-updated');
-            }, 1000);
-        }
-        scoreEl.textContent = playerScore;
-    }
-    
-    const finalEl = document.getElementById('player-final-score');
-    if (finalEl) finalEl.textContent = `${playerScore} points`;
+    console.log('🎯 PLAYER: Legacy updateScoreDisplay called, delegating to forceUpdateAllScoreDisplays');
+    forceUpdateAllScoreDisplays();
 }
 
+// COMPLETE FIX: Update leaderboards with proper player data
 function updateLeaderboards(players) {
     const sorted = Object.values(players).sort((a, b) => (b.score || 0) - (a.score || 0));
     
     updateLeaderboard('current-leaderboard', sorted.slice(0, 5));
     updateLeaderboard('final-leaderboard-player', sorted);
     
+    // COMPLETE FIX: Calculate rank correctly
     const rank = sorted.findIndex(p => p.id === playerGamePlayerId) + 1;
     const rankEl = document.getElementById('player-final-rank');
-    if (rankEl) rankEl.textContent = `#${rank} of ${sorted.length}`;
+    if (rankEl) {
+        rankEl.textContent = `#${rank} of ${sorted.length}`;
+        console.log('🏅 PLAYER: COMPLETE FIX - Rank updated:', rank, 'of', sorted.length);
+    }
 }
 
 function updateLeaderboard(elementId, players) {
@@ -857,8 +892,9 @@ function updateLeaderboard(elementId, players) {
     });
 }
 
+// COMPLETE FIX: Show final results with triple score verification
 function showFinalResults() {
-    console.log('🏁 PLAYER: Showing final results');
+    console.log('🏁 PLAYER: COMPLETE FIX - Starting final results display process');
     
     // Clear any running timers
     if (currentTimerInterval) {
@@ -866,22 +902,70 @@ function showFinalResults() {
         currentTimerInterval = null;
     }
     
+    // COMPLETE FIX: Multi-step score verification process
+    const performFinalScoreVerification = async () => {
+        console.log('🔍 PLAYER: COMPLETE FIX - Performing final score verification...');
+        
+        try {
+            // Step 1: Get fresh data from Firebase
+            const playerRef = database.ref(`games/${currentGamePin}/players/${playerGamePlayerId}`);
+            const snapshot = await playerRef.once('value');
+            const freshPlayerData = snapshot.val();
+            
+            if (freshPlayerData && typeof freshPlayerData.score === 'number') {
+                const firebaseScore = freshPlayerData.score;
+                console.log('🏆 PLAYER: COMPLETE FIX - Fresh Firebase score:', firebaseScore);
+                
+                // Step 2: Force update local score
+                if (firebaseScore !== playerScore) {
+                    console.log('🔄 PLAYER: COMPLETE FIX - Updating local score from Firebase:', playerScore, '->', firebaseScore);
+                    playerScore = firebaseScore;
+                }
+                
+                // Step 3: Force update all displays IMMEDIATELY
+                forceUpdateAllScoreDisplays();
+                
+                // Step 4: Additional verification - update displays again after DOM render
+                setTimeout(() => {
+                    console.log('🎯 PLAYER: COMPLETE FIX - Second wave score display update');
+                    forceUpdateAllScoreDisplays();
+                }, 50);
+                
+                // Step 5: Final verification after 200ms
+                setTimeout(() => {
+                    console.log('🎯 PLAYER: COMPLETE FIX - Final verification score update');
+                    forceUpdateAllScoreDisplays();
+                }, 200);
+                
+            } else {
+                console.warn('⚠️ PLAYER: COMPLETE FIX - No valid Firebase score, using local:', playerScore);
+                forceUpdateAllScoreDisplays();
+            }
+            
+        } catch (error) {
+            console.error('💥 PLAYER: COMPLETE FIX - Error in score verification:', error);
+            forceUpdateAllScoreDisplays();
+        }
+    };
+    
+    // Show results screen first
     hideAllScreens();
     showElement('final-results');
     
-    updateScoreDisplay();
+    // Then perform score verification
+    performFinalScoreVerification();
     
     // Show completion notification
     showStatus('🏁 Quiz completed! Final results are in!', 'success');
     
-    // Clear all state completely
-    clearPlayerState();
+    // Clear states after everything is displayed
+    setTimeout(() => {
+        clearPlayerState();
+        localStorage.removeItem('gamePin');
+        localStorage.removeItem('playerName');
+    }, 1000);
     
-    // Clear the join info too since game is over
-    localStorage.removeItem('gamePin');
-    localStorage.removeItem('playerName');
-    
-    console.log('✅ PLAYER: Final results screen configured');
+    console.log('✅ PLAYER: COMPLETE FIX - Final results process completed');
 }
 
 function hideAllScreens() {
@@ -1076,7 +1160,7 @@ if (!document.getElementById('player-enhanced-scoring')) {
     document.head.appendChild(styleElement.firstElementChild);
 }
 
-console.log('🎮 PLAYER: Enhanced player.js loaded successfully');
+console.log('🎮 PLAYER: COMPLETE FIX Enhanced player.js loaded successfully');
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
