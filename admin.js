@@ -1,14 +1,12 @@
-// Kokoot – Admin Dashboard (COMPLETE VERSION)
-// Shows every game's players (name + score), login/privilege guard, session management
+// Kokoot – Admin Dashboard (UPDATED FOR ALL USERS)
+// Shows every game's players (name + score), accessible to all logged-in users
 
 /************ CONFIG SECTION ************/
-const ADMIN_EMAIL_WHITELIST = ["admin@kokoot.com", "your-email@example.com"];   // add more as needed
-const SESSION_KEY           = "kokoot_admin_session";
-const SESSION_MINUTES       = 60;                     // 1h
+const SESSION_KEY = "kokoot_admin_session";
+const SESSION_MINUTES = 60; // 1h
 
 /************ GLOBAL STATE ************/
 let adminData = { games: [], stats: {} };
-let sessionOK = false;
 
 /* ---------- helpers for session ---------- */
 function saveSession(uid, email) {
@@ -56,37 +54,29 @@ function waitFirebase() {
     });
 }
 
-/* ---------- privilege check ---------- */
+/* ---------- UPDATED: Allow any logged-in user ---------- */
 async function isAdminUser(user) {
-    if (!user) return false;
-    const emailOk = ADMIN_EMAIL_WHITELIST.includes((user.email || "").toLowerCase());
-    if (emailOk) return true;
-    try {
-        const snap = await database.ref("users/" + user.uid).once("value");
-        return snap.exists() && snap.val().isAdmin === true;
-    } catch { 
-        return false; 
-    }
+    // Return true for ANY authenticated user
+    return !!user;
 }
 
 /* ---------- bootstrap ---------- */
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log('🔧 ADMIN: Starting admin dashboard...');
+    console.log('🔧 ADMIN: Starting admin dashboard for all users...');
     show('loading-screen');
     await waitFirebase().catch(() => location.href = 'index.html');
 
     if (hasValidSession() && auth.currentUser) {
-        sessionOK = true;  
         initDashboard();
     } else {
         auth.onAuthStateChanged(async user => {
             if (!user) { 
                 clearSession(); 
-                return location.href = 'auth.html'; 
+                showDenied();
+                return;
             }
             if (await isAdminUser(user)) {
                 saveSession(user.uid, user.email); 
-                sessionOK = true;
                 initDashboard();
             } else {
                 clearSession(); 
@@ -299,4 +289,4 @@ function fmtDate(ts) {
     return d.toLocaleDateString() + " " + d.toLocaleTimeString(); 
 }
 
-console.log('🔧 ADMIN: Complete admin dashboard loaded successfully');
+console.log('🔧 ADMIN: Complete admin dashboard loaded successfully for all users');

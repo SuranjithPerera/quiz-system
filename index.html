@@ -22,9 +22,9 @@
         <!-- User Status Display -->
         <div id="user-status"></div>
 
-        <!-- ADMIN ACCESS BUTTON (shown only to admins) -->
+        <!-- ADMIN ACCESS BUTTON (shown to all logged-in users) -->
         <div id="admin-access" style="display:none;text-align:center;margin:40px 0;">
-            <button class="btn" id="admin-panel-btn" style="background: linear-gradient(135deg, #ff6900 0%, #ffb800 100%); border: 3px solid #ffffff; color: white; padding: 18px 30px; border-radius: 30px; font-weight: 900; font-size: 1.2rem; box-shadow: 0 12px 35px rgba(255, 105, 0, 0.4); transition: all 0.3s ease;">
+            <button class="btn" id="admin-panel-btn" style="background: linear-gradient(135deg, #ff6900 0%, #ffb800 100%); border: 3px solid #ffffff; color: white; padding: 18px 30px; border-radius: 30px; font-weight: 900; font-size: 1.2rem; box-shadow: 0 12px 35px rgba(255, 105, 0, 0.4); transition: all 0.3s ease; text-transform: none;">
                 🔧 Go to Admin Dashboard
             </button>
         </div>
@@ -82,11 +82,9 @@
     <script src="config.js"></script>
     <script src="script.js"></script>
     <script>
-        // Admin access management
-        const ADMIN_EMAIL_WHITELIST = ["admin@kokoot.com", "udayaperera2012@gmail.com"]; // Add your email here
-
+        // UPDATED: Allow ALL logged-in users to access admin panel
         function showAdminButton() {
-            console.log('👑 ADMIN: Showing admin access button');
+            console.log('👑 ADMIN: Showing admin access button for logged-in user');
             document.getElementById('admin-access').style.display = 'block';
         }
 
@@ -95,36 +93,15 @@
             document.getElementById('admin-access').style.display = 'none';
         }
 
-        function hasAdminFlag(userSnapshot) {
-            const data = userSnapshot.val();
-            return data && data.isAdmin === true;
-        }
-
-        async function testIfAdmin(user) {
-            if (!user) return false;
-            
-            const emailOk = ADMIN_EMAIL_WHITELIST.includes((user.email || '').toLowerCase());
-            console.log('🔍 ADMIN: Email check for', user.email, '- Result:', emailOk);
-            
-            if (emailOk) return true;
-            
-            try {
-                if (database && database.ref) {
-                    const snap = await database.ref('users/' + user.uid).once('value');
-                    const hasFlag = hasAdminFlag(snap);
-                    console.log('🔍 ADMIN: Database flag check - Result:', hasFlag);
-                    return hasFlag;
-                }
-            } catch (error) {
-                console.error('💥 ADMIN: Error checking database flag:', error);
-            }
-            
-            return false;
+        // UPDATED: Simple check - any logged-in user is admin
+        function testIfAdmin(user) {
+            // Return true for ANY authenticated user
+            return Promise.resolve(!!user);
         }
 
         // Wait until firebase/auth ready
         document.addEventListener('DOMContentLoaded', () => {
-            console.log('🚀 INDEX: Initializing with admin functionality...');
+            console.log('🚀 INDEX: Initializing with admin functionality for all users...');
             
             // Admin button click handler with hover effect
             const adminBtn = document.getElementById('admin-panel-btn');
@@ -264,7 +241,7 @@
             }
         }
 
-        console.log('🎮 INDEX: Kokoot! main page loaded with admin functionality');
+        console.log('🎮 INDEX: Kokoot! main page loaded with admin functionality for all users');
     </script>
 </body>
 </html>

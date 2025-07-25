@@ -31,9 +31,9 @@
         <div id="access-denied" class="access-denied" style="display: none;">
             <div class="denied-card">
                 <h2>🚫 Access Denied</h2>
-                <p>You don't have admin privileges to access this dashboard.</p>
-                <button class="btn btn-primary" onclick="window.location.href='index.html'">
-                    Back to Home
+                <p>Please sign in to access the admin dashboard.</p>
+                <button class="btn btn-primary" onclick="window.location.href='auth.html'">
+                    Sign In
                 </button>
             </div>
         </div>
@@ -44,26 +44,10 @@
             <!-- Quick Stats Cards -->
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-icon">👥</div>
-                    <div class="stat-content">
-                        <h3 id="total-users">0</h3>
-                        <p>Total Users</p>
-                    </div>
-                </div>
-                
-                <div class="stat-card">
-                    <div class="stat-icon">📝</div>
-                    <div class="stat-content">
-                        <h3 id="total-quizzes">0</h3>
-                        <p>Total Quizzes</p>
-                    </div>
-                </div>
-                
-                <div class="stat-card">
                     <div class="stat-icon">🎮</div>
                     <div class="stat-content">
                         <h3 id="total-games">0</h3>
-                        <p>Games Played</p>
+                        <p>Total Games</p>
                     </div>
                 </div>
                 
@@ -78,99 +62,11 @@
 
             <!-- Navigation Tabs -->
             <div class="tab-navigation">
-                <button class="tab-btn active" onclick="switchTab('overview')">📊 Overview</button>
-                <button class="tab-btn" onclick="switchTab('users')">👥 Users</button>
-                <button class="tab-btn" onclick="switchTab('quizzes')">📝 Quizzes</button>
-                <button class="tab-btn" onclick="switchTab('games')">🎮 Games</button>
-                <button class="tab-btn" onclick="switchTab('system')">⚙️ System</button>
-            </div>
-
-            <!-- Overview Tab -->
-            <div id="overview-tab" class="tab-content active">
-                <h2>📊 System Overview</h2>
-                
-                <div class="overview-grid">
-                    <!-- Recent Activity -->
-                    <div class="overview-section">
-                        <h3>🕒 Recent Activity</h3>
-                        <div id="recent-activity" class="activity-list">
-                            <div class="loading-item">Loading recent activity...</div>
-                        </div>
-                    </div>
-                    
-                    <!-- Top Users -->
-                    <div class="overview-section">
-                        <h3>🏆 Top Quiz Creators</h3>
-                        <div id="top-users" class="top-users-list">
-                            <div class="loading-item">Loading top users...</div>
-                        </div>
-                    </div>
-                    
-                    <!-- System Health -->
-                    <div class="overview-section">
-                        <h3>💚 System Health</h3>
-                        <div class="health-indicators">
-                            <div class="health-item">
-                                <span class="health-label">Database:</span>
-                                <span id="db-status" class="health-status">Checking...</span>
-                            </div>
-                            <div class="health-item">
-                                <span class="health-label">Authentication:</span>
-                                <span id="auth-status" class="health-status">Checking...</span>
-                            </div>
-                            <div class="health-item">
-                                <span class="health-label">Last Backup:</span>
-                                <span id="backup-status" class="health-status">N/A</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Users Tab -->
-            <div id="users-tab" class="tab-content">
-                <div class="section-header">
-                    <h2>👥 User Management</h2>
-                    <div class="search-bar">
-                        <input type="text" id="user-search" placeholder="Search users..." onkeyup="filterUsers()">
-                    </div>
-                </div>
-                
-                <div class="users-table-container">
-                    <table class="admin-table">
-                        <thead>
-                            <tr>
-                                <th>User</th>
-                                <th>Email</th>
-                                <th>Joined</th>
-                                <th>Quizzes</th>
-                                <th>Last Active</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="users-table-body">
-                            <tr><td colspan="6" class="loading-row">Loading users...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Quizzes Tab -->
-            <div id="quizzes-tab" class="tab-content">
-                <div class="section-header">
-                    <h2>📝 Quiz Management</h2>
-                    <div class="search-bar">
-                        <input type="text" id="quiz-search" placeholder="Search quizzes..." onkeyup="filterQuizzes()">
-                    </div>
-                </div>
-                
-                <div class="quizzes-grid" id="quizzes-grid">
-                    <div class="loading-item">Loading quizzes...</div>
-                </div>
+                <button class="tab-btn active" onclick="switchTab('games')">🎮 Games</button>
             </div>
 
             <!-- Games Tab -->
-            <div id="games-tab" class="tab-content">
+            <div id="games-tab" class="tab-content active">
                 <div class="section-header">
                     <h2>🎮 Game Activity</h2>
                     <div class="game-filters">
@@ -188,72 +84,17 @@
                 </div>
             </div>
 
-            <!-- System Tab -->
-            <div id="system-tab" class="tab-content">
-                <h2>⚙️ System Management</h2>
-                
-                <div class="system-actions">
-                    <div class="action-group">
-                        <h3>🧹 Database Maintenance</h3>
-                        <button class="btn btn-secondary" onclick="cleanupOldGames()">
-                            Clean Old Games
-                        </button>
-                        <button class="btn btn-secondary" onclick="removeInactiveUsers()">
-                            Remove Inactive Users
-                        </button>
-                    </div>
-                    
-                    <div class="action-group">
-                        <h3>📊 Data Export</h3>
-                        <button class="btn btn-tertiary" onclick="exportUserData()">
-                            Export User Data
-                        </button>
-                        <button class="btn btn-tertiary" onclick="exportQuizData()">
-                            Export Quiz Data
-                        </button>
-                        <button class="btn btn-tertiary" onclick="exportGameData()">
-                            Export Game Data
-                        </button>
-                    </div>
-                    
-                    <div class="action-group">
-                        <h3>⚠️ System Controls</h3>
-                        <button class="btn btn-primary" onclick="broadcastMessage()">
-                            Broadcast Message
-                        </button>
-                        <button class="btn btn-primary" onclick="maintenanceMode()">
-                            Maintenance Mode
-                        </button>
-                    </div>
-                </div>
-                
-                <div class="system-logs">
-                    <h3>📜 System Logs</h3>
-                    <div id="system-logs" class="logs-container">
-                        <div class="loading-item">Loading system logs...</div>
-                    </div>
-                </div>
-            </div>
-
         </div>
 
         <!-- Status Messages -->
         <div id="admin-status" class="status-message"></div>
 
-        <!-- Action Modals -->
-        <div id="user-details-modal" class="modal" style="display: none;">
+        <!-- Player Details Modal -->
+        <div id="players-modal" class="modal" style="display: none;">
             <div class="modal-content">
-                <span class="close" onclick="closeModal('user-details-modal')">&times;</span>
-                <h2>User Details</h2>
-                <div id="user-details-content"></div>
-            </div>
-        </div>
-
-        <div id="quiz-details-modal" class="modal" style="display: none;">
-            <div class="modal-content">
-                <span class="close" onclick="closeModal('quiz-details-modal')">&times;</span>
-                <h2>Game Details</h2>
-                <div id="quiz-details-content"></div>
+                <span class="close" onclick="closeModal('players-modal')">&times;</span>
+                <h2>Game Players</h2>
+                <div id="players-content"></div>
             </div>
         </div>
 
