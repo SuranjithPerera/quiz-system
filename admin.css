@@ -322,6 +322,27 @@
     background: #ffffff;
 }
 
+/* Game Filters */
+.game-filters select {
+    padding: 12px 20px;
+    border: 3px solid #ff6900;
+    border-radius: 30px;
+    background: rgba(255, 255, 255, 0.9);
+    color: #46178f;
+    font-weight: 600;
+    font-size: 1rem;
+    min-width: 200px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.game-filters select:focus {
+    outline: none;
+    border-color: #9c4dff;
+    box-shadow: 0 0 0 4px rgba(156, 77, 255, 0.3);
+    background: #ffffff;
+}
+
 /* Admin Table */
 .users-table-container {
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.9) 100%);
@@ -409,8 +430,16 @@
     background: linear-gradient(135deg, #e21b3c 0%, #ff4757 100%);
 }
 
+.action-btn.danger:hover {
+    box-shadow: 0 5px 15px rgba(226, 27, 60, 0.4);
+}
+
 .action-btn.warning {
     background: linear-gradient(135deg, #ff6900 0%, #ff8c00 100%);
+}
+
+.action-btn.warning:hover {
+    box-shadow: 0 5px 15px rgba(255, 105, 0, 0.4);
 }
 
 /* Quizzes Grid */
